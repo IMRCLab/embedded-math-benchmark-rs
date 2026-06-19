@@ -10,3 +10,6 @@ This project aims to:
 - **Compare Scheduling**: Analyze real-time scheduling behavior between traditional RTOSs (like FreeRTOS) in C and modern async executors (like Embassy) in Rust.
 
 For the detailed scope, target platforms, and milestones, see the [Full Project Requirements](docs/project_requirements.md).
+
+### Research & Planning
+- [Math Benchmarking Research for Crazyflie (STM32F405)](docs/research/math_benchmarking_crazyflie.md)
