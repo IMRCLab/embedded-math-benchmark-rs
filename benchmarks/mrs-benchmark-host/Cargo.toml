@@ -1,0 +1,7 @@
+[package]
+name = "mrs-benchmark-host"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+mrs-benchmark-core = { path = "../mrs-benchmark-core" }

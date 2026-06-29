@@ -1,0 +1,13 @@
+[workspace]
+resolver = "2"
+members = [
+    "mrs-benchmark-core",
+    "mrs-benchmark-host",
+    "mrs-benchmark-stm32",
+]
+
+[profile.dev]
+panic = "abort"
+
+[profile.release]
+panic = "abort"
