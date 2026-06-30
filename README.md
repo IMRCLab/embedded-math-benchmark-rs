@@ -13,3 +13,8 @@ For the detailed scope, target platforms, and milestones, see the [Full Project 
 
 ### Research & Planning
 - [Math Benchmarking Research for Crazyflie (STM32F405)](docs/research/math_benchmarking_crazyflie.md)
+
+## Usage
+
+For detailed instructions on building, flashing, and running the benchmarks, see:
+- [Running the Benchmarks](docs/running-benchmarks.md)

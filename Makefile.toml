@@ -1,0 +1,14 @@
+[tasks.bench-host]
+description = "Build and run host benchmarks natively"
+category = "Benchmark"
+script = [
+    "cargo run --release --manifest-path benchmarks/mrs-benchmark-host/Cargo.toml"
+]
+
+[tasks.bench-stm]
+description = "Build and run STM32 benchmarks over ST-Link"
+category = "Benchmark"
+script = [
+    "(cd benchmarks/mrs-benchmark-stm32 && cargo build --release)",
+    "probe-rs run --chip STM32F405RGTx benchmarks/target/thumbv7em-none-eabihf/release/mrs-benchmark-stm32"
+]
