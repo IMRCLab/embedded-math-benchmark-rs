@@ -6,7 +6,11 @@ use cortex_m_rt::entry;
 use panic_halt as _;
 use rtt_target::{rprintln, rtt_init_print};
 
-use mrs_benchmark_core::{BenchmarkPlatform, SimpleAdd};
+use mrs_benchmark_core::{
+    inputs::MatrixMul3x3Input,
+    suites::{glam::GlamMatMul3x3, nalgebra::NAlgMatMul3x3},
+    BenchmarkPlatform,
+};
 
 pub struct Stm32Platform {
     _dwt: DWT,
@@ -53,11 +57,33 @@ fn main() -> ! {
     let mut platform = Stm32Platform::new(cp.DWT);
     platform.setup();
 
-    let elapsed = platform.run(&SimpleAdd, (1, 1));
+    let m1 = [
+        1.0, 2.0, 3.0,
+        4.0, 5.0, 6.0,
+        7.0, 8.0, 9.0,
+    ];
+    let m2 = [
+        9.0, 8.0, 7.0,
+        6.0, 5.0, 4.0,
+        3.0, 2.0, 1.0,
+    ];
 
+    let inputs = [
+        MatrixMul3x3Input { lhs: m1, rhs: m2 },
+        MatrixMul3x3Input { lhs: m2, rhs: m1 },
+    ];
+
+    let total_nalg = platform.run_set(&NAlgMatMul3x3, &inputs);
     rprintln!(
-        "STM32 Benchmark: SimpleAdd took {} {}",
-        elapsed,
+        "STM32 Benchmark Set: NAlgMatMul3x3 took {} {} total",
+        total_nalg,
+        platform.unit()
+    );
+
+    let total_glam = platform.run_set(&GlamMatMul3x3, &inputs);
+    rprintln!(
+        "STM32 Benchmark Set: GlamMatMul3x3 took {} {} total",
+        total_glam,
         platform.unit()
     );
 
