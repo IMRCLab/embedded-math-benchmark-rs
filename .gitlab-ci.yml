@@ -1,0 +1,140 @@
+# CI for the mrs-microbenchmarks workspace (benchmarks/).
+# Host benchmarks run natively on a shared runner. The STM32 firmware
+# (thumbv7em-none-eabihf) is built on a shared runner and benchmarked on real
+# hardware (HIL) over RTT via probe-rs. Each target = a build job + a run job;
+# linting is per-target because clippy compiles for the crate's target.
+
+stages:
+  - check
+  - build
+  - run
+
+variables:
+  # Keep Cargo's caches inside the project dir so GitLab can cache them.
+  CARGO_HOME: $CI_PROJECT_DIR/.cargo-home
+  WORKSPACE_DIR: benchmarks
+  TARGET: thumbv7em-none-eabihf
+
+default:
+  image: rust:latest
+  tags:
+    - shared
+  before_script:
+    - rustup target add $TARGET
+    - rustup component add rustfmt clippy
+  cache:
+    key: cargo-$CI_COMMIT_REF_SLUG
+    paths:
+      - .cargo-home/
+      - $WORKSPACE_DIR/target/
+
+# ----------------------------------------------------------------------------
+# check
+# ----------------------------------------------------------------------------
+
+fmt:
+  stage: check
+  # Formatting is advisory: report it but don't block the build/run stages.
+  allow_failure: true
+  script:
+    - cd $WORKSPACE_DIR && cargo fmt --all -- --check
+
+# Host + core (native target) via the workspace default-members.
+clippy-host:
+  stage: check
+  script:
+    - cd $WORKSPACE_DIR && cargo clippy
+
+# Firmware crate: the crate-local .cargo/config.toml selects thumbv7em.
+clippy-stm32:
+  stage: check
+  script:
+    - cd $WORKSPACE_DIR/mrs-benchmark-stm32 && cargo clippy
+
+# ----------------------------------------------------------------------------
+# build
+# ----------------------------------------------------------------------------
+
+# Hidden template: build a workspace crate for an explicit target, then copy the
+# binary to the project root so the artifact downloads as just the binary.
+# Per-target jobs set just BIN and TARGET. The crate dir is derived as
+# $WORKSPACE_DIR/$BIN, which holds because each crate's directory name equals its
+# package/binary name (a crate breaking that convention would need an explicit dir).
+# Building from the crate dir means the firmware crate's crate-local .cargo/config.toml
+# (linker script) is picked up; the host crate has no such config and builds natively.
+.cargo-build:
+  stage: build
+  script:
+    - (cd "$WORKSPACE_DIR/$BIN" && cargo build --release --target "$TARGET")
+    - install -Dm755 "$WORKSPACE_DIR/target/$TARGET/release/$BIN" "$BIN"
+  artifacts:
+    name: "$BIN-$CI_COMMIT_SHORT_SHA"
+    paths:
+      - $BIN
+    expire_in: 1 year
+
+build-host:
+  extends: .cargo-build
+  variables:
+    BIN: mrs-benchmark-host
+    TARGET: x86_64-unknown-linux-gnu
+
+build-stm32:
+  extends: .cargo-build
+  variables:
+    BIN: mrs-benchmark-stm32
+    TARGET: thumbv7em-none-eabihf
+
+# ----------------------------------------------------------------------------
+# run
+# ----------------------------------------------------------------------------
+
+# Execute the host binary built above; its stdout is the host benchmark result.
+run-host:
+  stage: run
+  needs:
+    - build-host
+  cache: []
+  before_script: []
+  variables:
+    GIT_STRATEGY: none
+  script:
+    - ./mrs-benchmark-host | tee host-results.log
+  artifacts:
+    name: "host-bench-$CI_COMMIT_SHORT_SHA"
+    paths:
+      - host-results.log
+    expire_in: 1 year
+
+# Hidden template: flash a firmware ELF on real hardware and capture RTT output.
+# Runs on the HIL host; probe-rs lives in the gitlab-runner user's ~/.cargo/bin.
+# Per-target jobs set CHIP and ELF (and `needs` their build job).
+.firmware-flash:
+  stage: run
+  tags:
+    - hil
+  cache: []
+  before_script:
+    - source "$HOME/.cargo/env"
+  variables:
+    GIT_STRATEGY: none
+    CAPTURE_SECS: "30"
+  script:
+    - timeout ${CAPTURE_SECS}s probe-rs run --chip "$CHIP" "$ELF" | tee results.log || true
+  artifacts:
+    name: "bench-$CI_COMMIT_SHORT_SHA"
+    paths:
+      - results.log
+    expire_in: 1 year
+  allow_failure: true
+  rules:
+    - if: "$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH"
+    - when: manual
+
+run-stm32:
+  extends: .firmware-flash
+  needs:
+    - build-stm32
+  variables:
+    CHIP: STM32F405RGTx
+    ELF: mrs-benchmark-stm32
