@@ -5,6 +5,13 @@ members = [
     "mrs-benchmark-host",
     "mrs-benchmark-stm32",
 ]
+# Bare `cargo build`/`test`/`clippy` at the workspace root act on these native crates
+# only. The no_std firmware (mrs-benchmark-stm32) is built explicitly by `cd`-ing into
+# its crate, where its crate-local .cargo/config.toml selects the thumbv7em target.
+default-members = [
+    "mrs-benchmark-core",
+    "mrs-benchmark-host",
+]
 
 [profile.dev]
 panic = "abort"
