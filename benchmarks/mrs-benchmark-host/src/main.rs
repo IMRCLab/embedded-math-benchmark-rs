@@ -1,5 +1,5 @@
-use std::time::Instant;
 use mrs_benchmark_core::{BenchmarkPlatform, SimpleAdd};
+use std::time::Instant;
 
 pub struct HostPlatform;
 

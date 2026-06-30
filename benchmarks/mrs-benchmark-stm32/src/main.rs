@@ -1,9 +1,9 @@
 #![no_std]
 #![no_main]
 
-use panic_halt as _;
 use cortex_m::peripheral::DWT;
 use cortex_m_rt::entry;
+use panic_halt as _;
 use rtt_target::{rprintln, rtt_init_print};
 
 use mrs_benchmark_core::{BenchmarkPlatform, SimpleAdd};
