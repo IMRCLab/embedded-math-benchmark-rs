@@ -1,5 +1,5 @@
-use crate::TaskImplementation;
 use crate::inputs::{MatrixMul3x3Input, RotateVectorInput};
+use crate::TaskImplementation;
 
 use glam::{Mat3, Quat, Vec3};
 
@@ -44,4 +44,3 @@ impl TaskImplementation<RotateVectorInput, [f32; 3]> for GlamRotateVector {
         [output.x, output.y, output.z]
     }
 }
-

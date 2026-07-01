@@ -11,4 +11,3 @@ pub struct RotateVectorInput {
     pub point: [f32; 3],
     pub quat: [f32; 4], // [x, y, z, w]
 }
-

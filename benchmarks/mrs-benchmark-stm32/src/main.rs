@@ -61,16 +61,8 @@ fn main() -> ! {
     let mut platform = Stm32Platform::new(cp.DWT);
     platform.setup();
 
-    let m1 = [
-        1.0, 2.0, 3.0,
-        4.0, 5.0, 6.0,
-        7.0, 8.0, 9.0,
-    ];
-    let m2 = [
-        9.0, 8.0, 7.0,
-        6.0, 5.0, 4.0,
-        3.0, 2.0, 1.0,
-    ];
+    let m1 = [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0];
+    let m2 = [9.0, 8.0, 7.0, 6.0, 5.0, 4.0, 3.0, 2.0, 1.0];
 
     let inputs = [
         MatrixMul3x3Input { lhs: m1, rhs: m2 },
@@ -104,7 +96,12 @@ fn main() -> ! {
             point: [1.0, 2.0, 3.0],
             // 90 degrees rotation around Z axis: sin(45) = cos(45) = 1/sqrt(2)
             // [x, y, z, w]
-            quat: [0.0, 0.0, core::f32::consts::FRAC_1_SQRT_2, core::f32::consts::FRAC_1_SQRT_2],
+            quat: [
+                0.0,
+                0.0,
+                core::f32::consts::FRAC_1_SQRT_2,
+                core::f32::consts::FRAC_1_SQRT_2,
+            ],
         },
         RotateVectorInput {
             point: [-1.5, 3.2, 0.0],
@@ -113,7 +110,6 @@ fn main() -> ! {
             quat: [0.3826834, 0.0, 0.0, 0.9238795],
         },
     ];
-
 
     let rot_nalg = platform.run_set(&NAlgRotateVector, &rot_inputs);
     rprintln!(
@@ -140,5 +136,3 @@ fn main() -> ! {
     #[allow(clippy::empty_loop)]
     loop {}
 }
-
-

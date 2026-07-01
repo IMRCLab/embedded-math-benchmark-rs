@@ -1,5 +1,5 @@
-use crate::TaskImplementation;
 use crate::inputs::{MatrixMul3x3Input, RotateVectorInput};
+use crate::TaskImplementation;
 
 use nalgebra::Matrix3;
 
@@ -32,7 +32,8 @@ impl TaskImplementation<RotateVectorInput, [f32; 3]> for NAlgRotateVector {
 
     fn prepare(&self, input: &RotateVectorInput) -> Self::PreparedInput {
         // nalgebra Quaternion::new expects (w, x, y, z)
-        let q = nalgebra::Quaternion::new(input.quat[3], input.quat[0], input.quat[1], input.quat[2]);
+        let q =
+            nalgebra::Quaternion::new(input.quat[3], input.quat[0], input.quat[1], input.quat[2]);
         let uq = nalgebra::UnitQuaternion::from_quaternion(q);
         let v = nalgebra::Vector3::new(input.point[0], input.point[1], input.point[2]);
         (uq, v)
@@ -46,4 +47,3 @@ impl TaskImplementation<RotateVectorInput, [f32; 3]> for NAlgRotateVector {
         [output.x, output.y, output.z]
     }
 }
-
