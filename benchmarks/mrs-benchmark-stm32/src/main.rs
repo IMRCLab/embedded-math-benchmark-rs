@@ -8,7 +8,7 @@ use rtt_target::{rprintln, rtt_init_print};
 
 use mrs_benchmark_core::{
     inputs::MatrixMul3x3Input,
-    suites::{glam::GlamMatMul3x3, nalgebra::NAlgMatMul3x3},
+    suites::{glam::GlamMatMul3x3, micromath::UMathMatMul3x3, nalgebra::NAlgMatMul3x3},
     BenchmarkPlatform,
 };
 
@@ -84,6 +84,13 @@ fn main() -> ! {
     rprintln!(
         "STM32 Benchmark Set: GlamMatMul3x3 took {} {} total",
         total_glam,
+        platform.unit()
+    );
+
+    let total_umath = platform.run_set(&UMathMatMul3x3, &inputs);
+    rprintln!(
+        "STM32 Benchmark Set: UMathMatMul3x3 took {} {} total",
+        total_umath,
         platform.unit()
     );
 
