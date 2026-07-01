@@ -1,5 +1,7 @@
 # Embedded Microbenchmarks for Computationally Constrained Robots
 
+> **Note.** This is the _original_ project brief, kept as first written. The concrete scope, target hardware, and priorities evolve as work proceeds.
+
 Multi-Robot Systems show advantages in robustness and resilience through teamwork. It is
 common to use simpler and cheaper robots to achieve complicated tasks by collaboration of a
 potentially heterogeneous robot team. Often such robots are energy- and compute-constrained
@@ -21,14 +23,15 @@ the existing robotic hardware.
 
 Depending on the size of the group, the scope may vary and can be defined at the beginning of
 the project. Concrete ideas include:
+
 1. Benchmark embedded math libraries on STM32, RP2040 for Rust vs. C for workloads
-such as robot controllers and robot state estimators.
+   such as robot controllers and robot state estimators.
 2. Benchmark embedded numeric solvers (e.g., QP-solvers) for typical problem instances
-(e.g., actuation allocation, MPC). To this end, it would also be in the scope of the
-project to automatically generate Rust-code to solve fixed optimization problems. Similar
-libraries in C are OSQP or cvxgen.
+   (e.g., actuation allocation, MPC). To this end, it would also be in the scope of the
+   project to automatically generate Rust-code to solve fixed optimization problems. Similar
+   libraries in C are OSQP or cvxgen.
 3. For robotics the use of real-time operating systems (RTOS) is often helpful to guarantee
-proper timing of the various control and state estimation loops. In C, FreeRTOS or nuttX
-are common RTOS. For Rust, the dominant framework is embassy which promotes an
-async model, although others exist, see here and here. One open question is if embassy
-can provide consistent scheduling, similar to FreeRTOS.
+   proper timing of the various control and state estimation loops. In C, FreeRTOS or nuttX
+   are common RTOS. For Rust, the dominant framework is embassy which promotes an
+   async model, although others exist, see here and here. One open question is if embassy
+   can provide consistent scheduling, similar to FreeRTOS.

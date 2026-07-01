@@ -1,8 +1,10 @@
 # Hardware-in-the-Loop (HIL) CI Setup
 
-How firmware benchmarks get flashed and measured on real hardware from GitLab CI.
-STM32F405 is wired up and running today; RP2040 and nRF52840 are planned and drop into
-the same per-target CI structure.
+The planned setup for flashing and measuring firmware benchmarks on real hardware from
+GitLab CI. Nothing runs on hardware yet: today only the host benchmark runs in CI, and the
+STM32 firmware just cross-compiles in software. STM32F405 is the first board to bring up,
+with Raspberry Pi Pico 1 (RP2040) and Pico 2 (RP2350) to follow; each drops into the same
+per-target CI structure, and nRF52840 or others may come later.
 
 ## Design
 
@@ -27,6 +29,11 @@ later for pass/fail asserts without changing any infra.
 Use existing J-Links if we have them. One covers all three chips with the best RTT.
 Otherwise ST-Link / RPi Debug Probe is the cheap default.
 
+**Pico probes & udev** `probe-rs` already ships the `RP2040` and `RP235x`
+(RP2350) targets, so the toolchain from _Provisioning_ below works unchanged for the Picos.
+The Pico is flashed over SWD by the Raspberry Pi Debug Probe or a second
+Pico running `debugprobe` firmware. Both enumerate as CMSIS-DAP.
+
 ## Provisioning
 
 All steps run on the Threadripper and need **root**: the
@@ -50,7 +57,7 @@ sudo -u gitlab-runner bash -c 'source $HOME/.cargo/env && rustup target add thum
 # 3) probe-rs (compiles; a few minutes).
 sudo -u gitlab-runner bash -c 'source $HOME/.cargo/env && cargo install probe-rs-tools --locked'
 
-# 4) probe-rs udev rules (root-owned) + reload.
+# 4) probe-rs udev rules (root-owned). Supports all: RPI debug probe and stmlink/j-link
 sudo curl --proto "=https" --tlsv1.2 -sSf https://probe.rs/files/69-probe-rs.rules \
   -o /etc/udev/rules.d/69-probe-rs.rules
 sudo udevadm control --reload && sudo udevadm trigger
