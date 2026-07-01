@@ -1,7 +1,9 @@
 #![no_std]
 
 pub use glam;
+pub use micromath;
 pub use nalgebra;
+
 
 
 pub mod inputs;
