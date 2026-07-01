@@ -35,9 +35,8 @@ proc-macro, so the `no_std` targets never parse JSON at runtime.
 }
 ```
 
-- `library` + `test` pick the implementation. `test` also fixes the input shape:
-  `MatMul3x3` needs `lhs`/`rhs` (`[f32; 9]`, row-major); `RotateVector` needs `point`
-  (`[f32; 3]`) and `quat` (`[f32; 4]`, ordered `[x, y, z, w]`).
+- `library` + `test` pick the implementation. `test` also fixes the input shape, e.g.
+  `RotateVector` needs `point` (`[f32; 3]`) and `quat` (`[f32; 4]`).
 - `repetitions` sets how many times each input is timed. A case may override it.
 - `platforms` (optional) restricts a case to some chips. Omit it to run everywhere.
 
@@ -47,21 +46,23 @@ file and the types in the code stay in sync.
 
 ## Output
 
-Each binary logs freely, then prints one CSV block between markers so a tool can pull it out.
+Each binary logs freely. Result rows stream inline, each prefixed with `BENCH ` so a tool can
+grep them out.
 
 ```
-=== CSV Begin ===
-test,library,platform,input_index,reps,min_duration,unit
-MatMul3x3,glam,rp2040,0,1000,142,cycles
-MatMul3x3,glam,host,0,1000,41,ns
-=== CSV End ===
+[some normal log line]
+BENCH MatMul3x3,glam,rp2040,0,1000,142,cycles
+[more logs]
+BENCH MatMul3x3,glam,host,0,1000,41,ns
 ```
 
-- One row per (test, library, platform, input). The header sits inside the markers, so the
-  block is a complete CSV.
+- One row per (test, library, platform, input). Columns, in order:
+  `test,library,platform,input_index,reps,min_duration,unit`.
+- No header line. The firmware never prints one; the column order above is the contract, and
+  the host tool prepends the header when it builds the CSV.
 - `platform` and `unit` come from the firmware, not the input.
 - `min_duration` is the minimum over `reps`, the stablest number for deterministic code.
 - `unit` is native for now: `ns` on the host, `cycles` on the MCUs.
 
-_Later:_ a host tool merges each platform's CSV block into one dataset; C libraries slot into
-the `library` field.
+_Later:_ a host script (not CI-only) greps the `BENCH ` lines, strips the prefix, adds the
+header, and merges each platform into one dataset. C libraries slot into the `library` field.
