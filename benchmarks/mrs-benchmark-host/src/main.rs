@@ -1,6 +1,10 @@
 use mrs_benchmark_core::{
-    inputs::MatrixMul3x3Input,
-    suites::{glam::GlamMatMul3x3, micromath::UMathMatMul3x3, nalgebra::NAlgMatMul3x3},
+    inputs::{MatrixMul3x3Input, RotateVectorInput},
+    suites::{
+        glam::{GlamMatMul3x3, GlamRotateVector},
+        micromath::{UMathMatMul3x3, UMathRotateVector},
+        nalgebra::{NAlgMatMul3x3, NAlgRotateVector},
+    },
     BenchmarkPlatform,
 };
 use std::time::Instant;
@@ -61,6 +65,43 @@ fn main() {
     println!(
         "Host Benchmark Set: UMathMatMul3x3 took {} {} total",
         total_umath,
+        platform.unit()
+    );
+
+    // Quaternion Rotation Benchmarks
+    let rot_inputs = [
+        RotateVectorInput {
+            point: [1.0, 2.0, 3.0],
+            // 90 degrees rotation around Z axis: sin(45) = 0.70710678, cos(45) = 0.70710678
+            // [x, y, z, w]
+            quat: [0.0, 0.0, 0.70710678, 0.70710678],
+        },
+        RotateVectorInput {
+            point: [-1.5, 3.2, 0.0],
+            // 45 degrees rotation around X axis: sin(22.5) = 0.38268343, cos(22.5) = 0.92387953
+            // [x, y, z, w]
+            quat: [0.38268343, 0.0, 0.0, 0.92387953],
+        },
+    ];
+
+    let rot_nalg = platform.run_set(&NAlgRotateVector, &rot_inputs);
+    println!(
+        "Host Benchmark Set: NAlgRotateVector took {} {} total",
+        rot_nalg,
+        platform.unit()
+    );
+
+    let rot_glam = platform.run_set(&GlamRotateVector, &rot_inputs);
+    println!(
+        "Host Benchmark Set: GlamRotateVector took {} {} total",
+        rot_glam,
+        platform.unit()
+    );
+
+    let rot_umath = platform.run_set(&UMathRotateVector, &rot_inputs);
+    println!(
+        "Host Benchmark Set: UMathRotateVector took {} {} total",
+        rot_umath,
         platform.unit()
     );
 }
