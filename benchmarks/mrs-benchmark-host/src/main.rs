@@ -72,17 +72,18 @@ fn main() {
     let rot_inputs = [
         RotateVectorInput {
             point: [1.0, 2.0, 3.0],
-            // 90 degrees rotation around Z axis: sin(45) = 0.70710678, cos(45) = 0.70710678
+            // 90 degrees rotation around Z axis: sin(45) = cos(45) = 1/sqrt(2)
             // [x, y, z, w]
-            quat: [0.0, 0.0, 0.70710678, 0.70710678],
+            quat: [0.0, 0.0, core::f32::consts::FRAC_1_SQRT_2, core::f32::consts::FRAC_1_SQRT_2],
         },
         RotateVectorInput {
             point: [-1.5, 3.2, 0.0],
-            // 45 degrees rotation around X axis: sin(22.5) = 0.38268343, cos(22.5) = 0.92387953
+            // 45 degrees rotation around X axis: sin(22.5) = 0.3826834, cos(22.5) = 0.9238795
             // [x, y, z, w]
-            quat: [0.38268343, 0.0, 0.0, 0.92387953],
+            quat: [0.3826834, 0.0, 0.0, 0.9238795],
         },
     ];
+
 
     let rot_nalg = platform.run_set(&NAlgRotateVector, &rot_inputs);
     println!(
