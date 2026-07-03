@@ -6,6 +6,7 @@
 stages:
   - build
   - run
+  - collect
   - check
 
 variables:
@@ -82,13 +83,14 @@ build-stm32:
   variables:
     GIT_STRATEGY: none
     CAPTURE_SECS: "30"
+    LOG: results.log
   script:
     - set -o pipefail
-    - timeout ${CAPTURE_SECS}s probe-rs run --chip "$CHIP" "$ELF" | tee results.log
+    - timeout ${CAPTURE_SECS}s probe-rs run --chip "$CHIP" "$ELF" | tee "$LOG"
   artifacts:
     name: "bench-$CI_COMMIT_SHORT_SHA"
     paths:
-      - results.log
+      - $LOG
     # Keep the log on failure
     when: always
     expire_in: 1 year
@@ -104,6 +106,7 @@ run-rp2040:
   variables:
     CHIP: RP2040
     ELF: mrs-benchmark-rp2040
+    LOG: rp2040.log
 
 run-stm32:
   extends: .firmware-flash
@@ -112,6 +115,7 @@ run-stm32:
   variables:
     CHIP: STM32F405RGTx
     ELF: mrs-benchmark-stm32
+    LOG: stm32.log
   # TODO change this back when STM connected
   rules:
     - when: manual
@@ -125,12 +129,41 @@ run-host:
   variables:
     GIT_STRATEGY: none
   script:
-    - ./mrs-benchmark-host | tee host-results.log
+    - ./mrs-benchmark-host | tee host.log
   artifacts:
     name: "host-bench-$CI_COMMIT_SHORT_SHA"
     paths:
-      - host-results.log
+      - host.log
     expire_in: 1 year
+
+# ----------------------------------------------------------------------------
+# collect
+# ----------------------------------------------------------------------------
+
+# Download every available per-target log and merge the BENCH rows into one
+# results.csv. run-host always produces rows, so the merge is never empty on a
+# normal pipeline; the firmware run jobs are optional (manual / may fail).
+collect-results:
+  stage: collect
+  needs:
+    - job: run-host
+      artifacts: true
+    - job: run-rp2040
+      artifacts: true
+      optional: true
+    - job: run-stm32
+      artifacts: true
+      optional: true
+  script:
+    - cd "$WORKSPACE_DIR" && cargo run --quiet -p mrs-benchmark-collect -- ../*.log -o ../results.csv
+  artifacts:
+    name: "results-$CI_COMMIT_SHORT_SHA"
+    paths:
+      - results.csv
+    expire_in: 1 year
+  rules:
+    - if: "$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH"
+    - when: manual
 
 # ----------------------------------------------------------------------------
 # check

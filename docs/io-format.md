@@ -81,5 +81,9 @@ BENCH MatMul3x3,glam,host,0,1000,41,ns
 - `min_duration` is the minimum over `reps`, the stablest number for deterministic code.
 - `unit` is native for now: `ns` on the host, `cycles` on the MCUs.
 
-_Later:_ a host script (not CI-only) greps the `BENCH ` lines, strips the prefix, adds the
-header, and merges each platform into one dataset. C libraries slot into the `library` field.
+_Collecting:_ `mrs-benchmark-collect` (the `mrs-benchmark-collect` crate) greps the
+`BENCH ` lines from one or more logs, strips the prefix, sorts them, and merges
+every platform into one headed `results.csv`. Rows pass through as opaque text, so
+this contract can change without touching the tool. See
+[Running the Benchmarks](running-benchmarks.md#collecting-results-into-a-csv). C
+libraries slot into the `library` field.
