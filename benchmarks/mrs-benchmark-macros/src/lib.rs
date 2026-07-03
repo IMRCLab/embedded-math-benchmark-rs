@@ -13,21 +13,18 @@ struct BenchConfig {
 #[derive(Deserialize, Debug)]
 struct BenchCase {
     test: String,
+    repetitions: u32,
     inputs: Vec<serde_json::Value>,
     platforms: Option<Vec<String>>,
     libraries: Vec<String>,
 }
 
 fn load_config() -> BenchConfig {
-    // The proc macro runs in the directory of the crate being compiled (mrs-benchmark-core).
-    // So the workspace root is typically `../` or we can find `inputs.json` starting from `CARGO_MANIFEST_DIR`.
     let manifest_dir = std::env::var("CARGO_MANIFEST_DIR").unwrap();
     let mut path = PathBuf::from(manifest_dir);
     
-    // We are likely in `benchmarks/mrs-benchmark-core`, so `inputs.json` is at `../inputs.json`
     path.push("../inputs.json");
     if !path.exists() {
-        // Fallback for if we are somehow in the workspace root
         path = PathBuf::from("inputs.json");
     }
 
@@ -132,9 +129,9 @@ pub fn generate_benchmarks(_input: TokenStream) -> TokenStream {
 
     for case in config.cases {
         let test_name_ident = format_ident!("{}", case.test);
-
         let struct_name = format!("{}Input", case.test);
         let static_ident = format_ident!("{}_INPUTS", struct_name.to_uppercase());
+        let repetitions = case.repetitions;
 
         for lib in case.libraries {
             let lib_ident = format_ident!("{}", lib);
@@ -142,7 +139,8 @@ pub fn generate_benchmarks(_input: TokenStream) -> TokenStream {
                 crate::run_and_log(
                     platform,
                     &crate::suites::#lib_ident::#test_name_ident,
-                    crate::inputs::#static_ident
+                    crate::inputs::#static_ident,
+                    #repetitions
                 );
             };
 

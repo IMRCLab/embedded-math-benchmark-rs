@@ -81,15 +81,19 @@ pub fn run_and_log<Platform, Task, I>(
     platform: &mut Platform,
     implementation: &I,
     inputs: &[Task::Input],
+    repetitions: u32,
 ) -> u64
 where
     Platform: BenchmarkPlatform,
     Task: BenchmarkTask,
     I: TaskImplementation<Task>,
 {
-    let elapsed = platform.run_set(implementation, inputs);
-    platform.log_result(I::LIBRARY_IDENTIFIER, Task::IDENTIFIER, elapsed);
-    elapsed
+    let mut total_elapsed = 0;
+    for _ in 0..repetitions {
+        total_elapsed += platform.run_set(implementation, inputs);
+    }
+    platform.log_result(I::LIBRARY_IDENTIFIER, Task::IDENTIFIER, total_elapsed);
+    total_elapsed
 }
 
 mrs_benchmark_macros::generate_benchmarks!();

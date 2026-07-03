@@ -1,7 +1,7 @@
 {
-  "repetitions": 1000,
   "cases": [
     {
+      "repetitions": 1000,
       "libraries": ["glam", "nalgebra", "micromath"],
       "test": "MatMul3x3",
       "inputs": [
@@ -16,6 +16,7 @@
       ]
     },
     {
+      "repetitions": 10000,
       "libraries": ["glam", "nalgebra", "micromath"],
       "test": "RotateVector",
       "platforms": ["host", "stm32", "rp2040"],
