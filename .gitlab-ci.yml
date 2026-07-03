@@ -138,11 +138,14 @@ run-host:
     GIT_STRATEGY: none
     CAPTURE_SECS: "30"
   script:
-    - timeout ${CAPTURE_SECS}s probe-rs run --chip "$CHIP" "$ELF" | tee results.log || true
+    - set -o pipefail
+    - timeout ${CAPTURE_SECS}s probe-rs run --chip "$CHIP" "$ELF" | tee results.log
   artifacts:
     name: "bench-$CI_COMMIT_SHORT_SHA"
     paths:
       - results.log
+    # Keep the log on failure
+    when: always
     expire_in: 1 year
   allow_failure: true
   rules:

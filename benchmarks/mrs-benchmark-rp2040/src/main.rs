@@ -3,6 +3,7 @@
 
 use cortex_m::peripheral::{syst::SystClkSource, SYST};
 use cortex_m_rt::entry;
+use cortex_m_semihosting::debug;
 use panic_halt as _;
 use rtt_target::{rprintln, rtt_init_print};
 
@@ -145,7 +146,10 @@ fn main() -> ! {
         platform.unit()
     );
 
-    rprintln!("RP2040 benchmarks finished. Halting.");
+    rprintln!("RP2040 benchmarks finished.");
+
+    debug::exit(debug::EXIT_SUCCESS);
+    // Unreachable while a debugger is attached
     #[allow(clippy::empty_loop)]
     loop {}
 }

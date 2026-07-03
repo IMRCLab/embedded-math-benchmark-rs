@@ -3,6 +3,7 @@
 
 use cortex_m::peripheral::DWT;
 use cortex_m_rt::entry;
+use cortex_m_semihosting::debug;
 use panic_halt as _;
 use rtt_target::{rprintln, rtt_init_print};
 
@@ -132,7 +133,10 @@ fn main() -> ! {
         platform.unit()
     );
 
-    rprintln!("STM32 benchmarks finished. Halting.");
+    rprintln!("STM32 benchmarks finished.");
+
+    debug::exit(debug::EXIT_SUCCESS);
+    // Unreachable while a debugger is attached
     #[allow(clippy::empty_loop)]
     loop {}
 }

@@ -7,5 +7,6 @@ edition = "2021"
 mrs-benchmark-core = { path = "../mrs-benchmark-core" }
 cortex-m = { version = "0.7", features = ["critical-section-single-core"] }
 cortex-m-rt = "0.7"
+cortex-m-semihosting = "0.5"
 panic-halt = "0.2"
 rtt-target = "0.5"
