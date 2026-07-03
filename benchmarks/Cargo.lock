@@ -292,7 +292,6 @@ dependencies = [
  "micromath",
  "mrs-benchmark-macros",
  "nalgebra",
- "serde",
 ]
 
 [[package]]

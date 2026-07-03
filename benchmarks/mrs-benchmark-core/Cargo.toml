@@ -3,17 +3,8 @@ name = "mrs-benchmark-core"
 version = "0.1.0"
 edition = "2021"
 
-[features]
-serde = ["dep:serde"]
-
 [dependencies]
 glam = { version = "0.28", default-features = false, features = ["libm"] }
 micromath = { version = "2.1", default-features = false, features = ["quaternion", "vector"] }
 mrs-benchmark-macros = { version = "0.1.0", path = "../mrs-benchmark-macros" }
-
-
 nalgebra = { version = "0.33", default-features = false, features = ["libm"] }
-serde = { version = "1.0", default-features = false, features = ["derive"], optional = true }
-
-
-
