@@ -1,10 +1,14 @@
+use mrs_benchmark_macros::benchmark_input;
+
+#[benchmark_input("MatMul3x3")]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Clone, Debug)]
-pub struct MatrixMul3x3Input {
+pub struct MatMul3x3Input {
     pub lhs: [f32; 9],
     pub rhs: [f32; 9],
 }
 
+#[benchmark_input("RotateVector")]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Clone, Debug)]
 pub struct RotateVectorInput {
