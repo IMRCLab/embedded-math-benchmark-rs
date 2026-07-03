@@ -1,28 +1,28 @@
 # Hardware-in-the-Loop (HIL) CI Setup
 
-The planned setup for flashing and measuring firmware benchmarks on real hardware from
-GitLab CI. Nothing runs on hardware yet: today only the host benchmark runs in CI, and the
-STM32 firmware just cross-compiles in software. STM32F405 is the first board to bring up,
-with Raspberry Pi Pico 1 (RP2040) and Pico 2 (RP2350) to follow; each drops into the same
-per-target CI structure, and nRF52840 or others may come later.
+Setup for flashing and measuring firmware benchmarks on real hardware from GitLab CI. The
+Raspberry Pi Pico 1 (RP2040) is wired up and benchmarking on hardware in CI now; the host
+benchmark runs natively alongside it. More to follow. Each board drops into the same per-target CI structure.
 
 ## Design
 
 The benchmarks live in a Cargo workspace (`benchmarks/`), one crate per target
-(`mrs-benchmark-host`, `mrs-benchmark-stm32`, more to come). CI runs three stages
-(`check`, `build`, `run`) with per-target jobs.
+(`mrs-benchmark-host`, `mrs-benchmark-rp2040`, `mrs-benchmark-stm32`, ...). CI runs three
+stages (`build`, `run`, `check`), wired as a `needs:` DAG so each firmware flashes as soon
+as its build finishes, in parallel with the other build jobs. The checks are running last.
 
-The STM32 board is wired directly to the lab Threadripper over SWD. One `gitlab-runner` daemon there runs two registered runners:
+The Pico connects to the lab Threadripper over SWD through an RPi debug probe. One `gitlab-runner` daemon there runs two registered runners:
 
 - **build** (`shared` tag, Docker executor, `rust:latest`). Runs the per-target lints,
   builds and runs the host benchmark natively (`build-host` / `run-host`), and
-  cross-compiles the firmware (`build-stm32`), then uploads the binary as a flat artifact
-  (just the binary, at the project root).
-- **hil** (`hil` tag, shell executor). Pulls that binary and flashes + runs it on the
-  board (`run-stm32`), then uploads the captured RTT log as an artifact. The shell executor avoids fragile Docker USB stuff.
+  cross-compiles the firmware (`build-rp2040` / `build-stm32`), then uploads the binary as
+  a flat artifact. CI keeps `CARGO_HOME` and the target dir under `/persist`, so builds
+  stay warm between jobs.
+- **hil** (`hil` tag, shell executor). Pulls the firmware binary and flashes + runs it with
+  `probe-rs`, then uploads the captured RTT log as an artifact. `probe-rs` picks the chip by
+  `--chip`, so one hil runner flashes every board (`run-rp2040`, `run-stm32`, ...). The shell executor avoids fragile Docker USB stuff.
 
-Output comes back over RTT with `probe-rs` (it replaces UART). We can switch to `defmt`
-later for pass/fail asserts without changing any infra.
+Output comes back over RTT with `probe-rs`.
 
 ## Probes
 
@@ -52,6 +52,18 @@ All steps run on the Threadripper and need **root**: the
 runner is a system-mode install (`/etc/gitlab-runner` is root-only) and shell jobs run as
 the `gitlab-runner` user.
 
+### build runner
+
+Give the shared runner its persistent Cargo volume in `/etc/gitlab-runner/config.toml`,
+then `sudo gitlab-runner restart`:
+
+```toml
+# under the shared runner's [runners.docker]
+volumes = ["/cache", "mrs-cargo-cache:/persist"]
+```
+
+### hil runner
+
 First create the runner in the GitLab UI and tag it `hil`. Copy the token to below.
 
 ```bash
@@ -60,11 +72,10 @@ sudo gitlab-runner register --non-interactive \
   --url "https://git.tu-berlin.de/" \
   --token "glrt-XXXXXXXX" \
   --executor "shell" \
-  --description "hil-stm32"
+  --description "hil"
 
-# 2) Rust toolchain for the gitlab-runner user (jobs run as that user).
+# 2) Rust toolchain for the gitlab-runner user (only needed to build probe-rs below).
 sudo -u gitlab-runner bash -c 'curl --proto "=https" --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y'
-sudo -u gitlab-runner bash -c 'source $HOME/.cargo/env && rustup target add thumbv7em-none-eabihf'
 
 # 3) probe-rs (compiles; a few minutes).
 sudo -u gitlab-runner bash -c 'source $HOME/.cargo/env && cargo install probe-rs-tools --locked'
@@ -82,4 +93,4 @@ sudo gitlab-runner restart
 sudo -u gitlab-runner bash -c 'source $HOME/.cargo/env && probe-rs list'
 ```
 
-If the target wedges, `probe-rs` resets it over SWD. A locked-up probe is different: it needs a USB power cycle, which means using a PPPS-capable hub. That is optional for now.
+If the target wedges, `probe-rs` resets it over SWD. A locked-up probe is different: it needs a USB power cycle, which means using a PPPS-capable hub, e.g. Rosonway RSH‑A10 or Rosonway RSH‑A16.
