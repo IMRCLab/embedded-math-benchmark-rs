@@ -2,8 +2,8 @@
 
 pub use glam;
 pub use micromath;
-pub use nalgebra;
 pub use mrs_benchmark_macros;
+pub use nalgebra;
 
 pub mod inputs;
 pub mod suites;
@@ -52,9 +52,15 @@ where
     const LIBRARY_IDENTIFIER: &'static str = L::IDENTIFIER;
     type PreparedInput = T::PreparedInput;
     type RawOutput = T::RawOutput;
-    fn prepare(&self, input: &Task::Input) -> Self::PreparedInput { self.0.prepare(input) }
-    fn execute(&self, input: &Self::PreparedInput) -> Self::RawOutput { self.0.execute(input) }
-    fn finalize(&self, output: Self::RawOutput) -> Task::Output { self.0.finalize(output) }
+    fn prepare(&self, input: &Task::Input) -> Self::PreparedInput {
+        self.0.prepare(input)
+    }
+    fn execute(&self, input: &Self::PreparedInput) -> Self::RawOutput {
+        self.0.execute(input)
+    }
+    fn finalize(&self, output: Self::RawOutput) -> Task::Output {
+        self.0.finalize(output)
+    }
 }
 
 #[macro_export]
@@ -75,7 +81,7 @@ pub trait BenchmarkPlatform {
     fn now(&self) -> Self::Instant;
     fn elapsed(&self, start: Self::Instant) -> u64;
     fn unit(&self) -> &'static str;
-    
+
     /// Structured logger: formats output for CSV export
     fn log_result(&self, library: &'static str, bench: &'static str, id: ResultId, elapsed: u64);
 
@@ -102,7 +108,12 @@ pub trait BenchmarkPlatform {
     }
 
     /// Runs a benchmark task over a set of inputs, returning the total elapsed time of all runs.
-    fn run_set<Task, I>(&mut self, implementation: &I, inputs: &[Task::Input], repetitions: u32) -> u64
+    fn run_set<Task, I>(
+        &mut self,
+        implementation: &I,
+        inputs: &[Task::Input],
+        repetitions: u32,
+    ) -> u64
     where
         Task: BenchmarkTask,
         I: TaskImplementation<Task>,
@@ -111,7 +122,12 @@ pub trait BenchmarkPlatform {
         let mut total_elapsed = 0;
         for (i, input) in inputs.iter().enumerate() {
             let elapsed = self.run(implementation, input, repetitions);
-            self.log_result(I::LIBRARY_IDENTIFIER, Task::IDENTIFIER, ResultId::Input(i), elapsed);
+            self.log_result(
+                I::LIBRARY_IDENTIFIER,
+                Task::IDENTIFIER,
+                ResultId::Input(i),
+                elapsed,
+            );
             total_elapsed += elapsed;
         }
         total_elapsed
@@ -130,7 +146,12 @@ where
     I: TaskImplementation<Task>,
 {
     let total_elapsed = platform.run_set(implementation, inputs, repetitions);
-    platform.log_result(I::LIBRARY_IDENTIFIER, Task::IDENTIFIER, ResultId::All, total_elapsed);
+    platform.log_result(
+        I::LIBRARY_IDENTIFIER,
+        Task::IDENTIFIER,
+        ResultId::All,
+        total_elapsed,
+    );
     total_elapsed
 }
 

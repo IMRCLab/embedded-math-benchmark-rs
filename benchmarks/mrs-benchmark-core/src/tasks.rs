@@ -1,5 +1,5 @@
-use crate::BenchmarkTask;
 use crate::inputs::{MatMul3x3Input, RotateVectorInput};
+use crate::BenchmarkTask;
 
 pub struct MatMul3x3;
 impl BenchmarkTask for MatMul3x3 {

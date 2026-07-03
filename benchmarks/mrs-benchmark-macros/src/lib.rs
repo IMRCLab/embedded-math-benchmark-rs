@@ -22,7 +22,7 @@ struct BenchCase {
 fn load_config() -> BenchConfig {
     let manifest_dir = std::env::var("CARGO_MANIFEST_DIR").unwrap();
     let mut path = PathBuf::from(manifest_dir);
-    
+
     path.push("../inputs.json");
     if !path.exists() {
         path = PathBuf::from("inputs.json");
@@ -86,7 +86,7 @@ pub fn benchmark_input(args: TokenStream, input: TokenStream) -> TokenStream {
         let obj = input_val
             .as_object()
             .expect("Benchmark inputs must be JSON objects");
-        
+
         let mut field_assigns = Vec::new();
         for (k, v) in obj {
             let field_ident = format_ident!("{}", k);
@@ -103,10 +103,7 @@ pub fn benchmark_input(args: TokenStream, input: TokenStream) -> TokenStream {
         });
     }
 
-    let static_ident = format_ident!(
-        "{}_INPUTS",
-        struct_name.to_uppercase()
-    );
+    let static_ident = format_ident!("{}_INPUTS", struct_name.to_uppercase());
 
     let num_instances = generated_instances.len();
 

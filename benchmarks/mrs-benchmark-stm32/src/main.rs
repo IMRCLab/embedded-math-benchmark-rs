@@ -48,10 +48,20 @@ impl BenchmarkPlatform for Stm32Platform {
         "cycles"
     }
 
-    fn log_result(&self, library: &'static str, bench: &'static str, id: mrs_benchmark_core::ResultId, elapsed: u64) {
+    fn log_result(
+        &self,
+        library: &'static str,
+        bench: &'static str,
+        id: mrs_benchmark_core::ResultId,
+        elapsed: u64,
+    ) {
         match id {
-            mrs_benchmark_core::ResultId::Input(i) => rprintln!("{}:{}:{}, {}, {}", self.id(), library, bench, i, elapsed),
-            mrs_benchmark_core::ResultId::All => rprintln!("{}:{}:{}, all, {}", self.id(), library, bench, elapsed),
+            mrs_benchmark_core::ResultId::Input(i) => {
+                rprintln!("{}:{}:{}, {}, {}", self.id(), library, bench, i, elapsed)
+            }
+            mrs_benchmark_core::ResultId::All => {
+                rprintln!("{}:{}:{}, all, {}", self.id(), library, bench, elapsed)
+            }
         }
     }
 }

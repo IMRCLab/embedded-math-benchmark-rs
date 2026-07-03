@@ -8,7 +8,6 @@ pub struct MatMul3x3Input {
 }
 
 #[benchmark_input("RotateVector")]
-
 #[derive(Clone, Debug)]
 pub struct RotateVectorInput {
     pub point: [f32; 3],
