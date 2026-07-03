@@ -2,7 +2,7 @@
   "cases": [
     {
       "repetitions": 1000,
-      "libraries": ["glam", "nalgebra", "micromath"],
+      "libraries": ["glam", "nalgebra"],
       "test": "MatMul3x3",
       "inputs": [
         {
