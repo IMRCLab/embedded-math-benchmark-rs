@@ -1,14 +1,16 @@
-use crate::inputs::{MatrixMul3x3Input, RotateVectorInput};
+use crate::tasks::{MatMul3x3 as MatMul3x3Task, RotateVector as RotateVectorTask};
 use crate::TaskImplementation;
 use micromath::{Quaternion, F32};
 
-pub struct UMathMatMul3x3;
+pub struct MatMul3x3;
 
-impl TaskImplementation<MatrixMul3x3Input, [f32; 9]> for UMathMatMul3x3 {
+impl TaskImplementation<MatMul3x3Task> for MatMul3x3 {
+    const LIBRARY_IDENTIFIER: &'static str = "micromath";
+
     type PreparedInput = ([F32; 9], [F32; 9]);
     type RawOutput = [f32; 9];
 
-    fn prepare(&self, input: &MatrixMul3x3Input) -> Self::PreparedInput {
+    fn prepare(&self, input: &<MatMul3x3Task as crate::BenchmarkTask>::Input) -> Self::PreparedInput {
         let mut lhs = [F32(0.0); 9];
         let mut rhs = [F32(0.0); 9];
         for i in 0..9 {
@@ -37,18 +39,20 @@ impl TaskImplementation<MatrixMul3x3Input, [f32; 9]> for UMathMatMul3x3 {
         [r0.0, r1.0, r2.0, r3.0, r4.0, r5.0, r6.0, r7.0, r8.0]
     }
 
-    fn finalize(&self, output: Self::RawOutput) -> [f32; 9] {
+    fn finalize(&self, output: Self::RawOutput) -> <MatMul3x3Task as crate::BenchmarkTask>::Output {
         output
     }
 }
 
-pub struct UMathRotateVector;
+pub struct RotateVector;
 
-impl TaskImplementation<RotateVectorInput, [f32; 3]> for UMathRotateVector {
+impl TaskImplementation<RotateVectorTask> for RotateVector {
+    const LIBRARY_IDENTIFIER: &'static str = "micromath";
+
     type PreparedInput = (Quaternion, [f32; 3]);
     type RawOutput = Quaternion;
 
-    fn prepare(&self, input: &RotateVectorInput) -> Self::PreparedInput {
+    fn prepare(&self, input: &<RotateVectorTask as crate::BenchmarkTask>::Input) -> Self::PreparedInput {
         // micromath Quaternion::new takes (w, x, y, z)
         let q = Quaternion::new(input.quat[3], input.quat[0], input.quat[1], input.quat[2]);
         (q, input.point)
@@ -61,7 +65,7 @@ impl TaskImplementation<RotateVectorInput, [f32; 3]> for UMathRotateVector {
         *q * q_vec * q.conj()
     }
 
-    fn finalize(&self, output: Self::RawOutput) -> [f32; 3] {
+    fn finalize(&self, output: Self::RawOutput) -> <RotateVectorTask as crate::BenchmarkTask>::Output {
         [output.x(), output.y(), output.z()]
     }
 }
