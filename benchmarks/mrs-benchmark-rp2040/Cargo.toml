@@ -1,0 +1,12 @@
+[package]
+name = "mrs-benchmark-rp2040"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+mrs-benchmark-core = { path = "../mrs-benchmark-core" }
+rp-pico = "0.9"
+cortex-m = "0.7"
+cortex-m-rt = "0.7"
+panic-halt = "0.2"
+rtt-target = "0.5"

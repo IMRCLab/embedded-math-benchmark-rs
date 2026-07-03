@@ -12,3 +12,11 @@ script = [
     "(cd benchmarks/mrs-benchmark-stm32 && cargo build --release)",
     "probe-rs run --chip STM32F405RGTx benchmarks/target/thumbv7em-none-eabihf/release/mrs-benchmark-stm32"
 ]
+
+[tasks.bench-pico]
+description = "Build and run Raspberry Pi Pico 1 (RP2040) benchmarks over SWD"
+category = "Benchmark"
+script = [
+    "(cd benchmarks/mrs-benchmark-rp2040 && cargo build --release)",
+    "probe-rs run --chip RP2040 benchmarks/target/thumbv6m-none-eabi/release/mrs-benchmark-rp2040"
+]

@@ -26,9 +26,17 @@ cargo build --release
 probe-rs run --chip STM32F405RGTx ../target/thumbv7em-none-eabihf/release/mrs-benchmark-stm32
 ```
 
-**Raspberry Pi Pico 1 / 2** follow the same pattern once their crates exist: build, then
-`probe-rs run --chip RP2040` (Pico 1) or `--chip RP235x` (Pico 2). The Pico is flashed over
-SWD with a separate probe, see [HIL Setup](hil-setup.md) for probe and udev details.
+**Raspberry Pi Pico 1 (RP2040):**
+
+```bash
+cd benchmarks/mrs-benchmark-rp2040
+cargo build --release
+probe-rs run --chip RP2040 ../target/thumbv6m-none-eabi/release/mrs-benchmark-rp2040
+```
+
+**Raspberry Pi Pico 2 (RP2350)** follows the same pattern once its crate exists: build,
+then `probe-rs run --chip RP235x`. The Pico is flashed over SWD with a separate probe, see
+[HIL Setup](hil-setup.md) for probe and udev details.
 
 ## Shortcuts with cargo-make
 
@@ -36,5 +44,6 @@ SWD with a separate probe, see [HIL Setup](hil-setup.md) for probe and udev deta
 
 - **Host:** `cargo make bench-host`
 - **STM32:** `cargo make bench-stm`
+- **Pico 1 (RP2040):** `cargo make bench-pico`
 
-Per-target shortcuts for the Picos land alongside their crates.
+The Pico 2 shortcut lands alongside its crate.

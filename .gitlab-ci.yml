@@ -51,6 +51,15 @@ clippy-stm32:
   script:
     - cd $WORKSPACE_DIR/mrs-benchmark-stm32 && cargo clippy
 
+# Firmware crate: the crate-local .cargo/config.toml selects thumbv6m. Override
+# TARGET so the default before_script installs the thumbv6m-none-eabi target.
+clippy-rp2040:
+  stage: check
+  variables:
+    TARGET: thumbv6m-none-eabi
+  script:
+    - cd $WORKSPACE_DIR/mrs-benchmark-rp2040 && cargo clippy
+
 # ----------------------------------------------------------------------------
 # build
 # ----------------------------------------------------------------------------
@@ -84,6 +93,12 @@ build-stm32:
   variables:
     BIN: mrs-benchmark-stm32
     TARGET: thumbv7em-none-eabihf
+
+build-rp2040:
+  extends: .cargo-build
+  variables:
+    BIN: mrs-benchmark-rp2040
+    TARGET: thumbv6m-none-eabi
 
 # ----------------------------------------------------------------------------
 # run
@@ -138,3 +153,14 @@ run-stm32:
   variables:
     CHIP: STM32F405RGTx
     ELF: mrs-benchmark-stm32
+  # TODO change this back when STM connected
+  rules:
+    - when: manual
+
+run-rp2040:
+  extends: .firmware-flash
+  needs:
+    - build-rp2040
+  variables:
+    CHIP: RP2040
+    ELF: mrs-benchmark-rp2040
