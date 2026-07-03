@@ -1,19 +1,19 @@
 # CI for the mrs-microbenchmarks workspace (benchmarks/).
-# Host benchmarks run natively on a shared runner. The STM32 firmware
-# (thumbv7em-none-eabihf) is built on a shared runner and benchmarked on real
-# hardware (HIL) over RTT via probe-rs. Each target = a build job + a run job;
-# linting is per-target because clippy compiles for the crate's target.
+# Host benchmarks run natively on a shared runner. The firmware crates
+# (rp2040/thumbv6m, stm32/thumbv7em) are built on a shared runner and
+# benchmarked on real hardware (HIL) over RTT via probe-rs.
 
 stages:
-  - check
   - build
   - run
+  - check
 
 variables:
-  # Keep Cargo's caches inside the project dir so GitLab can cache them.
-  CARGO_HOME: $CI_PROJECT_DIR/.cargo-home
+  # Cargo state lives on the persistent /persist volume
+  CARGO_HOME: /persist/cargo
+  CARGO_TARGET_DIR: /persist/target
   WORKSPACE_DIR: benchmarks
-  TARGET: thumbv7em-none-eabihf
+  TARGET: x86_64-unknown-linux-gnu
 
 default:
   image: rust:latest
@@ -22,68 +22,36 @@ default:
   before_script:
     - rustup target add $TARGET
     - rustup component add rustfmt clippy
-  cache:
-    key: cargo-$CI_COMMIT_REF_SLUG
-    paths:
-      - .cargo-home/
-      - $WORKSPACE_DIR/target/
 
 # ----------------------------------------------------------------------------
-# check
-# ----------------------------------------------------------------------------
-
-fmt:
-  stage: check
-  # Formatting is advisory: report it but don't block the build/run stages.
-  allow_failure: true
-  script:
-    - cd $WORKSPACE_DIR && cargo fmt --all -- --check
-
-# Host + core (native target) via the workspace default-members.
-clippy-host:
-  stage: check
-  allow_failure: true
-  script:
-    - cd $WORKSPACE_DIR && cargo clippy -- -D warnings
-
-# Firmware crate: the crate-local .cargo/config.toml selects thumbv7em.
-clippy-stm32:
-  stage: check
-  allow_failure: true
-  script:
-    - cd $WORKSPACE_DIR/mrs-benchmark-stm32 && cargo clippy -- -D warnings
-
-# Firmware crate: the crate-local .cargo/config.toml selects thumbv6m. Override
-# TARGET so the default before_script installs the thumbv6m-none-eabi target.
-clippy-rp2040:
-  stage: check
-  allow_failure: true
-  variables:
-    TARGET: thumbv6m-none-eabi
-  script:
-    - cd $WORKSPACE_DIR/mrs-benchmark-rp2040 && cargo clippy -- -D warnings
-
-# ----------------------------------------------------------------------------
-# build
+# build  (highest shared-runner priority; pico first)
 # ----------------------------------------------------------------------------
 
 # Hidden template: build a workspace crate for an explicit target, then copy the
 # binary to the project root so the artifact downloads as just the binary.
-# Per-target jobs set just BIN and TARGET. The crate dir is derived as
+# Per-target jobs set BIN and TARGET. The crate dir is derived as
 # $WORKSPACE_DIR/$BIN, which holds because each crate's directory name equals its
 # package/binary name (a crate breaking that convention would need an explicit dir).
 # Building from the crate dir means the firmware crate's crate-local .cargo/config.toml
 # (linker script) is picked up; the host crate has no such config and builds natively.
+# Output lands in $CARGO_TARGET_DIR/$TARGET/release/$BIN on the persistent volume.
 .cargo-build:
   stage: build
+  needs: []
   script:
     - (cd "$WORKSPACE_DIR/$BIN" && cargo build --release --target "$TARGET")
-    - install -Dm755 "$WORKSPACE_DIR/target/$TARGET/release/$BIN" "$BIN"
+    - install -Dm755 "$CARGO_TARGET_DIR/$TARGET/release/$BIN" "$BIN"
   artifacts:
     name: "$BIN-$CI_COMMIT_SHORT_SHA"
     paths:
       - $BIN
     expire_in: 1 year
+
+build-rp2040:
+  extends: .cargo-build
+  variables:
+    BIN: mrs-benchmark-rp2040
+    TARGET: thumbv6m-none-eabi
 
 build-host:
   extends: .cargo-build
@@ -97,41 +65,18 @@ build-stm32:
     BIN: mrs-benchmark-stm32
     TARGET: thumbv7em-none-eabihf
 
-build-rp2040:
-  extends: .cargo-build
-  variables:
-    BIN: mrs-benchmark-rp2040
-    TARGET: thumbv6m-none-eabi
-
 # ----------------------------------------------------------------------------
 # run
 # ----------------------------------------------------------------------------
 
-# Execute the host binary built above; its stdout is the host benchmark result.
-run-host:
-  stage: run
-  needs:
-    - build-host
-  cache: []
-  before_script: []
-  variables:
-    GIT_STRATEGY: none
-  script:
-    - ./mrs-benchmark-host | tee host-results.log
-  artifacts:
-    name: "host-bench-$CI_COMMIT_SHORT_SHA"
-    paths:
-      - host-results.log
-    expire_in: 1 year
-
 # Hidden template: flash a firmware ELF on real hardware and capture RTT output.
 # Runs on the HIL host; probe-rs lives in the gitlab-runner user's ~/.cargo/bin.
-# Per-target jobs set CHIP and ELF (and `needs` their build job).
+# Per-target jobs set CHIP and ELF and `needs:` their build job, so they start the
+# instant that build finishes — in parallel with the shared runner's other jobs.
 .firmware-flash:
   stage: run
   tags:
     - hil
-  cache: []
   before_script:
     - source "$HOME/.cargo/env"
   variables:
@@ -152,6 +97,14 @@ run-host:
     - if: "$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH"
     - when: manual
 
+run-rp2040:
+  extends: .firmware-flash
+  needs:
+    - build-rp2040
+  variables:
+    CHIP: RP2040
+    ELF: mrs-benchmark-rp2040
+
 run-stm32:
   extends: .firmware-flash
   needs:
@@ -163,10 +116,58 @@ run-stm32:
   rules:
     - when: manual
 
-run-rp2040:
-  extends: .firmware-flash
+# Execute the host binary built above; its stdout is the host benchmark result.
+run-host:
+  stage: run
   needs:
-    - build-rp2040
+    - build-host
+  before_script: []
   variables:
-    CHIP: RP2040
-    ELF: mrs-benchmark-rp2040
+    GIT_STRATEGY: none
+  script:
+    - ./mrs-benchmark-host | tee host-results.log
+  artifacts:
+    name: "host-bench-$CI_COMMIT_SHORT_SHA"
+    paths:
+      - host-results.log
+    expire_in: 1 year
+
+# ----------------------------------------------------------------------------
+# check
+# ----------------------------------------------------------------------------
+
+fmt:
+  stage: check
+  needs: []
+  # Formatting is advisory: report it but don't block anything.
+  allow_failure: true
+  script:
+    - cd $WORKSPACE_DIR && cargo fmt --all -- --check
+
+# Host + core (native target) via the workspace default-members.
+clippy-host:
+  stage: check
+  needs: []
+  allow_failure: true
+  script:
+    - cd $WORKSPACE_DIR && cargo clippy -- -D warnings
+
+# Firmware crate
+clippy-stm32:
+  stage: check
+  needs: []
+  allow_failure: true
+  variables:
+    TARGET: thumbv7em-none-eabihf
+  script:
+    - cd $WORKSPACE_DIR/mrs-benchmark-stm32 && cargo clippy -- -D warnings
+
+# Firmware crate
+clippy-rp2040:
+  stage: check
+  needs: []
+  allow_failure: true
+  variables:
+    TARGET: thumbv6m-none-eabi
+  script:
+    - cd $WORKSPACE_DIR/mrs-benchmark-rp2040 && cargo clippy -- -D warnings
