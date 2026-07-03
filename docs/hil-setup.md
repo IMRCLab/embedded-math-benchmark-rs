@@ -29,10 +29,22 @@ later for pass/fail asserts without changing any infra.
 Use existing J-Links if we have them. One covers all three chips with the best RTT.
 Otherwise ST-Link / RPi Debug Probe is the cheap default.
 
-**Pico probes & udev** `probe-rs` already ships the `RP2040` and `RP235x`
-(RP2350) targets, so the toolchain from _Provisioning_ below works unchanged for the Picos.
-The Pico is flashed over SWD by the Raspberry Pi Debug Probe or a second
-Pico running `debugprobe` firmware. Both enumerate as CMSIS-DAP.
+### Rpi debug probe
+
+`probe-rs` already ships the `RP2040` and `RP235x` (RP2350) targets.
+
+**Firmware** probe-rs needs firmware 2.2.0 or newer, and my probe had a much older one by default. It then fails with an "outdated firmware" error. Fix it once: unplug the probe, hold the button (BOOTSEL) while replugging it. Then it comes up as volume labelled `RPI-RP2`. Enter this:
+
+```bash
+curl -fL https://github.com/raspberrypi/debugprobe/releases/latest/download/debugprobe.uf2 -o /tmp/dp.uf2
+# Find device by label
+DEV=$(lsblk -pnro NAME,LABEL | awk '$2=="RPI-RP2"{print $1; exit}')
+# Verify device exists
+[ -n "$DEV" ] || { echo "BOOTSEL button not pressed while plugging in?"; exit 1; }
+# Mount device and copy
+sudo mkdir -p /mnt/rp2 && sudo mount "$DEV" /mnt/rp2
+sudo cp /tmp/dp.uf2 /mnt/rp2/
+```
 
 ## Provisioning
 
