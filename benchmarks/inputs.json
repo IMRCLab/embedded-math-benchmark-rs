@@ -19,7 +19,6 @@
       "repetitions": 10000,
       "libraries": ["glam", "nalgebra", "micromath"],
       "test": "RotateVector",
-      "platforms": ["host", "stm32", "rp2040"],
       "inputs": [
         {
           "point": [1.0, 2.0, 3.0],
