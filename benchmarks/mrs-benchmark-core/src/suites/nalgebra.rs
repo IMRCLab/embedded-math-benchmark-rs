@@ -1,13 +1,16 @@
 use crate::tasks::{MatMul3x3 as MatMul3x3Task, RotateVector as RotateVectorTask};
-use crate::TaskImplementation;
+use crate::{BenchmarkLibrary, RawTaskImplementation, export_tasks};
 
 use nalgebra::Matrix3;
 
-pub struct MatMul3x3;
+pub struct Nalgebra;
+impl BenchmarkLibrary for Nalgebra {
+    const IDENTIFIER: &'static str = "nalgebra";
+}
 
-impl TaskImplementation<MatMul3x3Task> for MatMul3x3 {
-    const LIBRARY_IDENTIFIER: &'static str = "nalgebra";
+pub struct MatMul3x3Logic;
 
+impl RawTaskImplementation<MatMul3x3Task> for MatMul3x3Logic {
     type PreparedInput = (Matrix3<f32>, Matrix3<f32>);
     type RawOutput = Matrix3<f32>;
 
@@ -28,18 +31,15 @@ impl TaskImplementation<MatMul3x3Task> for MatMul3x3 {
     }
 }
 
-pub struct RotateVector;
+pub struct RotateVectorLogic;
 
-impl TaskImplementation<RotateVectorTask> for RotateVector {
-    const LIBRARY_IDENTIFIER: &'static str = "nalgebra";
-
+impl RawTaskImplementation<RotateVectorTask> for RotateVectorLogic {
     type PreparedInput = (nalgebra::UnitQuaternion<f32>, nalgebra::Vector3<f32>);
     type RawOutput = nalgebra::Vector3<f32>;
 
     fn prepare(&self, input: &<RotateVectorTask as crate::BenchmarkTask>::Input) -> Self::PreparedInput {
         // nalgebra Quaternion::new expects (w, x, y, z)
-        let q =
-            nalgebra::Quaternion::new(input.quat[3], input.quat[0], input.quat[1], input.quat[2]);
+        let q = nalgebra::Quaternion::new(input.quat[3], input.quat[0], input.quat[1], input.quat[2]);
         let uq = nalgebra::UnitQuaternion::from_quaternion(q);
         let v = nalgebra::Vector3::new(input.point[0], input.point[1], input.point[2]);
         (uq, v)
@@ -53,3 +53,9 @@ impl TaskImplementation<RotateVectorTask> for RotateVector {
         [output.x, output.y, output.z]
     }
 }
+
+export_tasks!(
+    Nalgebra,
+    MatMul3x3 => MatMul3x3Logic,
+    RotateVector => RotateVectorLogic
+);

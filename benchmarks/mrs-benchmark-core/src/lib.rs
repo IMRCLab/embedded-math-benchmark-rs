@@ -20,20 +20,51 @@ pub trait BenchmarkTask {
     type Output;
 }
 
-pub trait TaskImplementation<Task: BenchmarkTask> {
-    const LIBRARY_IDENTIFIER: &'static str;
+pub trait BenchmarkLibrary {
+    const IDENTIFIER: &'static str;
+}
 
+pub trait RawTaskImplementation<Task: BenchmarkTask> {
     type PreparedInput;
     type RawOutput;
-
-    /// Converts standard input into the library's internal format (not timed).
     fn prepare(&self, input: &Task::Input) -> Self::PreparedInput;
-
-    /// Performs the core computation (timed).
     fn execute(&self, input: &Self::PreparedInput) -> Self::RawOutput;
-
-    /// Converts the raw output back into standard output (not timed).
     fn finalize(&self, output: Self::RawOutput) -> Task::Output;
+}
+
+pub struct LibTask<L, T>(pub T, pub core::marker::PhantomData<L>);
+
+pub trait TaskImplementation<Task: BenchmarkTask> {
+    const LIBRARY_IDENTIFIER: &'static str;
+    type PreparedInput;
+    type RawOutput;
+    fn prepare(&self, input: &Task::Input) -> Self::PreparedInput;
+    fn execute(&self, input: &Self::PreparedInput) -> Self::RawOutput;
+    fn finalize(&self, output: Self::RawOutput) -> Task::Output;
+}
+
+impl<L, Task, T> TaskImplementation<Task> for LibTask<L, T>
+where
+    L: BenchmarkLibrary,
+    Task: BenchmarkTask,
+    T: RawTaskImplementation<Task>,
+{
+    const LIBRARY_IDENTIFIER: &'static str = L::IDENTIFIER;
+    type PreparedInput = T::PreparedInput;
+    type RawOutput = T::RawOutput;
+    fn prepare(&self, input: &Task::Input) -> Self::PreparedInput { self.0.prepare(input) }
+    fn execute(&self, input: &Self::PreparedInput) -> Self::RawOutput { self.0.execute(input) }
+    fn finalize(&self, output: Self::RawOutput) -> Task::Output { self.0.finalize(output) }
+}
+
+#[macro_export]
+macro_rules! export_tasks {
+    ($lib:ident, $($task:ident => $logic:ident),* $(,)?) => {
+        $(
+            #[allow(non_upper_case_globals)]
+            pub const $task: $crate::LibTask<$lib, $logic> = $crate::LibTask($logic, core::marker::PhantomData);
+        )*
+    };
 }
 
 pub trait BenchmarkPlatform {

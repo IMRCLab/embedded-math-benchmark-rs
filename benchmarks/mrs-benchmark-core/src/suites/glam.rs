@@ -1,13 +1,16 @@
 use crate::tasks::{MatMul3x3 as MatMul3x3Task, RotateVector as RotateVectorTask};
-use crate::TaskImplementation;
+use crate::{BenchmarkLibrary, RawTaskImplementation, export_tasks};
 
 use glam::{Mat3, Quat, Vec3};
 
-pub struct MatMul3x3;
+pub struct Glam;
+impl BenchmarkLibrary for Glam {
+    const IDENTIFIER: &'static str = "glam";
+}
 
-impl TaskImplementation<MatMul3x3Task> for MatMul3x3 {
-    const LIBRARY_IDENTIFIER: &'static str = "glam";
+pub struct MatMul3x3Logic;
 
+impl RawTaskImplementation<MatMul3x3Task> for MatMul3x3Logic {
     type PreparedInput = (Mat3, Mat3);
     type RawOutput = Mat3;
 
@@ -26,11 +29,9 @@ impl TaskImplementation<MatMul3x3Task> for MatMul3x3 {
     }
 }
 
-pub struct RotateVector;
+pub struct RotateVectorLogic;
 
-impl TaskImplementation<RotateVectorTask> for RotateVector {
-    const LIBRARY_IDENTIFIER: &'static str = "glam";
-
+impl RawTaskImplementation<RotateVectorTask> for RotateVectorLogic {
     type PreparedInput = (Quat, Vec3);
     type RawOutput = Vec3;
 
@@ -48,3 +49,9 @@ impl TaskImplementation<RotateVectorTask> for RotateVector {
         [output.x, output.y, output.z]
     }
 }
+
+export_tasks!(
+    Glam,
+    MatMul3x3 => MatMul3x3Logic,
+    RotateVector => RotateVectorLogic
+);

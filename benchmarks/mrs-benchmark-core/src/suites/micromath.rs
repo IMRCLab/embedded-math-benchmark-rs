@@ -1,14 +1,15 @@
 use crate::tasks::RotateVector as RotateVectorTask;
-use crate::TaskImplementation;
+use crate::{BenchmarkLibrary, RawTaskImplementation, export_tasks};
 use micromath::Quaternion;
 
+pub struct Micromath;
+impl BenchmarkLibrary for Micromath {
+    const IDENTIFIER: &'static str = "micromath";
+}
 
+pub struct RotateVectorLogic;
 
-pub struct RotateVector;
-
-impl TaskImplementation<RotateVectorTask> for RotateVector {
-    const LIBRARY_IDENTIFIER: &'static str = "micromath";
-
+impl RawTaskImplementation<RotateVectorTask> for RotateVectorLogic {
     type PreparedInput = (Quaternion, [f32; 3]);
     type RawOutput = Quaternion;
 
@@ -29,3 +30,8 @@ impl TaskImplementation<RotateVectorTask> for RotateVector {
         [output.x(), output.y(), output.z()]
     }
 }
+
+export_tasks!(
+    Micromath,
+    RotateVector => RotateVectorLogic
+);
