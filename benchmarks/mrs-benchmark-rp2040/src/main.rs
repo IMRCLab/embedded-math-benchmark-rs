@@ -57,8 +57,11 @@ impl BenchmarkPlatform for Rp2040Platform {
         "cycles"
     }
 
-    fn log_result(&self, library: &'static str, bench: &'static str, elapsed: u64) {
-        rprintln!("{}:{}:{}:{} {}", self.id(), library, bench, elapsed, self.unit());
+    fn log_result(&self, library: &'static str, bench: &'static str, id: mrs_benchmark_core::ResultId, elapsed: u64) {
+        match id {
+            mrs_benchmark_core::ResultId::Input(i) => rprintln!("{}:{}:{}, {}, {}", self.id(), library, bench, i, elapsed),
+            mrs_benchmark_core::ResultId::All => rprintln!("{}:{}:{}, all, {}", self.id(), library, bench, elapsed),
+        }
     }
 }
 

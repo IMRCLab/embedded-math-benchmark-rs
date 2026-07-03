@@ -9,6 +9,11 @@ pub mod inputs;
 pub mod suites;
 pub mod tasks;
 
+pub enum ResultId {
+    Input(usize),
+    All,
+}
+
 pub trait BenchmarkTask {
     const IDENTIFIER: &'static str;
     type Input;
@@ -40,11 +45,11 @@ pub trait BenchmarkPlatform {
     fn elapsed(&self, start: Self::Instant) -> u64;
     fn unit(&self) -> &'static str;
     
-    /// Structured logger: formats output as "platform:library:bench:elapsed unit"
-    fn log_result(&self, library: &'static str, bench: &'static str, elapsed: u64);
+    /// Structured logger: formats output for CSV export
+    fn log_result(&self, library: &'static str, bench: &'static str, id: ResultId, elapsed: u64);
 
     /// Runs a benchmark task. Preparation and finalization are excluded from measurement.
-    fn run<Task, I>(&mut self, implementation: &I, input: &Task::Input) -> u64
+    fn run<Task, I>(&mut self, implementation: &I, input: &Task::Input, repetitions: u32) -> u64
     where
         Task: BenchmarkTask,
         I: TaskImplementation<Task>,
@@ -53,9 +58,12 @@ pub trait BenchmarkPlatform {
         let prep_input = implementation.prepare(input);
 
         let start = self.now();
-        let raw_output = core::hint::black_box(implementation.execute(&prep_input));
+        for _ in 0..repetitions {
+            core::hint::black_box(implementation.execute(core::hint::black_box(&prep_input)));
+        }
         let elapsed = self.elapsed(start);
 
+        let raw_output = implementation.execute(&prep_input);
         let std_output = implementation.finalize(raw_output);
         core::hint::black_box(std_output);
 
@@ -63,15 +71,17 @@ pub trait BenchmarkPlatform {
     }
 
     /// Runs a benchmark task over a set of inputs, returning the total elapsed time of all runs.
-    fn run_set<Task, I>(&mut self, implementation: &I, inputs: &[Task::Input]) -> u64
+    fn run_set<Task, I>(&mut self, implementation: &I, inputs: &[Task::Input], repetitions: u32) -> u64
     where
         Task: BenchmarkTask,
         I: TaskImplementation<Task>,
         Self: Sized,
     {
         let mut total_elapsed = 0;
-        for input in inputs {
-            total_elapsed += self.run(implementation, input);
+        for (i, input) in inputs.iter().enumerate() {
+            let elapsed = self.run(implementation, input, repetitions);
+            self.log_result(I::LIBRARY_IDENTIFIER, Task::IDENTIFIER, ResultId::Input(i), elapsed);
+            total_elapsed += elapsed;
         }
         total_elapsed
     }
@@ -88,11 +98,8 @@ where
     Task: BenchmarkTask,
     I: TaskImplementation<Task>,
 {
-    let mut total_elapsed = 0;
-    for _ in 0..repetitions {
-        total_elapsed += platform.run_set(implementation, inputs);
-    }
-    platform.log_result(I::LIBRARY_IDENTIFIER, Task::IDENTIFIER, total_elapsed);
+    let total_elapsed = platform.run_set(implementation, inputs, repetitions);
+    platform.log_result(I::LIBRARY_IDENTIFIER, Task::IDENTIFIER, ResultId::All, total_elapsed);
     total_elapsed
 }
 

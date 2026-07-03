@@ -22,8 +22,11 @@ impl BenchmarkPlatform for HostPlatform {
         "ns"
     }
 
-    fn log_result(&self, library: &'static str, bench: &'static str, elapsed: u64) {
-        println!("{}:{}:{}:{} {}", self.id(), library, bench, elapsed, self.unit());
+    fn log_result(&self, library: &'static str, bench: &'static str, id: mrs_benchmark_core::ResultId, elapsed: u64) {
+        match id {
+            mrs_benchmark_core::ResultId::Input(i) => println!("{}:{}:{}, {}, {}", self.id(), library, bench, i, elapsed),
+            mrs_benchmark_core::ResultId::All => println!("{}:{}:{}, all, {}", self.id(), library, bench, elapsed),
+        }
     }
 }
 
