@@ -119,7 +119,7 @@ fn main() -> ! {
     let mut platform = Rp2040Platform::new(cp.SYST);
     platform.setup();
 
-    rprintln!("BENCH {}", mrs_benchmark_core::CSV_HEADER);
+    rprintln!("INFO {}", mrs_benchmark_core::CSV_HEADER);
     mrs_benchmark_core::run_all_benchmarks(&mut platform);
 
     rprintln!("RP2040 benchmarks finished.");

@@ -76,7 +76,7 @@ fn main() {
     platform.setup();
 
     println!("Starting host benchmarks...");
-    println!("BENCH {}", mrs_benchmark_core::CSV_HEADER);
+    println!("INFO {}", mrs_benchmark_core::CSV_HEADER);
     mrs_benchmark_core::run_all_benchmarks(&mut platform);
     println!("Finished host benchmarks.");
 }

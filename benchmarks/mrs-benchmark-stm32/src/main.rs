@@ -106,7 +106,7 @@ fn main() -> ! {
     let mut platform = Stm32Platform::new(cp.DWT);
     platform.setup();
 
-    rprintln!("BENCH {}", mrs_benchmark_core::CSV_HEADER);
+    rprintln!("INFO {}", mrs_benchmark_core::CSV_HEADER);
     mrs_benchmark_core::run_all_benchmarks(&mut platform);
 
     rprintln!("STM32 benchmarks finished.");

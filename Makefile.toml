@@ -20,3 +20,9 @@ script = [
     "(cd benchmarks/mrs-benchmark-rp2040 && cargo build --release)",
     "probe-rs run --chip RP2040 benchmarks/target/thumbv6m-none-eabi/release/mrs-benchmark-rp2040"
 ]
+
+[tasks.collect]
+description = "Merge benchmark BENCH lines into a single headed CSV (files or stdin)"
+category = "Benchmark"
+command = "cargo"
+args = ["run", "--quiet", "--manifest-path", "benchmarks/Cargo.toml", "-p", "mrs-benchmark-collect", "${@}"]

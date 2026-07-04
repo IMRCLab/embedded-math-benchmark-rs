@@ -64,4 +64,8 @@ BENCH host,glam,MatMul3x3,0,1000,104523,ns,"[30.0, 84.0, 138.0, 24.0, 69.0, 114.
 - The `duration` represents the total elapsed time for all `repetitions`.
 - `platform` and `unit` come directly from the firmware runner (e.g., host outputs `ns`, MCUs output `cycles`).
 
-_Later:_ a host script (not CI-only) greps the `BENCH ` lines, strips the prefix, and merges each platform into one dataset. C libraries slot into the `library` field.
+_Collecting:_ `mrs-benchmark-collect` (the `mrs-benchmark-collect` crate) greps the
+`BENCH ` lines from one or more logs, strips the prefix, sorts them, and merges
+every platform into one headed `results.csv`.
+[Running the Benchmarks](running-benchmarks.md#collecting-results-into-a-csv). C
+libraries slot into the `library` field.
