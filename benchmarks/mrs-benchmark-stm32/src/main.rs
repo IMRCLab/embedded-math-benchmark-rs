@@ -48,20 +48,22 @@ impl BenchmarkPlatform for Stm32Platform {
         "cycles"
     }
 
-    fn log_result(
+    fn log_result<O: core::fmt::Debug>(
         &self,
         library: &'static str,
         bench: &'static str,
-        id: mrs_benchmark_core::ResultId,
+        input_index: usize,
+        repetitions: u32,
         elapsed: u64,
+        output: Option<&Result<O, mrs_benchmark_core::BenchmarkError>>,
     ) {
-        match id {
-            mrs_benchmark_core::ResultId::Input(i) => {
-                rprintln!("{}:{}:{}, {}, {}", self.id(), library, bench, i, elapsed)
+        if let Some(res) = output {
+            match res {
+                Ok(val) => rprintln!("BENCH {},{},{},{},{},{},{},\"{:?}\"", self.id(), library, bench, input_index, repetitions, elapsed, self.unit(), val),
+                Err(e) => rprintln!("BENCH {},{},{},{},{},{},{},\"ERROR: {:?}\"", self.id(), library, bench, input_index, repetitions, elapsed, self.unit(), e),
             }
-            mrs_benchmark_core::ResultId::All => {
-                rprintln!("{}:{}:{}, all, {}", self.id(), library, bench, elapsed)
-            }
+        } else {
+            rprintln!("BENCH {},{},{},{},{},{},{},\"\"", self.id(), library, bench, input_index, repetitions, elapsed, self.unit())
         }
     }
 }
@@ -75,6 +77,7 @@ fn main() -> ! {
     let mut platform = Stm32Platform::new(cp.DWT);
     platform.setup();
 
+    rprintln!("BENCH {}", mrs_benchmark_core::CSV_HEADER);
     mrs_benchmark_core::run_all_benchmarks(&mut platform);
 
     rprintln!("STM32 benchmarks finished.");

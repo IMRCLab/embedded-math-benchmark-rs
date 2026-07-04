@@ -22,20 +22,22 @@ impl BenchmarkPlatform for HostPlatform {
         "ns"
     }
 
-    fn log_result(
+    fn log_result<O: core::fmt::Debug>(
         &self,
         library: &'static str,
         bench: &'static str,
-        id: mrs_benchmark_core::ResultId,
+        input_index: usize,
+        repetitions: u32,
         elapsed: u64,
+        output: Option<&Result<O, mrs_benchmark_core::BenchmarkError>>,
     ) {
-        match id {
-            mrs_benchmark_core::ResultId::Input(i) => {
-                println!("{}:{}:{}, {}, {}", self.id(), library, bench, i, elapsed)
+        if let Some(res) = output {
+            match res {
+                Ok(val) => println!("BENCH {},{},{},{},{},{},{},\"{:?}\"", self.id(), library, bench, input_index, repetitions, elapsed, self.unit(), val),
+                Err(e) => println!("BENCH {},{},{},{},{},{},{},\"ERROR: {:?}\"", self.id(), library, bench, input_index, repetitions, elapsed, self.unit(), e),
             }
-            mrs_benchmark_core::ResultId::All => {
-                println!("{}:{}:{}, all, {}", self.id(), library, bench, elapsed)
-            }
+        } else {
+            println!("BENCH {},{},{},{},{},{},{},\"\"", self.id(), library, bench, input_index, repetitions, elapsed, self.unit())
         }
     }
 }
@@ -45,6 +47,7 @@ fn main() {
     platform.setup();
 
     println!("Starting host benchmarks...");
+    println!("BENCH {}", mrs_benchmark_core::CSV_HEADER);
     mrs_benchmark_core::run_all_benchmarks(&mut platform);
     println!("Finished host benchmarks.");
 }

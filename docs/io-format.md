@@ -68,18 +68,18 @@ grep them out.
 
 ```
 [some normal log line]
-BENCH MatMul3x3,glam,rp2040,0,1000,142,cycles
+BENCH platform,library,task,input_index,repetitions,duration,unit,result
+BENCH stm32,glam,MatMul3x3,0,1000,3003284,cycles,"[30.0, 84.0, 138.0, 24.0, 69.0, 114.0, 18.0, 54.0, 90.0]"
 [more logs]
-BENCH MatMul3x3,glam,host,0,1000,41,ns
+BENCH platform,library,task,input_index,repetitions,duration,unit,result
+BENCH host,glam,MatMul3x3,0,1000,104523,ns,"[30.0, 84.0, 138.0, 24.0, 69.0, 114.0, 18.0, 54.0, 90.0]"
 ```
 
-- One row per (test, library, platform, input). Columns, in order:
-  `test,library,platform,input_index,reps,min_duration,unit`.
-- No header line. The firmware never prints one; the column order above is the contract, and
-  the host tool prepends the header when it builds the CSV.
-- `platform` and `unit` come from the firmware, not the input.
-- `min_duration` is the minimum over `reps`, the stablest number for deterministic code.
-- `unit` is native for now: `ns` on the host, `cycles` on the MCUs.
+- Each platform automatically prints the common header row.
+- One data row per (platform, library, task, input). Columns, in order:
+  `platform,library,task,input_index,repetitions,duration,unit,result`.
+- `result` is the actual computed output (e.g. array of floats) formatted as `Debug` so it is easily parsed by Python scripts using `ast.literal_eval`. If the math operation fails (e.g. invalid inverse), the `result` will be `ERROR: <reason>`. The result is enclosed in `""` to prevent its internal commas from breaking the CSV.
+- The `duration` represents the total elapsed time for all `repetitions`.
+- `platform` and `unit` come directly from the firmware runner (e.g., host outputs `ns`, MCUs output `cycles`).
 
-_Later:_ a host script (not CI-only) greps the `BENCH ` lines, strips the prefix, adds the
-header, and merges each platform into one dataset. C libraries slot into the `library` field.
+_Later:_ a host script (not CI-only) greps the `BENCH ` lines, strips the prefix, and merges each platform into one dataset. C libraries slot into the `library` field.

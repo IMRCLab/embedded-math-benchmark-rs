@@ -9,15 +9,18 @@ pub mod inputs;
 pub mod suites;
 pub mod tasks;
 
-pub enum ResultId {
-    Input(usize),
-    All,
+pub const CSV_HEADER: &'static str = "platform,library,task,input_index,repetitions,duration,unit,result";
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum BenchmarkError {
+    MathError(&'static str),
+    Other(&'static str),
 }
 
 pub trait BenchmarkTask {
     const IDENTIFIER: &'static str;
     type Input;
-    type Output;
+    type Output: core::fmt::Debug;
 }
 
 pub trait BenchmarkLibrary {
@@ -28,8 +31,8 @@ pub trait RawTaskImplementation<Task: BenchmarkTask> {
     type PreparedInput;
     type RawOutput;
     fn prepare(&self, input: &Task::Input) -> Self::PreparedInput;
-    fn execute(&self, input: &Self::PreparedInput) -> Self::RawOutput;
-    fn finalize(&self, output: Self::RawOutput) -> Task::Output;
+    fn execute(&self, input: &Self::PreparedInput) -> Result<Self::RawOutput, BenchmarkError>;
+    fn finalize(&self, output: Self::RawOutput) -> Result<Task::Output, BenchmarkError>;
 }
 
 pub struct LibTask<L, T>(pub T, pub core::marker::PhantomData<L>);
@@ -39,8 +42,8 @@ pub trait TaskImplementation<Task: BenchmarkTask> {
     type PreparedInput;
     type RawOutput;
     fn prepare(&self, input: &Task::Input) -> Self::PreparedInput;
-    fn execute(&self, input: &Self::PreparedInput) -> Self::RawOutput;
-    fn finalize(&self, output: Self::RawOutput) -> Task::Output;
+    fn execute(&self, input: &Self::PreparedInput) -> Result<Self::RawOutput, BenchmarkError>;
+    fn finalize(&self, output: Self::RawOutput) -> Result<Task::Output, BenchmarkError>;
 }
 
 impl<L, Task, T> TaskImplementation<Task> for LibTask<L, T>
@@ -55,10 +58,10 @@ where
     fn prepare(&self, input: &Task::Input) -> Self::PreparedInput {
         self.0.prepare(input)
     }
-    fn execute(&self, input: &Self::PreparedInput) -> Self::RawOutput {
+    fn execute(&self, input: &Self::PreparedInput) -> Result<Self::RawOutput, BenchmarkError> {
         self.0.execute(input)
     }
-    fn finalize(&self, output: Self::RawOutput) -> Task::Output {
+    fn finalize(&self, output: Self::RawOutput) -> Result<Task::Output, BenchmarkError> {
         self.0.finalize(output)
     }
 }
@@ -83,10 +86,18 @@ pub trait BenchmarkPlatform {
     fn unit(&self) -> &'static str;
 
     /// Structured logger: formats output for CSV export
-    fn log_result(&self, library: &'static str, bench: &'static str, id: ResultId, elapsed: u64);
+    fn log_result<O: core::fmt::Debug>(
+        &self,
+        library: &'static str,
+        bench: &'static str,
+        input_index: usize,
+        repetitions: u32,
+        elapsed: u64,
+        output: Option<&Result<O, BenchmarkError>>,
+    );
 
     /// Runs a benchmark task. Preparation and finalization are excluded from measurement.
-    fn run<Task, I>(&mut self, implementation: &I, input: &Task::Input, repetitions: u32) -> u64
+    fn run<Task, I>(&mut self, implementation: &I, input: &Task::Input, repetitions: u32) -> (u64, Result<Task::Output, BenchmarkError>)
     where
         Task: BenchmarkTask,
         I: TaskImplementation<Task>,
@@ -96,15 +107,14 @@ pub trait BenchmarkPlatform {
 
         let start = self.now();
         for _ in 0..repetitions {
-            core::hint::black_box(implementation.execute(core::hint::black_box(&prep_input)));
+            core::hint::black_box(implementation.execute(core::hint::black_box(&prep_input)).ok());
         }
         let elapsed = self.elapsed(start);
 
-        let raw_output = implementation.execute(&prep_input);
-        let std_output = implementation.finalize(raw_output);
-        core::hint::black_box(std_output);
+        let raw_output_res = implementation.execute(&prep_input);
+        let output_res = raw_output_res.and_then(|raw| implementation.finalize(raw));
 
-        elapsed
+        (elapsed, output_res)
     }
 
     /// Runs a benchmark task over a set of inputs, returning the total elapsed time of all runs.
@@ -121,12 +131,14 @@ pub trait BenchmarkPlatform {
     {
         let mut total_elapsed = 0;
         for (i, input) in inputs.iter().enumerate() {
-            let elapsed = self.run(implementation, input, repetitions);
+            let (elapsed, output) = self.run(implementation, input, repetitions);
             self.log_result(
                 I::LIBRARY_IDENTIFIER,
                 Task::IDENTIFIER,
-                ResultId::Input(i),
+                i,
+                repetitions,
                 elapsed,
+                Some(&output),
             );
             total_elapsed += elapsed;
         }
@@ -145,14 +157,7 @@ where
     Task: BenchmarkTask,
     I: TaskImplementation<Task>,
 {
-    let total_elapsed = platform.run_set(implementation, inputs, repetitions);
-    platform.log_result(
-        I::LIBRARY_IDENTIFIER,
-        Task::IDENTIFIER,
-        ResultId::All,
-        total_elapsed,
-    );
-    total_elapsed
+    platform.run_set(implementation, inputs, repetitions)
 }
 
 mrs_benchmark_macros::generate_benchmarks!();

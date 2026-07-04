@@ -1,5 +1,5 @@
 use crate::tasks::RotateVector as RotateVectorTask;
-use crate::{export_tasks, BenchmarkLibrary, RawTaskImplementation};
+use crate::{BenchmarkError, BenchmarkLibrary, RawTaskImplementation, export_tasks};
 use micromath::Quaternion;
 
 pub struct Micromath;
@@ -13,27 +13,21 @@ impl RawTaskImplementation<RotateVectorTask> for RotateVectorLogic {
     type PreparedInput = (Quaternion, [f32; 3]);
     type RawOutput = Quaternion;
 
-    fn prepare(
-        &self,
-        input: &<RotateVectorTask as crate::BenchmarkTask>::Input,
-    ) -> Self::PreparedInput {
+    fn prepare(&self, input: &<RotateVectorTask as crate::BenchmarkTask>::Input) -> Self::PreparedInput {
         // micromath Quaternion::new takes (w, x, y, z)
         let q = Quaternion::new(input.quat[3], input.quat[0], input.quat[1], input.quat[2]);
         (q, input.point)
     }
 
-    fn execute(&self, input: &Self::PreparedInput) -> Self::RawOutput {
+    fn execute(&self, input: &Self::PreparedInput) -> Result<Self::RawOutput, BenchmarkError> {
         let q = &input.0;
         let p = &input.1;
         let q_vec = Quaternion::new(0.0, p[0], p[1], p[2]);
-        *q * q_vec * q.conj()
+        Ok(*q * q_vec * q.conj())
     }
 
-    fn finalize(
-        &self,
-        output: Self::RawOutput,
-    ) -> <RotateVectorTask as crate::BenchmarkTask>::Output {
-        [output.x(), output.y(), output.z()]
+    fn finalize(&self, output: Self::RawOutput) -> Result<<RotateVectorTask as crate::BenchmarkTask>::Output, BenchmarkError> {
+        Ok([output.x(), output.y(), output.z()])
     }
 }
 

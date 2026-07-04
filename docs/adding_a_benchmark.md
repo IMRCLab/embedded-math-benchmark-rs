@@ -62,14 +62,14 @@ impl RawTaskImplementation<crate::tasks::MyNewTask> for MyNewTaskLogic {
         (input.value_a, glam::Vec4::from_array(input.array_b))
     }
 
-    fn execute(&self, input: &Self::PreparedInput) -> Self::RawOutput {
+    fn execute(&self, input: &Self::PreparedInput) -> Result<Self::RawOutput, crate::BenchmarkError> {
         // The actual math operation you want to measure (Timed!)
-        input.1 * input.0
+        Ok(input.1 * input.0)
     }
 
-    fn finalize(&self, output: Self::RawOutput) -> <crate::tasks::MyNewTask as crate::BenchmarkTask>::Output {
+    fn finalize(&self, output: Self::RawOutput) -> Result<<crate::tasks::MyNewTask as crate::BenchmarkTask>::Output, crate::BenchmarkError> {
         // Convert from glam types back to standard Rust types (Not timed!)
-        output.to_array()
+        Ok(output.to_array())
     }
 }
 ```
