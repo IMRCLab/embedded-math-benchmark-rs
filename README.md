@@ -19,7 +19,4 @@ For detailed instructions on building, flashing, and running the benchmarks, see
 
 ## Documentation
 
-- [Math Benchmarking Research (Crazyflie / STM32F405)](docs/research/math_benchmarking_crazyflie.md)
-- [Targets & Platforms](docs/platforms.md): chips, timing sources, and status
-- [Benchmark I/O Format](docs/io-format.md): JSON input and CSV output
-- [Hardware-in-the-Loop CI Setup](docs/hil-setup.md): flashing firmware in CI (planned)
+All guides, research, format specifications, and hardware setup instructions can be found in the **[Benchmark Framework Documentation](docs/benchmark.md)** overview.
