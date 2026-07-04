@@ -14,7 +14,7 @@ proc-macro, so the `no_std` targets never parse JSON at runtime.
   "repetitions": 1000,
   "cases": [
     {
-      "library": "glam",
+      "libraries": ["glam"],
       "test": "MatMul3x3",
       "inputs": [
         {
@@ -25,7 +25,7 @@ proc-macro, so the `no_std` targets never parse JSON at runtime.
     },
 
     {
-      "library": "nalgebra",
+      "libraries": ["nalgebra"],
       "test": "RotateVector",
       "repetitions": 5000,
       "platforms": ["rp2040", "rp2350-arm"],
@@ -35,31 +35,13 @@ proc-macro, so the `no_std` targets never parse JSON at runtime.
 }
 ```
 
-- `library` + `test` pick the implementation. `test` also fixes the input shape, e.g.
-  `RotateVector` needs `point` (`[f32; 3]`) and `quat` (`[f32; 4]`).
+- `libraries` specifies an array of library implementations to test.
+- `test` picks the task identifier, which also fixes the input shape, e.g. `RotateVector` needs `point` (`[f32; 3]`) and `quat` (`[f32; 4]`).
 - `repetitions` sets how many times each input is timed. A case may override it.
 - `platforms` (optional) restricts a case to some chips. Omit it to run everywhere.
 
-A central registry in `mrs-benchmark-core` maps each `(library, test)` to its impl and
-input type. The proc-macro reads that registry together with the JSON, so the names in the
-file and the types in the code stay in sync.
-
-_proc-macro sketch proposol, to be decided:_ At build time it parses `inputs.json`,
-looks each case up in the registry (strings like `"glam"` / `"MatMul3x3"` map to the idents
-`GlamMatMul3x3` / `MatrixMul3x3Input`), and emits plain Rust: the input struct built as
-literals, a rep loop that keeps the min, and the `BENCH ` line. The call site passes the JSON
-path, the platform, and the registry it needs to turn names into idents:
-
-```rust
-run_benchmarks! {
-    inputs: "benchmarks/inputs.json",
-    platform: HostPlatform,
-    registry: {
-        MatMul3x3    => MatrixMul3x3Input { glam: GlamMatMul3x3, nalgebra: NAlgMatMul3x3 },
-        RotateVector => RotateVectorInput { glam: GlamRotateVector, nalgebra: NAlgRotateVector },
-    },
-}
-```
+A central registry in `mrs-benchmark-core` maps each task identifier to its implementations and
+input type. The `mrs_benchmark_macros::generate_benchmarks!()` proc-macro reads this registry along with `inputs.json` at build time to weave the tasks dynamically into the execution runner for the current platform.
 
 ## Output
 
