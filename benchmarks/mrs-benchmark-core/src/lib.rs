@@ -9,7 +9,7 @@ pub mod inputs;
 pub mod suites;
 pub mod tasks;
 
-pub const CSV_HEADER: &'static str = "platform,library,task,input_index,repetitions,duration,unit,result";
+pub const CSV_HEADER: &str = "platform,library,task,input_index,repetitions,duration,unit,result";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum BenchmarkError {
@@ -97,7 +97,12 @@ pub trait BenchmarkPlatform {
     );
 
     /// Runs a benchmark task. Preparation and finalization are excluded from measurement.
-    fn run<Task, I>(&mut self, implementation: &I, input: &Task::Input, repetitions: u32) -> (u64, Result<Task::Output, BenchmarkError>)
+    fn run<Task, I>(
+        &mut self,
+        implementation: &I,
+        input: &Task::Input,
+        repetitions: u32,
+    ) -> (u64, Result<Task::Output, BenchmarkError>)
     where
         Task: BenchmarkTask,
         I: TaskImplementation<Task>,
@@ -107,7 +112,11 @@ pub trait BenchmarkPlatform {
 
         let start = self.now();
         for _ in 0..repetitions {
-            core::hint::black_box(implementation.execute(core::hint::black_box(&prep_input)).ok());
+            core::hint::black_box(
+                implementation
+                    .execute(core::hint::black_box(&prep_input))
+                    .ok(),
+            );
         }
         let elapsed = self.elapsed(start);
 

@@ -33,11 +33,40 @@ impl BenchmarkPlatform for HostPlatform {
     ) {
         if let Some(res) = output {
             match res {
-                Ok(val) => println!("BENCH {},{},{},{},{},{},{},\"{:?}\"", self.id(), library, bench, input_index, repetitions, elapsed, self.unit(), val),
-                Err(e) => println!("BENCH {},{},{},{},{},{},{},\"ERROR: {:?}\"", self.id(), library, bench, input_index, repetitions, elapsed, self.unit(), e),
+                Ok(val) => println!(
+                    "BENCH {},{},{},{},{},{},{},\"{:?}\"",
+                    self.id(),
+                    library,
+                    bench,
+                    input_index,
+                    repetitions,
+                    elapsed,
+                    self.unit(),
+                    val
+                ),
+                Err(e) => println!(
+                    "BENCH {},{},{},{},{},{},{},\"ERROR: {:?}\"",
+                    self.id(),
+                    library,
+                    bench,
+                    input_index,
+                    repetitions,
+                    elapsed,
+                    self.unit(),
+                    e
+                ),
             }
         } else {
-            println!("BENCH {},{},{},{},{},{},{},\"\"", self.id(), library, bench, input_index, repetitions, elapsed, self.unit())
+            println!(
+                "BENCH {},{},{},{},{},{},{},\"\"",
+                self.id(),
+                library,
+                bench,
+                input_index,
+                repetitions,
+                elapsed,
+                self.unit()
+            )
         }
     }
 }

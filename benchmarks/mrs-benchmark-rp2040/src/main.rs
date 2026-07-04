@@ -68,11 +68,40 @@ impl BenchmarkPlatform for Rp2040Platform {
     ) {
         if let Some(res) = output {
             match res {
-                Ok(val) => rprintln!("BENCH {},{},{},{},{},{},{},\"{:?}\"", self.id(), library, bench, input_index, repetitions, elapsed, self.unit(), val),
-                Err(e) => rprintln!("BENCH {},{},{},{},{},{},{},\"ERROR: {:?}\"", self.id(), library, bench, input_index, repetitions, elapsed, self.unit(), e),
+                Ok(val) => rprintln!(
+                    "BENCH {},{},{},{},{},{},{},\"{:?}\"",
+                    self.id(),
+                    library,
+                    bench,
+                    input_index,
+                    repetitions,
+                    elapsed,
+                    self.unit(),
+                    val
+                ),
+                Err(e) => rprintln!(
+                    "BENCH {},{},{},{},{},{},{},\"ERROR: {:?}\"",
+                    self.id(),
+                    library,
+                    bench,
+                    input_index,
+                    repetitions,
+                    elapsed,
+                    self.unit(),
+                    e
+                ),
             }
         } else {
-            rprintln!("BENCH {},{},{},{},{},{},{},\"\"", self.id(), library, bench, input_index, repetitions, elapsed, self.unit())
+            rprintln!(
+                "BENCH {},{},{},{},{},{},{},\"\"",
+                self.id(),
+                library,
+                bench,
+                input_index,
+                repetitions,
+                elapsed,
+                self.unit()
+            )
         }
     }
 }
