@@ -5,6 +5,7 @@ members = [
     "mrs-benchmark-host",
     "mrs-benchmark-stm32",
     "mrs-benchmark-rp2040",
+    "mrs-benchmark-macros",
     "mrs-benchmark-collect",
 ]
 # Bare `cargo build`/`test`/`clippy` at the workspace root act on these native crates

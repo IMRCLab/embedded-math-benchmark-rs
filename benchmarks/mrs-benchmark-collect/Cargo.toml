@@ -5,3 +5,4 @@ edition = "2021"
 
 [dependencies]
 clap = { version = "4", features = ["derive"] }
+mrs-benchmark-core = { path = "../mrs-benchmark-core" }

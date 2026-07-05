@@ -82,7 +82,7 @@ build-stm32:
     - source "$HOME/.cargo/env"
   variables:
     GIT_STRATEGY: none
-    CAPTURE_SECS: "30"
+    CAPTURE_SECS: "120"
     LOG: results.log
   script:
     - set -o pipefail
@@ -95,9 +95,6 @@ build-stm32:
     when: always
     expire_in: 1 year
   allow_failure: true
-  rules:
-    - if: "$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH"
-    - when: manual
 
 run-rp2040:
   extends: .firmware-flash
@@ -151,9 +148,10 @@ collect-results:
     - job: run-rp2040
       artifacts: true
       optional: true
-    - job: run-stm32
-      artifacts: true
-      optional: true
+    # TODO readd as soon as STM is connected
+    # - job: run-stm32
+    #   artifacts: true
+    #   optional: true
   script:
     - cd "$WORKSPACE_DIR" && cargo run --quiet -p mrs-benchmark-collect -- ../*.log -o ../results.csv
   artifacts:
@@ -161,10 +159,6 @@ collect-results:
     paths:
       - results.csv
     expire_in: 1 year
-  rules:
-    # TODO: re-enable when output format has been changed
-    # - if: "$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH"
-    - when: manual
 
 # ----------------------------------------------------------------------------
 # check

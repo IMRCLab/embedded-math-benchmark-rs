@@ -1,36 +1,52 @@
-use crate::inputs::{MatrixMul3x3Input, RotateVectorInput};
-use crate::TaskImplementation;
+use crate::tasks::{MatMul3x3 as MatMul3x3Task, RotateVector as RotateVectorTask};
+use crate::{export_tasks, BenchmarkError, BenchmarkLibrary, RawTaskImplementation};
 
 use nalgebra::Matrix3;
 
-pub struct NAlgMatMul3x3;
+pub struct Nalgebra;
+impl BenchmarkLibrary for Nalgebra {
+    const IDENTIFIER: &'static str = "nalgebra";
+}
 
-impl TaskImplementation<MatrixMul3x3Input, Matrix3<f32>> for NAlgMatMul3x3 {
+pub struct MatMul3x3Logic;
+
+impl RawTaskImplementation<MatMul3x3Task> for MatMul3x3Logic {
     type PreparedInput = (Matrix3<f32>, Matrix3<f32>);
     type RawOutput = Matrix3<f32>;
 
-    fn prepare(&self, input: &MatrixMul3x3Input) -> Self::PreparedInput {
+    fn prepare(
+        &self,
+        input: &<MatMul3x3Task as crate::BenchmarkTask>::Input,
+    ) -> Self::PreparedInput {
         let lhs = Matrix3::from_row_slice(&input.lhs);
         let rhs = Matrix3::from_row_slice(&input.rhs);
         (lhs, rhs)
     }
 
-    fn execute(&self, input: &Self::PreparedInput) -> Self::RawOutput {
-        input.0 * input.1
+    fn execute(&self, input: &Self::PreparedInput) -> Result<Self::RawOutput, BenchmarkError> {
+        Ok(input.0 * input.1)
     }
 
-    fn finalize(&self, output: Self::RawOutput) -> Matrix3<f32> {
-        output
+    fn finalize(
+        &self,
+        output: Self::RawOutput,
+    ) -> Result<<MatMul3x3Task as crate::BenchmarkTask>::Output, BenchmarkError> {
+        let mut arr = [0.0; 9];
+        arr.copy_from_slice(output.as_slice());
+        Ok(arr)
     }
 }
 
-pub struct NAlgRotateVector;
+pub struct RotateVectorLogic;
 
-impl TaskImplementation<RotateVectorInput, [f32; 3]> for NAlgRotateVector {
+impl RawTaskImplementation<RotateVectorTask> for RotateVectorLogic {
     type PreparedInput = (nalgebra::UnitQuaternion<f32>, nalgebra::Vector3<f32>);
     type RawOutput = nalgebra::Vector3<f32>;
 
-    fn prepare(&self, input: &RotateVectorInput) -> Self::PreparedInput {
+    fn prepare(
+        &self,
+        input: &<RotateVectorTask as crate::BenchmarkTask>::Input,
+    ) -> Self::PreparedInput {
         // nalgebra Quaternion::new expects (w, x, y, z)
         let q =
             nalgebra::Quaternion::new(input.quat[3], input.quat[0], input.quat[1], input.quat[2]);
@@ -39,11 +55,20 @@ impl TaskImplementation<RotateVectorInput, [f32; 3]> for NAlgRotateVector {
         (uq, v)
     }
 
-    fn execute(&self, input: &Self::PreparedInput) -> Self::RawOutput {
-        input.0 * input.1
+    fn execute(&self, input: &Self::PreparedInput) -> Result<Self::RawOutput, BenchmarkError> {
+        Ok(input.0 * input.1)
     }
 
-    fn finalize(&self, output: Self::RawOutput) -> [f32; 3] {
-        [output.x, output.y, output.z]
+    fn finalize(
+        &self,
+        output: Self::RawOutput,
+    ) -> Result<<RotateVectorTask as crate::BenchmarkTask>::Output, BenchmarkError> {
+        Ok([output.x, output.y, output.z])
     }
 }
+
+export_tasks!(
+    Nalgebra,
+    MatMul3x3 => MatMul3x3Logic,
+    RotateVector => RotateVectorLogic
+);

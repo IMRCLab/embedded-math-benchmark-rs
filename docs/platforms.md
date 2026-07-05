@@ -5,7 +5,7 @@ Where the benchmarks run, how each is timed, and their current status.
 | Platform            | `probe-rs` chip | Target triple               | Timing source                | Unit   | Status                             |
 | ------------------- | --------------- | --------------------------- | ---------------------------- | ------ | ---------------------------------- |
 | host                | n/a             | native                      | `std::time::Instant`         | ns     | running                            |
-| stm32 (F405)        | `STM32F405RGTx` | `thumbv7em-none-eabihf`     | DWT cycle counter            | cycles | software only, not on hardware yet |
+| stm32 (F405/F411)   | `STM32F405RGTx` | `thumbv7em-none-eabihf`     | DWT cycle counter            | cycles | running                            |
 | rp2040 (Pico 1)     | `RP2040`        | `thumbv6m-none-eabi`        | SysTick 24-bit down-counter¹ | cycles | running                            |
 | rp2350-arm (Pico 2) | `RP235x`        | `thumbv8m.main-none-eabihf` | DWT cycle counter            | cycles | planned                            |
 

@@ -14,15 +14,7 @@ use rtt_target::{rprintln, rtt_init_print};
 // for `rp_pico::hal` (see the notes on the impl below).
 use rp_pico as _;
 
-use mrs_benchmark_core::{
-    inputs::{MatrixMul3x3Input, RotateVectorInput},
-    suites::{
-        glam::{GlamMatMul3x3, GlamRotateVector},
-        micromath::{UMathMatMul3x3, UMathRotateVector},
-        nalgebra::{NAlgMatMul3x3, NAlgRotateVector},
-    },
-    BenchmarkPlatform,
-};
+use mrs_benchmark_core::BenchmarkPlatform;
 
 pub struct Rp2040Platform {
     // Owned so the counter stays configured for the lifetime of the platform.
@@ -42,6 +34,10 @@ impl Rp2040Platform {
 impl BenchmarkPlatform for Rp2040Platform {
     type Instant = u32;
 
+    fn id(&self) -> &'static str {
+        "rp2040"
+    }
+
     fn setup(&mut self) {
         rprintln!("[Platform] RP2040 SysTick cycle counter enabled (24-bit, core clock).");
     }
@@ -60,6 +56,54 @@ impl BenchmarkPlatform for Rp2040Platform {
     fn unit(&self) -> &'static str {
         "cycles"
     }
+
+    fn log_result<O: core::fmt::Debug>(
+        &self,
+        library: &'static str,
+        bench: &'static str,
+        input_index: usize,
+        repetitions: u32,
+        elapsed: u64,
+        output: Option<&Result<O, mrs_benchmark_core::BenchmarkError>>,
+    ) {
+        if let Some(res) = output {
+            match res {
+                Ok(val) => rprintln!(
+                    "BENCH {},{},{},{},{},{},{},\"{:?}\"",
+                    self.id(),
+                    library,
+                    bench,
+                    input_index,
+                    repetitions,
+                    elapsed,
+                    self.unit(),
+                    val
+                ),
+                Err(e) => rprintln!(
+                    "BENCH {},{},{},{},{},{},{},\"ERROR: {:?}\"",
+                    self.id(),
+                    library,
+                    bench,
+                    input_index,
+                    repetitions,
+                    elapsed,
+                    self.unit(),
+                    e
+                ),
+            }
+        } else {
+            rprintln!(
+                "BENCH {},{},{},{},{},{},{},\"\"",
+                self.id(),
+                library,
+                bench,
+                input_index,
+                repetitions,
+                elapsed,
+                self.unit()
+            )
+        }
+    }
 }
 
 #[entry]
@@ -75,76 +119,8 @@ fn main() -> ! {
     let mut platform = Rp2040Platform::new(cp.SYST);
     platform.setup();
 
-    let m1 = [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0];
-    let m2 = [9.0, 8.0, 7.0, 6.0, 5.0, 4.0, 3.0, 2.0, 1.0];
-
-    let inputs = [
-        MatrixMul3x3Input { lhs: m1, rhs: m2 },
-        MatrixMul3x3Input { lhs: m2, rhs: m1 },
-    ];
-
-    let total_nalg = platform.run_set(&NAlgMatMul3x3, &inputs);
-    rprintln!(
-        "RP2040 Benchmark Set: NAlgMatMul3x3 took {} {} total",
-        total_nalg,
-        platform.unit()
-    );
-
-    let total_glam = platform.run_set(&GlamMatMul3x3, &inputs);
-    rprintln!(
-        "RP2040 Benchmark Set: GlamMatMul3x3 took {} {} total",
-        total_glam,
-        platform.unit()
-    );
-
-    let total_umath = platform.run_set(&UMathMatMul3x3, &inputs);
-    rprintln!(
-        "RP2040 Benchmark Set: UMathMatMul3x3 took {} {} total",
-        total_umath,
-        platform.unit()
-    );
-
-    // Quaternion Rotation Benchmarks
-    let rot_inputs = [
-        RotateVectorInput {
-            point: [1.0, 2.0, 3.0],
-            // 90 degrees rotation around Z axis: sin(45) = cos(45) = 1/sqrt(2)
-            // [x, y, z, w]
-            quat: [
-                0.0,
-                0.0,
-                core::f32::consts::FRAC_1_SQRT_2,
-                core::f32::consts::FRAC_1_SQRT_2,
-            ],
-        },
-        RotateVectorInput {
-            point: [-1.5, 3.2, 0.0],
-            // 45 degrees rotation around X axis: sin(22.5) = 0.3826834, cos(22.5) = 0.9238795
-            // [x, y, z, w]
-            quat: [0.3826834, 0.0, 0.0, 0.9238795],
-        },
-    ];
-
-    let rot_nalg = platform.run_set(&NAlgRotateVector, &rot_inputs);
-    rprintln!(
-        "RP2040 Benchmark Set: NAlgRotateVector took {} {} total",
-        rot_nalg,
-        platform.unit()
-    );
-
-    let rot_glam = platform.run_set(&GlamRotateVector, &rot_inputs);
-    rprintln!(
-        "RP2040 Benchmark Set: GlamRotateVector took {} {} total",
-        rot_glam,
-        platform.unit()
-    );
-
-    let rot_umath = platform.run_set(&UMathRotateVector, &rot_inputs);
-    rprintln!(
-        "RP2040 Benchmark Set: UMathRotateVector took {} {} total",
-        rot_umath,
-        platform.unit()
-    );
+    rprintln!("INFO {}", mrs_benchmark_core::CSV_HEADER);
+    mrs_benchmark_core::run_all_benchmarks(&mut platform);
 
     rprintln!("RP2040 benchmarks finished.");
 
