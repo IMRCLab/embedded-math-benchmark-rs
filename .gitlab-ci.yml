@@ -95,9 +95,6 @@ build-stm32:
     when: always
     expire_in: 1 year
   allow_failure: true
-  rules:
-    - if: "$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH"
-    - when: manual
 
 run-rp2040:
   extends: .firmware-flash
@@ -161,10 +158,6 @@ collect-results:
     paths:
       - results.csv
     expire_in: 1 year
-  rules:
-    # TODO: re-enable when output format has been changed
-    # - if: "$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH"
-    - when: manual
 
 # ----------------------------------------------------------------------------
 # check
