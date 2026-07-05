@@ -6,7 +6,9 @@
 use std::fmt;
 use std::io::{BufRead, Write};
 
-/// Lines carrying a result row start with this prefix (note the trailing space).
+/// Marker that tags a result row in the logs (note the trailing space). It need
+/// not start the line — a log source may prefix lines with a timestamp — so
+/// `collect` searches for it anywhere in the line.
 pub const BENCH_PREFIX: &str = "BENCH ";
 
 /// CSV header prepended to the output. This is the only place the columns are
@@ -38,13 +40,20 @@ impl From<std::io::Error> for CollectError {
     }
 }
 
-/// Read the `BENCH ` rows from each source, strip the prefix, and return them
-/// sorted. Non-`BENCH ` lines are ignored. Errors if no rows are found at all.
+/// Read the `BENCH ` rows from each source and return them sorted.
+///
+/// The `BENCH ` marker is matched anywhere in a line, not only at the start:
+/// probe-rs / RTT may prefix each line with a host timestamp or log level. Lines
+/// without the marker are ignored. Errors if no rows are found at all.
 pub fn collect(sources: Vec<Box<dyn BufRead>>) -> Result<Vec<String>, CollectError> {
     let mut rows = Vec::new();
     for reader in sources {
         for line in reader.lines() {
-            if let Some(row) = line?.strip_prefix(BENCH_PREFIX) {
+            let line = line?;
+            // Keep whatever follows the marker, trimming any trailing CR left by
+            // CRLF-terminated logs.
+            if let Some(pos) = line.find(BENCH_PREFIX) {
+                let row = line[pos + BENCH_PREFIX.len()..].trim_end();
                 rows.push(row.to_string());
             }
         }
@@ -84,6 +93,13 @@ mod tests {
         ])
         .unwrap();
         assert_eq!(rows, vec!["a,1".to_string(), "b,2".to_string()]);
+    }
+
+    #[test]
+    fn finds_bench_marker_after_a_log_prefix_and_trims_cr() {
+        // probe-rs / RTT can prefix each line with a timestamp; rows may be CRLF-terminated.
+        let rows = collect(vec![src("2026-07-03T12:00:00Z INFO rtt: BENCH a,1\r\n")]).unwrap();
+        assert_eq!(rows, vec!["a,1".to_string()]);
     }
 
     #[test]
