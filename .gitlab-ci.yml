@@ -82,7 +82,7 @@ build-stm32:
     - source "$HOME/.cargo/env"
   variables:
     GIT_STRATEGY: none
-    CAPTURE_SECS: "30"
+    CAPTURE_SECS: "120"
     LOG: results.log
   script:
     - set -o pipefail
