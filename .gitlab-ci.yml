@@ -148,9 +148,10 @@ collect-results:
     - job: run-rp2040
       artifacts: true
       optional: true
-    - job: run-stm32
-      artifacts: true
-      optional: true
+    # TODO readd as soon as STM is connected
+    # - job: run-stm32
+    #   artifacts: true
+    #   optional: true
   script:
     - cd "$WORKSPACE_DIR" && cargo run --quiet -p mrs-benchmark-collect -- ../*.log -o ../results.csv
   artifacts:
