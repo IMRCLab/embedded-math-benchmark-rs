@@ -1,0 +1,40 @@
+/* @theme project */
+
+@import 'default';
+
+section {
+  font-size: 30px;
+  padding: 60px 70px;
+}
+
+section.lead {
+  justify-content: center;
+  text-align: left;
+}
+
+section.lead h1 {
+  font-size: 56px;
+  line-height: 1.1;
+}
+
+h1,
+h2 {
+  color: #b7410e;
+}
+
+strong {
+  color: #b7410e;
+}
+
+code {
+  font-size: 0.85em;
+}
+
+ul {
+  line-height: 1.5;
+}
+
+section::after {
+  color: #999;
+  font-size: 18px;
+}
