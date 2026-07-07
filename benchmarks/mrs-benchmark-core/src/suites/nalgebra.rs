@@ -1,4 +1,7 @@
-use crate::tasks::{MatMul3x3 as MatMul3x3Task, RotateVector as RotateVectorTask};
+use crate::tasks::{
+    MatInverse3x3 as MatInverse3x3Task, MatMul3x3 as MatMul3x3Task,
+    RotateVector as RotateVectorTask,
+};
 use crate::{export_tasks, BenchmarkError, BenchmarkLibrary, RawTaskImplementation};
 
 use nalgebra::Matrix3;
@@ -67,8 +70,38 @@ impl RawTaskImplementation<RotateVectorTask> for RotateVectorLogic {
     }
 }
 
+pub struct MatInverse3x3Logic;
+
+impl RawTaskImplementation<MatInverse3x3Task> for MatInverse3x3Logic {
+    type PreparedInput = Matrix3<f32>;
+    type RawOutput = Matrix3<f32>;
+
+    fn prepare(
+        &self,
+        input: &<MatInverse3x3Task as crate::BenchmarkTask>::Input,
+    ) -> Self::PreparedInput {
+        Matrix3::from_row_slice(&input.matrix)
+    }
+
+    fn execute(&self, input: &Self::PreparedInput) -> Result<Self::RawOutput, BenchmarkError> {
+        input
+            .try_inverse()
+            .ok_or(BenchmarkError::MathError("Matrix not invertible"))
+    }
+
+    fn finalize(
+        &self,
+        output: Self::RawOutput,
+    ) -> Result<<MatInverse3x3Task as crate::BenchmarkTask>::Output, BenchmarkError> {
+        let mut arr = [0.0; 9];
+        arr.copy_from_slice(output.as_slice());
+        Ok(arr)
+    }
+}
+
 export_tasks!(
     Nalgebra,
     MatMul3x3 => MatMul3x3Logic,
-    RotateVector => RotateVectorLogic
+    RotateVector => RotateVectorLogic,
+    MatInverse3x3 => MatInverse3x3Logic,
 );

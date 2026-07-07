@@ -1,4 +1,7 @@
-use crate::tasks::{MatMul3x3 as MatMul3x3Task, RotateVector as RotateVectorTask};
+use crate::tasks::{
+    MatInverse3x3 as MatInverse3x3Task, MatMul3x3 as MatMul3x3Task,
+    RotateVector as RotateVectorTask,
+};
 use crate::{export_tasks, BenchmarkError, BenchmarkLibrary, RawTaskImplementation};
 
 use glam::{Mat3, Quat, Vec3};
@@ -62,8 +65,40 @@ impl RawTaskImplementation<RotateVectorTask> for RotateVectorLogic {
     }
 }
 
+pub struct MatInverse3x3Logic;
+
+impl RawTaskImplementation<MatInverse3x3Task> for MatInverse3x3Logic {
+    type PreparedInput = Mat3;
+    type RawOutput = Mat3;
+
+    fn prepare(
+        &self,
+        input: &<MatInverse3x3Task as crate::BenchmarkTask>::Input,
+    ) -> Self::PreparedInput {
+        Mat3::from_cols_array(&input.matrix).transpose()
+    }
+
+    fn execute(&self, input: &Self::PreparedInput) -> Result<Self::RawOutput, BenchmarkError> {
+        let det = input.determinant();
+        let abs_det = if det < 0.0 { -det } else { det };
+        if abs_det < 1e-6 {
+            Err(BenchmarkError::MathError("Matrix not invertible"))
+        } else {
+            Ok(input.inverse())
+        }
+    }
+
+    fn finalize(
+        &self,
+        output: Self::RawOutput,
+    ) -> Result<<MatInverse3x3Task as crate::BenchmarkTask>::Output, BenchmarkError> {
+        Ok(output.to_cols_array())
+    }
+}
+
 export_tasks!(
     Glam,
     MatMul3x3 => MatMul3x3Logic,
-    RotateVector => RotateVectorLogic
+    RotateVector => RotateVectorLogic,
+    MatInverse3x3 => MatInverse3x3Logic,
 );
