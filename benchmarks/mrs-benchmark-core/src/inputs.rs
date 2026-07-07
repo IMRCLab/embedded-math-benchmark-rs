@@ -38,3 +38,18 @@ pub struct SinCosInput {
 pub struct SqrtInput {
     pub value: f32,
 }
+
+#[benchmark_input("QuatMul")]
+#[derive(Clone, Debug)]
+pub struct QuatMulInput {
+    pub lhs: [f32; 4],
+    pub rhs: [f32; 4],
+}
+
+#[benchmark_input("QuatSlerp")]
+#[derive(Clone, Debug)]
+pub struct QuatSlerpInput {
+    pub from: [f32; 4],
+    pub to: [f32; 4],
+    pub t: f32,
+}

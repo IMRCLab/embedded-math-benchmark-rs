@@ -1,6 +1,6 @@
 use crate::tasks::{
-    MatInverse3x3 as MatInverse3x3Task, MatMul3x3 as MatMul3x3Task,
-    RotateVector as RotateVectorTask,
+    MatInverse3x3 as MatInverse3x3Task, MatMul3x3 as MatMul3x3Task, QuatMul as QuatMulTask,
+    QuatSlerp as QuatSlerpTask, RotateVector as RotateVectorTask,
 };
 use crate::{export_tasks, BenchmarkError, BenchmarkLibrary, RawTaskImplementation};
 
@@ -99,9 +99,81 @@ impl RawTaskImplementation<MatInverse3x3Task> for MatInverse3x3Logic {
     }
 }
 
+pub struct QuatMulLogic;
+impl RawTaskImplementation<QuatMulTask> for QuatMulLogic {
+    type PreparedInput = (nalgebra::UnitQuaternion<f32>, nalgebra::UnitQuaternion<f32>);
+    type RawOutput = nalgebra::UnitQuaternion<f32>;
+
+    fn prepare(&self, input: &<QuatMulTask as crate::BenchmarkTask>::Input) -> Self::PreparedInput {
+        let q_lhs =
+            nalgebra::Quaternion::new(input.lhs[3], input.lhs[0], input.lhs[1], input.lhs[2]);
+        let uq_lhs = nalgebra::UnitQuaternion::from_quaternion(q_lhs);
+        let q_rhs =
+            nalgebra::Quaternion::new(input.rhs[3], input.rhs[0], input.rhs[1], input.rhs[2]);
+        let uq_rhs = nalgebra::UnitQuaternion::from_quaternion(q_rhs);
+        (uq_lhs, uq_rhs)
+    }
+
+    fn execute(&self, input: &Self::PreparedInput) -> Result<Self::RawOutput, BenchmarkError> {
+        Ok(input.0 * input.1)
+    }
+
+    fn finalize(
+        &self,
+        output: Self::RawOutput,
+    ) -> Result<<QuatMulTask as crate::BenchmarkTask>::Output, BenchmarkError> {
+        Ok([
+            output.coords.x,
+            output.coords.y,
+            output.coords.z,
+            output.coords.w,
+        ])
+    }
+}
+
+pub struct QuatSlerpLogic;
+impl RawTaskImplementation<QuatSlerpTask> for QuatSlerpLogic {
+    type PreparedInput = (
+        nalgebra::UnitQuaternion<f32>,
+        nalgebra::UnitQuaternion<f32>,
+        f32,
+    );
+    type RawOutput = nalgebra::UnitQuaternion<f32>;
+
+    fn prepare(
+        &self,
+        input: &<QuatSlerpTask as crate::BenchmarkTask>::Input,
+    ) -> Self::PreparedInput {
+        let q_from =
+            nalgebra::Quaternion::new(input.from[3], input.from[0], input.from[1], input.from[2]);
+        let uq_from = nalgebra::UnitQuaternion::from_quaternion(q_from);
+        let q_to = nalgebra::Quaternion::new(input.to[3], input.to[0], input.to[1], input.to[2]);
+        let uq_to = nalgebra::UnitQuaternion::from_quaternion(q_to);
+        (uq_from, uq_to, input.t)
+    }
+
+    fn execute(&self, input: &Self::PreparedInput) -> Result<Self::RawOutput, BenchmarkError> {
+        Ok(input.0.slerp(&input.1, input.2))
+    }
+
+    fn finalize(
+        &self,
+        output: Self::RawOutput,
+    ) -> Result<<QuatSlerpTask as crate::BenchmarkTask>::Output, BenchmarkError> {
+        Ok([
+            output.coords.x,
+            output.coords.y,
+            output.coords.z,
+            output.coords.w,
+        ])
+    }
+}
+
 export_tasks!(
     Nalgebra,
     MatMul3x3 => MatMul3x3Logic,
     RotateVector => RotateVectorLogic,
     MatInverse3x3 => MatInverse3x3Logic,
+    QuatMul => QuatMulLogic,
+    QuatSlerp => QuatSlerpLogic,
 );

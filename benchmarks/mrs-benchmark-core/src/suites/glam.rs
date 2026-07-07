@@ -1,6 +1,6 @@
 use crate::tasks::{
-    MatInverse3x3 as MatInverse3x3Task, MatMul3x3 as MatMul3x3Task,
-    RotateVector as RotateVectorTask,
+    MatInverse3x3 as MatInverse3x3Task, MatMul3x3 as MatMul3x3Task, QuatMul as QuatMulTask,
+    QuatSlerp as QuatSlerpTask, RotateVector as RotateVectorTask,
 };
 use crate::{export_tasks, BenchmarkError, BenchmarkLibrary, RawTaskImplementation};
 
@@ -96,9 +96,60 @@ impl RawTaskImplementation<MatInverse3x3Task> for MatInverse3x3Logic {
     }
 }
 
+pub struct QuatMulLogic;
+impl RawTaskImplementation<QuatMulTask> for QuatMulLogic {
+    type PreparedInput = (Quat, Quat);
+    type RawOutput = Quat;
+
+    fn prepare(&self, input: &<QuatMulTask as crate::BenchmarkTask>::Input) -> Self::PreparedInput {
+        let lhs = Quat::from_xyzw(input.lhs[0], input.lhs[1], input.lhs[2], input.lhs[3]);
+        let rhs = Quat::from_xyzw(input.rhs[0], input.rhs[1], input.rhs[2], input.rhs[3]);
+        (lhs, rhs)
+    }
+
+    fn execute(&self, input: &Self::PreparedInput) -> Result<Self::RawOutput, BenchmarkError> {
+        Ok(input.0 * input.1)
+    }
+
+    fn finalize(
+        &self,
+        output: Self::RawOutput,
+    ) -> Result<<QuatMulTask as crate::BenchmarkTask>::Output, BenchmarkError> {
+        Ok(output.to_array())
+    }
+}
+
+pub struct QuatSlerpLogic;
+impl RawTaskImplementation<QuatSlerpTask> for QuatSlerpLogic {
+    type PreparedInput = (Quat, Quat, f32);
+    type RawOutput = Quat;
+
+    fn prepare(
+        &self,
+        input: &<QuatSlerpTask as crate::BenchmarkTask>::Input,
+    ) -> Self::PreparedInput {
+        let from = Quat::from_xyzw(input.from[0], input.from[1], input.from[2], input.from[3]);
+        let to = Quat::from_xyzw(input.to[0], input.to[1], input.to[2], input.to[3]);
+        (from, to, input.t)
+    }
+
+    fn execute(&self, input: &Self::PreparedInput) -> Result<Self::RawOutput, BenchmarkError> {
+        Ok(input.0.slerp(input.1, input.2))
+    }
+
+    fn finalize(
+        &self,
+        output: Self::RawOutput,
+    ) -> Result<<QuatSlerpTask as crate::BenchmarkTask>::Output, BenchmarkError> {
+        Ok(output.to_array())
+    }
+}
+
 export_tasks!(
     Glam,
     MatMul3x3 => MatMul3x3Logic,
     RotateVector => RotateVectorLogic,
     MatInverse3x3 => MatInverse3x3Logic,
+    QuatMul => QuatMulLogic,
+    QuatSlerp => QuatSlerpLogic,
 );

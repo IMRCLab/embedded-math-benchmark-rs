@@ -1,5 +1,6 @@
 use crate::tasks::{
-    Atan2 as Atan2Task, RotateVector as RotateVectorTask, SinCos as SinCosTask, Sqrt as SqrtTask,
+    Atan2 as Atan2Task, QuatMul as QuatMulTask, QuatSlerp as QuatSlerpTask,
+    RotateVector as RotateVectorTask, SinCos as SinCosTask, Sqrt as SqrtTask,
 };
 use crate::{export_tasks, BenchmarkError, BenchmarkLibrary, RawTaskImplementation};
 use micromath::{F32Ext, Quaternion};
@@ -106,10 +107,95 @@ impl RawTaskImplementation<SqrtTask> for SqrtLogic {
     }
 }
 
+pub struct QuatMulLogic;
+impl RawTaskImplementation<QuatMulTask> for QuatMulLogic {
+    type PreparedInput = (Quaternion, Quaternion);
+    type RawOutput = Quaternion;
+
+    fn prepare(&self, input: &<QuatMulTask as crate::BenchmarkTask>::Input) -> Self::PreparedInput {
+        let lhs = Quaternion::new(input.lhs[3], input.lhs[0], input.lhs[1], input.lhs[2]);
+        let rhs = Quaternion::new(input.rhs[3], input.rhs[0], input.rhs[1], input.rhs[2]);
+        (lhs, rhs)
+    }
+
+    fn execute(&self, input: &Self::PreparedInput) -> Result<Self::RawOutput, BenchmarkError> {
+        Ok(input.0 * input.1)
+    }
+
+    fn finalize(
+        &self,
+        output: Self::RawOutput,
+    ) -> Result<<QuatMulTask as crate::BenchmarkTask>::Output, BenchmarkError> {
+        Ok([output.x(), output.y(), output.z(), output.w()])
+    }
+}
+
+pub struct QuatSlerpLogic;
+impl RawTaskImplementation<QuatSlerpTask> for QuatSlerpLogic {
+    type PreparedInput = (Quaternion, Quaternion, f32);
+    type RawOutput = Quaternion;
+
+    fn prepare(
+        &self,
+        input: &<QuatSlerpTask as crate::BenchmarkTask>::Input,
+    ) -> Self::PreparedInput {
+        let from = Quaternion::new(input.from[3], input.from[0], input.from[1], input.from[2]);
+        let to = Quaternion::new(input.to[3], input.to[0], input.to[1], input.to[2]);
+        (from, to, input.t)
+    }
+
+    fn execute(&self, input: &Self::PreparedInput) -> Result<Self::RawOutput, BenchmarkError> {
+        let q1 = input.0;
+        let mut q2 = input.1;
+        let t = input.2;
+
+        let mut dot = q1.x() * q2.x() + q1.y() * q2.y() + q1.z() * q2.z() + q1.w() * q2.w();
+
+        if dot < 0.0 {
+            q2 = Quaternion::new(-q2.w(), -q2.x(), -q2.y(), -q2.z());
+            dot = -dot;
+        }
+
+        const DOT_THRESHOLD: f32 = 0.9995;
+        if dot > DOT_THRESHOLD {
+            let x = q1.x() + t * (q2.x() - q1.x());
+            let y = q1.y() + t * (q2.y() - q1.y());
+            let z = q1.z() + t * (q2.z() - q1.z());
+            let w = q1.w() + t * (q2.w() - q1.w());
+            let len = (x * x + y * y + z * z + w * w).sqrt();
+            return Ok(Quaternion::new(w / len, x / len, y / len, z / len));
+        }
+
+        let theta_0 = dot.acos();
+        let theta = theta_0 * t;
+        let sin_theta = theta.sin();
+        let sin_theta_0 = theta_0.sin();
+
+        let s0 = (theta_0 - theta).sin() / sin_theta_0;
+        let s1 = sin_theta / sin_theta_0;
+
+        let x = s0 * q1.x() + s1 * q2.x();
+        let y = s0 * q1.y() + s1 * q2.y();
+        let z = s0 * q1.z() + s1 * q2.z();
+        let w = s0 * q1.w() + s1 * q2.w();
+
+        Ok(Quaternion::new(w, x, y, z))
+    }
+
+    fn finalize(
+        &self,
+        output: Self::RawOutput,
+    ) -> Result<<QuatSlerpTask as crate::BenchmarkTask>::Output, BenchmarkError> {
+        Ok([output.x(), output.y(), output.z(), output.w()])
+    }
+}
+
 export_tasks!(
     Micromath,
     RotateVector => RotateVectorLogic,
     Atan2 => Atan2Logic,
     SinCos => SinCosLogic,
     Sqrt => SqrtLogic,
+    QuatMul => QuatMulLogic,
+    QuatSlerp => QuatSlerpLogic,
 );
