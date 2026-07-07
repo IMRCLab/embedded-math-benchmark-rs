@@ -1,42 +1,9 @@
-use crate::tasks::{
-    Atan2 as Atan2Task, RotateVector as RotateVectorTask, SinCos as SinCosTask, Sqrt as SqrtTask,
-};
+use crate::tasks::{Atan2 as Atan2Task, SinCos as SinCosTask, Sqrt as SqrtTask};
 use crate::{export_tasks, BenchmarkError, BenchmarkLibrary, RawTaskImplementation};
-use micromath::{F32Ext, Quaternion};
 
-pub struct Micromath;
-impl BenchmarkLibrary for Micromath {
-    const IDENTIFIER: &'static str = "micromath";
-}
-
-pub struct RotateVectorLogic;
-
-impl RawTaskImplementation<RotateVectorTask> for RotateVectorLogic {
-    type PreparedInput = (Quaternion, [f32; 3]);
-    type RawOutput = Quaternion;
-
-    fn prepare(
-        &self,
-        input: &<RotateVectorTask as crate::BenchmarkTask>::Input,
-    ) -> Self::PreparedInput {
-        // micromath Quaternion::new takes (w, x, y, z)
-        let q = Quaternion::new(input.quat[3], input.quat[0], input.quat[1], input.quat[2]);
-        (q, input.point)
-    }
-
-    fn execute(&self, input: &Self::PreparedInput) -> Result<Self::RawOutput, BenchmarkError> {
-        let q = &input.0;
-        let p = &input.1;
-        let q_vec = Quaternion::new(0.0, p[0], p[1], p[2]);
-        Ok(*q * q_vec * q.conj())
-    }
-
-    fn finalize(
-        &self,
-        output: Self::RawOutput,
-    ) -> Result<<RotateVectorTask as crate::BenchmarkTask>::Output, BenchmarkError> {
-        Ok([output.x(), output.y(), output.z()])
-    }
+pub struct Libm;
+impl BenchmarkLibrary for Libm {
+    const IDENTIFIER: &'static str = "libm";
 }
 
 pub struct Atan2Logic;
@@ -49,7 +16,7 @@ impl RawTaskImplementation<Atan2Task> for Atan2Logic {
     }
 
     fn execute(&self, input: &Self::PreparedInput) -> Result<Self::RawOutput, BenchmarkError> {
-        Ok(input.0.atan2(input.1))
+        Ok(libm::atan2f(input.0, input.1))
     }
 
     fn finalize(
@@ -70,7 +37,7 @@ impl RawTaskImplementation<SinCosTask> for SinCosLogic {
     }
 
     fn execute(&self, input: &Self::PreparedInput) -> Result<Self::RawOutput, BenchmarkError> {
-        Ok((input.sin(), input.cos()))
+        Ok(libm::sincosf(*input))
     }
 
     fn finalize(
@@ -94,7 +61,7 @@ impl RawTaskImplementation<SqrtTask> for SqrtLogic {
         if *input < 0.0 {
             Err(BenchmarkError::MathError("Square root of negative number"))
         } else {
-            Ok(input.sqrt())
+            Ok(libm::sqrtf(*input))
         }
     }
 
@@ -107,8 +74,7 @@ impl RawTaskImplementation<SqrtTask> for SqrtLogic {
 }
 
 export_tasks!(
-    Micromath,
-    RotateVector => RotateVectorLogic,
+    Libm,
     Atan2 => Atan2Logic,
     SinCos => SinCosLogic,
     Sqrt => SqrtLogic,

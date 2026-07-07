@@ -411,6 +411,7 @@ name = "mrs-benchmark-core"
 version = "0.1.0"
 dependencies = [
  "glam",
+ "libm",
  "micromath",
  "mrs-benchmark-macros",
  "nalgebra",

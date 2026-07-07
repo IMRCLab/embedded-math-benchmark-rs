@@ -48,6 +48,57 @@
           "matrix": [1.0, 2.0, 3.0, 2.0, 4.0, 6.0, 3.0, 6.0, 9.0]
         }
       ]
+    },
+    {
+      "repetitions": 10000,
+      "libraries": ["libm", "micromath"],
+      "test": "Atan2",
+      "inputs": [
+        {
+          "y": 1.0,
+          "x": 1.0
+        },
+        {
+          "y": -1.0,
+          "x": 0.0
+        },
+        {
+          "y": 0.0,
+          "x": -1.0
+        }
+      ]
+    },
+    {
+      "repetitions": 10000,
+      "libraries": ["libm", "micromath"],
+      "test": "SinCos",
+      "inputs": [
+        {
+          "theta": 0.0
+        },
+        {
+          "theta": 1.5707963
+        },
+        {
+          "theta": 3.1415927
+        }
+      ]
+    },
+    {
+      "repetitions": 10000,
+      "libraries": ["libm", "micromath"],
+      "test": "Sqrt",
+      "inputs": [
+        {
+          "value": 4.0
+        },
+        {
+          "value": 2.0
+        },
+        {
+          "value": 0.0
+        }
+      ]
     }
   ]
 }

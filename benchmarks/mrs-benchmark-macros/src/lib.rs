@@ -110,6 +110,7 @@ pub fn benchmark_input(args: TokenStream, input: TokenStream) -> TokenStream {
     let expanded = quote! {
         #ast
 
+        #[allow(clippy::approx_constant)]
         pub static #static_ident: &[#struct_ident; #num_instances] = &[
             #(#generated_instances),*
         ];

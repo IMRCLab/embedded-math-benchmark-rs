@@ -19,3 +19,22 @@ pub struct RotateVectorInput {
 pub struct MatInverse3x3Input {
     pub matrix: [f32; 9],
 }
+
+#[benchmark_input("Atan2")]
+#[derive(Clone, Debug)]
+pub struct Atan2Input {
+    pub y: f32,
+    pub x: f32,
+}
+
+#[benchmark_input("SinCos")]
+#[derive(Clone, Debug)]
+pub struct SinCosInput {
+    pub theta: f32,
+}
+
+#[benchmark_input("Sqrt")]
+#[derive(Clone, Debug)]
+pub struct SqrtInput {
+    pub value: f32,
+}
