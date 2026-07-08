@@ -5,13 +5,14 @@ members = [
     "mrs-benchmark-host",
     "mrs-benchmark-stm32",
     "mrs-benchmark-rp2040",
+    "mrs-benchmark-rp2350",
     "mrs-benchmark-macros",
     "mrs-benchmark-collect",
 ]
 # Bare `cargo build`/`test`/`clippy` at the workspace root act on these native crates
-# only. The no_std firmware crates (mrs-benchmark-stm32, mrs-benchmark-rp2040) are built
-# explicitly by `cd`-ing into each crate, where its crate-local .cargo/config.toml
-# selects the right thumb target.
+# only. The no_std firmware crates (mrs-benchmark-stm32, mrs-benchmark-rp2040,
+# mrs-benchmark-rp2350) are built explicitly by `cd`-ing into each crate, where its
+# crate-local .cargo/config.toml selects the right thumb target.
 default-members = [
     "mrs-benchmark-core",
     "mrs-benchmark-host",

@@ -1,7 +1,7 @@
 # CI for the mrs-microbenchmarks workspace (benchmarks/).
 # Host benchmarks run natively on a shared runner. The firmware crates
-# (rp2040/thumbv6m, stm32/thumbv7em) are built on a shared runner and
-# benchmarked on real hardware (HIL) over RTT via probe-rs.
+# (rp2040/thumbv6m, rp2350/thumbv8m, stm32/thumbv7em) are built on a shared runner
+# and benchmarked on real hardware (HIL) over RTT via probe-rs.
 
 stages:
   - build
@@ -54,6 +54,12 @@ build-rp2040:
     BIN: mrs-benchmark-rp2040
     TARGET: thumbv6m-none-eabi
 
+build-rp2350:
+  extends: .cargo-build
+  variables:
+    BIN: mrs-benchmark-rp2350
+    TARGET: thumbv8m.main-none-eabihf
+
 build-host:
   extends: .cargo-build
   variables:
@@ -105,6 +111,15 @@ run-rp2040:
     ELF: mrs-benchmark-rp2040
     LOG: rp2040.log
 
+run-rp2350:
+  extends: .firmware-flash
+  needs:
+    - build-rp2350
+  variables:
+    CHIP: RP235x
+    ELF: mrs-benchmark-rp2350
+    LOG: rp2350.log
+
 run-stm32:
   extends: .firmware-flash
   needs:
@@ -146,6 +161,9 @@ collect-results:
     - job: run-host
       artifacts: true
     - job: run-rp2040
+      artifacts: true
+      optional: true
+    - job: run-rp2350
       artifacts: true
       optional: true
     # TODO readd as soon as STM is connected
@@ -199,3 +217,13 @@ clippy-rp2040:
     TARGET: thumbv6m-none-eabi
   script:
     - cd $WORKSPACE_DIR/mrs-benchmark-rp2040 && cargo clippy -- -D warnings
+
+# Firmware crate
+clippy-rp2350:
+  stage: check
+  needs: []
+  allow_failure: true
+  variables:
+    TARGET: thumbv8m.main-none-eabihf
+  script:
+    - cd $WORKSPACE_DIR/mrs-benchmark-rp2350 && cargo clippy -- -D warnings

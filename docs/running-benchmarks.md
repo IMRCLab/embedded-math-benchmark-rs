@@ -34,9 +34,16 @@ cargo build --release
 probe-rs run --chip RP2040 ../target/thumbv6m-none-eabi/release/mrs-benchmark-rp2040
 ```
 
-**Raspberry Pi Pico 2 (RP2350)** follows the same pattern once its crate exists: build,
-then `probe-rs run --chip RP235x`. The Pico is flashed over SWD with a separate probe, see
-[HIL Setup](hil-setup.md) for probe and udev details.
+**Raspberry Pi Pico 2 (RP2350):**
+
+```bash
+cd benchmarks/mrs-benchmark-rp2350
+cargo build --release
+probe-rs run --chip RP235x ../target/thumbv8m.main-none-eabihf/release/mrs-benchmark-rp2350
+```
+
+The Pico is flashed over SWD with a separate probe, see [HIL Setup](hil-setup.md) for probe
+and udev details.
 
 ## Shortcuts with cargo-make
 
@@ -45,8 +52,7 @@ then `probe-rs run --chip RP235x`. The Pico is flashed over SWD with a separate 
 - **Host:** `cargo make bench-host`
 - **STM32:** `cargo make bench-stm`
 - **Pico 1 (RP2040):** `cargo make bench-pico`
-
-The Pico 2 shortcut lands alongside its crate.
+- **Pico 2 (RP2350):** `cargo make bench-pico2`
 
 ## Collecting results into a CSV
 

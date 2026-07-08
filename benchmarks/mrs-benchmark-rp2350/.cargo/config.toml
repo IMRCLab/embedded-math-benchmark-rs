@@ -1,0 +1,16 @@
+# Scoped to this crate: Cargo only reads it when the working directory is inside
+# mrs-benchmark-rp2350, so the host build (run from benchmarks/) never sees it.
+[build]
+target = "thumbv8m.main-none-eabihf"
+
+# Hard-float ABI for the RP2350's Cortex-M33 (FPU on; float args go in FPU
+# registers). cortex-m-rt enables the FPU in its reset handler for -eabihf targets.
+# `--nmagic` drops page alignment so the boot blocks stay within the first flash
+# pages where the ROM looks (rp-hal recommendation). Unlike the rp-hal example we
+# omit `-Tdefmt.x`: this crate logs over rtt-target, not defmt.
+[target.thumbv8m.main-none-eabihf]
+rustflags = [
+    "-C", "link-arg=--nmagic",
+    "-C", "link-arg=-Tlink.x",
+    "-C", "target-cpu=cortex-m33",
+]

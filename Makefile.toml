@@ -21,6 +21,14 @@ script = [
     "probe-rs run --chip RP2040 benchmarks/target/thumbv6m-none-eabi/release/mrs-benchmark-rp2040"
 ]
 
+[tasks.bench-pico2]
+description = "Build and run Raspberry Pi Pico 2 (RP2350) benchmarks over SWD"
+category = "Benchmark"
+script = [
+    "(cd benchmarks/mrs-benchmark-rp2350 && cargo build --release)",
+    "probe-rs run --chip RP235x benchmarks/target/thumbv8m.main-none-eabihf/release/mrs-benchmark-rp2350"
+]
+
 [tasks.collect]
 description = "Merge benchmark BENCH lines into a single headed CSV (files or stdin)"
 category = "Benchmark"

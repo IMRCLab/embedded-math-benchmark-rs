@@ -56,7 +56,7 @@ You never touch the platform `main.rs` files — the macro weaves tasks in. Full
 - `mrs-benchmark-core` — `no_std`. Traits, task/input registry, per-library suites. The heart.
 - `mrs-benchmark-macros` — proc-macros reading `inputs.json` at build time.
 - `mrs-benchmark-host` — native runner, times in `ns`.
-- `mrs-benchmark-stm32` / `mrs-benchmark-rp2040` — `no_std` firmware, time in `cycles`, RTT out. (`rp2350` planned.)
+- `mrs-benchmark-stm32` / `mrs-benchmark-rp2040` / `mrs-benchmark-rp2350` — `no_std` firmware, time in `cycles`, RTT out. (rp2350 = Pico 2, Cortex-M33: DWT timing like stm32, but boots via an `IMAGE_DEF` block, not boot2.)
 - `mrs-benchmark-collect` — greps `BENCH ` rows from logs → one merged `results.csv`.
 
 ## Commands
@@ -105,7 +105,7 @@ CLI end-to-end test in `tests/cli.rs`) — core/host/macros have none yet.
 
 ## State (2026-07, moves fast)
 
-Host + RP2040 + STM32 run and benchmark on hardware in GitLab CI (RP2040 on HIL), all with
-Rust math libraries. RP2350 support and C implementations (still milestone 1) are next up.
+Host + RP2040 + RP2350 + STM32 run and benchmark on hardware in GitLab CI (RP2040/RP2350 on
+HIL), all with Rust math libraries. C implementations (still milestone 1) are next up.
 QP solvers and scheduling (FreeRTOS/Embassy) are later milestones, not current work.
 Check [docs/platforms.md](docs/platforms.md) for live status before assuming a target works.
