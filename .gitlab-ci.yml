@@ -46,6 +46,10 @@ default:
     name: "$BIN-$CI_COMMIT_SHORT_SHA"
     paths:
       - $BIN
+      # Ship the probe selector to the HIL run jobs. They use GIT_STRATEGY: none and
+      # so have no checkout of their own; they receive the script via `needs:
+      # artifacts`. Harmless in the host artifact, which never runs it.
+      - $WORKSPACE_DIR/ci/select-probe.sh
     expire_in: 1 year
 
 build-rp2040:
@@ -92,7 +96,10 @@ build-stm32:
     LOG: results.log
   script:
     - set -o pipefail
-    - timeout ${CAPTURE_SECS}s probe-rs run --chip "$CHIP" "$ELF" | tee "$LOG"
+    # Several probes share one VID:PID on the HIL host, so probe-rs would refuse
+    # with "multiple probes found". Pick the probe attached to this job's chip.
+    - PROBE=$(bash "$WORKSPACE_DIR/ci/select-probe.sh" "$CHIP")
+    - timeout ${CAPTURE_SECS}s probe-rs run --chip "$CHIP" --probe "$PROBE" "$ELF" | tee "$LOG"
   artifacts:
     name: "bench-$CI_COMMIT_SHORT_SHA"
     paths:

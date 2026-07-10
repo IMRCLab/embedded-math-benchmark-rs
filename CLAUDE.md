@@ -24,6 +24,16 @@ relevant `docs/*.md` file and/or this file as part of that same task, not as an 
 If unsure whether something belongs in docs (durable, project-wide) vs this file
 (orientation) vs memory (cross-project, about you/the user), default to updating docs.
 
+**Docs style — write for skimming.** Keep docs terse and scannable: bullets and tables over
+prose, one line per decision, no padded "why X over Y" justification. Always run the
+`humanizer` skill over doc prose before finishing (strip em-dash overuse, rule-of-three,
+restatement, AI vocabulary). Long draft prose is scaffolding, not the deliverable.
+
+**Use auto-memory proactively.** Maintain the project auto-memory without being asked — when
+you learn a durable fact about how the user works or a cross-session convention, save/update
+a memory in that same task. Reserve memory for `user`/`feedback`/`reference`; project,
+hardware, and status facts go in `docs/`, not memory.
+
 - [docs/benchmark.md](docs/benchmark.md) — documentation index, start here
 - [docs/adding_a_benchmark.md](docs/adding_a_benchmark.md) — full recipe for a new task
 - [docs/io-format.md](docs/io-format.md) / [docs/inputs_configuration.md](docs/inputs_configuration.md) — `inputs.json` in, `BENCH ` CSV out
