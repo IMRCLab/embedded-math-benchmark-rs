@@ -51,7 +51,7 @@ sudo cp /tmp/dp.uf2 /mnt/rp2/
 
 Probes share the Debug Probe VID:PID (`2e8a:000c`), so `probe-rs run --chip <chip>` fails
 with "multiple probes found". Each run job calls
-[`select-probe.sh`](../benchmarks/ci/select-probe.sh) `<chip>` first, which checks each
+[`select-probe.sh`](../.gitlab/ci/select-probe.sh) `<chip>` first, which checks each
 probe's `probe-rs info` output for the chip name and returns the `VID:PID:Serial` of the
 one that matches. A wrong pick just fails at the flashing step that follows.
 

@@ -1,0 +1,69 @@
+# Flashes a firmware ELF on the HIL host and captures RTT output. Per-target jobs
+# set CHIP/ELF and `needs:` their build job.
+.firmware-flash:
+  stage: run
+  tags:
+    - hil
+  before_script:
+    - source "$HOME/.cargo/env"
+  variables:
+    GIT_STRATEGY: none
+    CAPTURE_SECS: "240"
+    LOG: results.log
+  script:
+    - set -o pipefail
+    # Probes share a VID:PID on the HIL host, so probe-rs can't pick one on its own.
+    - PROBE=$(bash "$SELECT_PROBE_SCRIPT" "$CHIP")
+    - timeout ${CAPTURE_SECS}s probe-rs run --chip "$CHIP" --probe "$PROBE" "$ELF" | tee "$LOG"
+  artifacts:
+    name: "bench-$CI_COMMIT_SHORT_SHA"
+    paths:
+      - $LOG
+    when: always
+    expire_in: 1 year
+  allow_failure: true
+
+run-rp2040:
+  extends: .firmware-flash
+  needs:
+    - build-rp2040
+  variables:
+    CHIP: RP2040
+    ELF: mrs-benchmark-rp2040
+    LOG: rp2040.log
+
+run-rp2350:
+  extends: .firmware-flash
+  needs:
+    - build-rp2350
+  variables:
+    CHIP: RP235x
+    ELF: mrs-benchmark-rp2350
+    LOG: rp2350.log
+
+run-stm32:
+  extends: .firmware-flash
+  needs:
+    - build-stm32
+  variables:
+    CHIP: STM32F405RGTx
+    ELF: mrs-benchmark-stm32
+    LOG: stm32.log
+  # TODO change this back when STM connected
+  rules:
+    - when: manual
+
+run-host:
+  stage: run
+  needs:
+    - build-host
+  before_script: []
+  variables:
+    GIT_STRATEGY: none
+  script:
+    - ./mrs-benchmark-host | tee host.log
+  artifacts:
+    name: "host-bench-$CI_COMMIT_SHORT_SHA"
+    paths:
+      - host.log
+    expire_in: 1 year

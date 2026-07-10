@@ -1,0 +1,49 @@
+# ----------------------------------------------------------------------------
+# check
+# ----------------------------------------------------------------------------
+
+fmt:
+  stage: check
+  needs: []
+  # Formatting is advisory: report it but don't block anything.
+  allow_failure: true
+  script:
+    - cd $WORKSPACE_DIR && cargo fmt --all -- --check
+
+# Host + core (native target) via the workspace default-members.
+clippy-host:
+  stage: check
+  needs: []
+  allow_failure: true
+  script:
+    - cd $WORKSPACE_DIR && cargo clippy -- -D warnings
+
+# Firmware crate
+clippy-stm32:
+  stage: check
+  needs: []
+  allow_failure: true
+  variables:
+    TARGET: thumbv7em-none-eabihf
+  script:
+    - cd $WORKSPACE_DIR/mrs-benchmark-stm32 && cargo clippy -- -D warnings
+
+# Firmware crate
+clippy-rp2040:
+  stage: check
+  needs: []
+  allow_failure: true
+  variables:
+    TARGET: thumbv6m-none-eabi
+  script:
+    - cd $WORKSPACE_DIR/mrs-benchmark-rp2040 && cargo clippy -- -D warnings
+
+# Firmware crate
+clippy-rp2350:
+  stage: check
+  needs: []
+  allow_failure: true
+  variables:
+    TARGET: thumbv8m.main-none-eabihf
+  script:
+    - cd $WORKSPACE_DIR/mrs-benchmark-rp2350 && cargo clippy -- -D warnings
