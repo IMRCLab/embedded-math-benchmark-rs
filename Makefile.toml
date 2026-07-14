@@ -1,36 +1,62 @@
 [tasks.bench-host]
 description = "Build and run host benchmarks natively"
 category = "Benchmark"
-script = [
-    "cargo run --release --manifest-path benchmarks/mrs-benchmark-host/Cargo.toml"
-]
+workspace = false
+command = "cargo"
+args = ["run", "--release", "--manifest-path", "benchmarks/mrs-benchmark-host/Cargo.toml"]
+
+# --- STM32 ---
+[tasks.build-stm]
+description = "Build the STM32 firmware"
+private = true
+cwd = "benchmarks/mrs-benchmark-stm32"
+command = "cargo"
+args = ["build", "--release"]
 
 [tasks.bench-stm]
 description = "Build and run STM32 benchmarks over ST-Link"
 category = "Benchmark"
-script = [
-    "(cd benchmarks/mrs-benchmark-stm32 && cargo build --release)",
-    "probe-rs run --chip STM32F405RGTx benchmarks/target/thumbv7em-none-eabihf/release/mrs-benchmark-stm32"
-]
+workspace = false
+dependencies = ["build-stm"]
+command = "probe-rs"
+args = ["run", "--chip", "STM32F405RGTx", "benchmarks/target/thumbv7em-none-eabihf/release/mrs-benchmark-stm32"]
+
+# --- RP2040 (Pico) ---
+[tasks.build-pico]
+description = "Build the RP2040 firmware"
+private = true
+cwd = "benchmarks/mrs-benchmark-rp2040"
+command = "cargo"
+args = ["build", "--release"]
 
 [tasks.bench-pico]
 description = "Build and run Raspberry Pi Pico 1 (RP2040) benchmarks over SWD"
 category = "Benchmark"
-script = [
-    "(cd benchmarks/mrs-benchmark-rp2040 && cargo build --release)",
-    "probe-rs run --chip RP2040 benchmarks/target/thumbv6m-none-eabi/release/mrs-benchmark-rp2040"
-]
+workspace = false
+dependencies = ["build-pico"]
+command = "probe-rs"
+args = ["run", "--chip", "RP2040", "benchmarks/target/thumbv6m-none-eabi/release/mrs-benchmark-rp2040"]
+
+# --- RP2350 (Pico 2) ---
+[tasks.build-pico2]
+description = "Build the RP2350 firmware"
+private = true
+cwd = "benchmarks/mrs-benchmark-rp2350"
+command = "cargo"
+args = ["build", "--release"]
 
 [tasks.bench-pico2]
 description = "Build and run Raspberry Pi Pico 2 (RP2350) benchmarks over SWD"
 category = "Benchmark"
-script = [
-    "(cd benchmarks/mrs-benchmark-rp2350 && cargo build --release)",
-    "probe-rs run --chip RP235x benchmarks/target/thumbv8m.main-none-eabihf/release/mrs-benchmark-rp2350"
-]
+workspace = false
+dependencies = ["build-pico2"]
+command = "probe-rs"
+args = ["run", "--chip", "RP235x", "benchmarks/target/thumbv8m.main-none-eabihf/release/mrs-benchmark-rp2350"]
 
+# --- Collect ---
 [tasks.collect]
 description = "Merge benchmark BENCH lines into a single headed CSV (files or stdin)"
 category = "Benchmark"
+workspace = false
 command = "cargo"
 args = ["run", "--quiet", "--manifest-path", "benchmarks/Cargo.toml", "-p", "mrs-benchmark-collect", "${@}"]
