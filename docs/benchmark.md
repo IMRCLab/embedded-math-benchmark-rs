@@ -37,3 +37,6 @@ Use this guide as an index to explore the different components of the framework.
 
 - **[Math Benchmarking Research](research/math_benchmarking_crazyflie.md)**  
   Initial background research on how to evaluate math for the Crazyflie firmware.
+
+- **[Crazyflie C Math Integration](crazyflie_math_integration.md)**  
+  Detailed architecture of the `crazyflie-fw` FFI reference suite, including required installs and cross-compilation workarounds.
