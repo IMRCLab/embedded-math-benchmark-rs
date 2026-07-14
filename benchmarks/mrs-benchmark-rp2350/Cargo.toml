@@ -1,0 +1,16 @@
+[package]
+name = "mrs-benchmark-rp2350"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+mrs-benchmark-core = { path = "../mrs-benchmark-core" }
+# rp235x-hal plays the role rp-pico plays for the RP2040 crate: it provides the
+# critical-section impl rtt-target needs, the cortex-m-rt vector table (`rt`), and
+# the `block::ImageDef` boot-metadata type the RP2350 bootrom requires.
+rp235x-hal = { version = "0.4", features = ["rt", "critical-section-impl"] }
+cortex-m = "0.7"
+cortex-m-rt = "0.7"
+cortex-m-semihosting = "0.5"
+panic-halt = "0.2"
+rtt-target = "0.5"

@@ -37,6 +37,22 @@ dependencies = ["build-pico"]
 command = "probe-rs"
 args = ["run", "--chip", "RP2040", "benchmarks/target/thumbv6m-none-eabi/release/mrs-benchmark-rp2040"]
 
+# --- RP2350 (Pico 2) ---
+[tasks.build-pico2]
+description = "Build the RP2350 firmware"
+private = true
+cwd = "benchmarks/mrs-benchmark-rp2350"
+command = "cargo"
+args = ["build", "--release"]
+
+[tasks.bench-pico2]
+description = "Build and run Raspberry Pi Pico 2 (RP2350) benchmarks over SWD"
+category = "Benchmark"
+workspace = false
+dependencies = ["build-pico2"]
+command = "probe-rs"
+args = ["run", "--chip", "RP235x", "benchmarks/target/thumbv8m.main-none-eabihf/release/mrs-benchmark-rp2350"]
+
 # --- Collect ---
 [tasks.collect]
 description = "Merge benchmark BENCH lines into a single headed CSV (files or stdin)"

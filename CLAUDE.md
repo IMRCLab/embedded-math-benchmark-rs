@@ -24,6 +24,16 @@ relevant `docs/*.md` file and/or this file as part of that same task, not as an 
 If unsure whether something belongs in docs (durable, project-wide) vs this file
 (orientation) vs memory (cross-project, about you/the user), default to updating docs.
 
+**Docs style — write for skimming.** Keep docs terse and scannable: bullets and tables over
+prose, one line per decision, no padded "why X over Y" justification. Always run the
+`humanizer` skill over doc prose before finishing (strip em-dash overuse, rule-of-three,
+restatement, AI vocabulary). Long draft prose is scaffolding, not the deliverable.
+
+**Use auto-memory proactively.** Maintain the project auto-memory without being asked — when
+you learn a durable fact about how the user works or a cross-session convention, save/update
+a memory in that same task. Reserve memory for `user`/`feedback`/`reference`; project,
+hardware, and status facts go in `docs/`, not memory.
+
 - [docs/benchmark.md](docs/benchmark.md) — documentation index, start here
 - [docs/adding_a_benchmark.md](docs/adding_a_benchmark.md) — full recipe for a new task
 - [docs/io-format.md](docs/io-format.md) / [docs/inputs_configuration.md](docs/inputs_configuration.md) — `inputs.json` in, `BENCH ` CSV out
@@ -56,7 +66,7 @@ You never touch the platform `main.rs` files — the macro weaves tasks in. Full
 - `mrs-benchmark-core` — `no_std`. Traits, task/input registry, per-library suites. The heart.
 - `mrs-benchmark-macros` — proc-macros reading `inputs.json` at build time.
 - `mrs-benchmark-host` — native runner, times in `ns`.
-- `mrs-benchmark-stm32` / `mrs-benchmark-rp2040` — `no_std` firmware, time in `cycles`, RTT out. (`rp2350` planned.)
+- `mrs-benchmark-stm32` / `mrs-benchmark-rp2040` / `mrs-benchmark-rp2350` — `no_std` firmware, time in `cycles`, RTT out. (rp2350 = Pico 2, Cortex-M33: DWT timing like stm32, but boots via an `IMAGE_DEF` block, not boot2.)
 - `mrs-benchmark-collect` — greps `BENCH ` rows from logs → one merged `results.csv`.
 
 ## Commands
@@ -105,7 +115,7 @@ CLI end-to-end test in `tests/cli.rs`) — core/host/macros have none yet.
 
 ## State (2026-07, moves fast)
 
-Host + RP2040 + STM32 run and benchmark on hardware in GitLab CI (RP2040 on HIL), all with
-Rust math libraries. RP2350 support and C implementations (still milestone 1) are next up.
+Host + RP2040 + RP2350 + STM32 run and benchmark on hardware in GitLab CI (RP2040/RP2350 on
+HIL), all with Rust math libraries. C implementations (still milestone 1) are next up.
 QP solvers and scheduling (FreeRTOS/Embassy) are later milestones, not current work.
 Check [docs/platforms.md](docs/platforms.md) for live status before assuming a target works.

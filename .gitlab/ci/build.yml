@@ -1,0 +1,39 @@
+# Builds crate $BIN for $TARGET from its own crate dir (picks up crate-local
+# .cargo/config.toml) and flattens the binary to the project root.
+.cargo-build:
+  stage: build
+  needs: []
+  script:
+    - (cd "$WORKSPACE_DIR/$BIN" && cargo build --release --target "$TARGET")
+    - install -Dm755 "$CARGO_TARGET_DIR/$TARGET/release/$BIN" "$BIN"
+  artifacts:
+    name: "$BIN-$CI_COMMIT_SHORT_SHA"
+    paths:
+      - $BIN
+      # GIT_STRATEGY: none run jobs have no checkout; ship them the probe selector too.
+      - $SELECT_PROBE_SCRIPT
+    expire_in: 1 year
+
+build-rp2040:
+  extends: .cargo-build
+  variables:
+    BIN: mrs-benchmark-rp2040
+    TARGET: thumbv6m-none-eabi
+
+build-rp2350:
+  extends: .cargo-build
+  variables:
+    BIN: mrs-benchmark-rp2350
+    TARGET: thumbv8m.main-none-eabihf
+
+build-host:
+  extends: .cargo-build
+  variables:
+    BIN: mrs-benchmark-host
+    TARGET: x86_64-unknown-linux-gnu
+
+build-stm32:
+  extends: .cargo-build
+  variables:
+    BIN: mrs-benchmark-stm32
+    TARGET: thumbv7em-none-eabihf

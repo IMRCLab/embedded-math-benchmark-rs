@@ -1,0 +1,12 @@
+{
+  "name": "mrs-microbenchmarks-slides",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "start": "marp -s . --allow-local-files",
+    "pdf": "marp updates/2026-07-08.md --pdf --allow-local-files"
+  },
+  "devDependencies": {
+    "@marp-team/marp-cli": "^4.1.0"
+  }
+}
