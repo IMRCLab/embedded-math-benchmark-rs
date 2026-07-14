@@ -9,3 +9,4 @@ libm = { version = "0.2.16", default-features = false }
 micromath = { version = "2.1", default-features = false, features = ["quaternion", "vector"] }
 mrs-benchmark-macros = { version = "0.1.0", path = "../mrs-benchmark-macros" }
 nalgebra = { version = "0.33", default-features = false, features = ["libm"] }
+mrs-benchmark-crazyflie-sys = { version = "0.1.0", path = "../mrs-benchmark-crazyflie-sys" }

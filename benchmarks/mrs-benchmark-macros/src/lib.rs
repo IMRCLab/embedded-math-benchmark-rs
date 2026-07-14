@@ -132,7 +132,7 @@ pub fn generate_benchmarks(_input: TokenStream) -> TokenStream {
         let repetitions = case.repetitions;
 
         for lib in case.libraries {
-            let lib_ident = format_ident!("{}", lib);
+            let lib_ident = format_ident!("{}", lib.replace("-", "_"));
             let stmt = quote! {
                 crate::run_and_log(
                     platform,
