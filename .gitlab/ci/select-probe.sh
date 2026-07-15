@@ -7,9 +7,8 @@ set -euo pipefail
 PROBE_RS="${PROBE_RS:-probe-rs}"
 chip="$1"
 
-# Fixed string identifying the chip in `probe-rs info` output. RP chips print
-# their own name there; STM32 doesn't, so match the debug-port designer instead.
 case "$chip" in
+  RP2040) signature='Part: 0x1002' ;;
   STM32*) signature='STMicroelectronics' ;;
   *) signature="$chip" ;;
 esac
