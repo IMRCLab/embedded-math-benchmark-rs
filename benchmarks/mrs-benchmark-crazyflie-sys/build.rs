@@ -78,7 +78,7 @@ fn main() {
         .blocklist_item("FP_ZERO")
         .blocklist_item("FP_SUBNORMAL")
         .blocklist_item("FP_NORMAL")
-        .use_core()                  // Ensure no_std output
+        .use_core() // Ensure no_std output
         .ctypes_prefix("core::ffi"); // Use core::ffi types
 
     builder = builder.clang_arg(format!("--target={}", target));
@@ -105,7 +105,12 @@ fn main() {
 
         match target.as_str() {
             "thumbv7em-none-eabihf" => {
-                cmd.args(["-mthumb", "-march=armv7e-m", "-mfloat-abi=hard", "-mfpu=fpv4-sp-d16"]);
+                cmd.args([
+                    "-mthumb",
+                    "-march=armv7e-m",
+                    "-mfloat-abi=hard",
+                    "-mfpu=fpv4-sp-d16",
+                ]);
             }
             "thumbv8m.main-none-eabihf" => {
                 cmd.args(["-mthumb", "-march=armv8-m.main+fp", "-mfloat-abi=hard"]);

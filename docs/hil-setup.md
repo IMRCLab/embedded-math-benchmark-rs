@@ -40,8 +40,7 @@ firmware Rust targets, none of which `rust:latest` ships.
 
 Built with kaniko, not `docker:dind` — the runner isn't (and can't easily be)
 configured with `privileged = true`, and kaniko builds from an unprivileged container
-instead. `before_script`'s `rustup target/component add` stays as a no-op fallback for
-anything not baked into the image.
+instead. Targets and components are baked into the image. A new target must be added to [`Dockerfile.ci`](../.gitlab/ci/Dockerfile.ci) too.
 
 ## Probes
 

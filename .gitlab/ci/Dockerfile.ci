@@ -3,8 +3,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     gcc-arm-none-eabi libnewlib-arm-none-eabi libclang-dev \
     && rm -rf /var/lib/apt/lists/*
 # Bake the cross targets + components in: CARGO_HOME is persisted across CI jobs but
-# RUSTUP_HOME isn't, so without this every job re-fetches these from the network.
-# before_script's `rustup target/component add` stays as a no-op fallback for anything
-# not baked here.
+# RUSTUP_HOME isn't. A new target must be added here too.
 RUN rustup target add thumbv7em-none-eabihf thumbv6m-none-eabi thumbv8m.main-none-eabihf \
     && rustup component add rustfmt clippy

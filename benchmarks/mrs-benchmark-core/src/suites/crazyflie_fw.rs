@@ -12,7 +12,10 @@ impl BenchmarkLibrary for CrazyflieFw {
 
 pub struct MatMul3x3Logic;
 impl RawTaskImplementation<MatMul3x3Task> for MatMul3x3Logic {
-    type PreparedInput = (mrs_benchmark_crazyflie_sys::mat33, mrs_benchmark_crazyflie_sys::mat33);
+    type PreparedInput = (
+        mrs_benchmark_crazyflie_sys::mat33,
+        mrs_benchmark_crazyflie_sys::mat33,
+    );
     type RawOutput = mrs_benchmark_crazyflie_sys::mat33;
 
     fn prepare(
@@ -45,16 +48,25 @@ impl RawTaskImplementation<MatMul3x3Task> for MatMul3x3Logic {
         output: Self::RawOutput,
     ) -> Result<<MatMul3x3Task as crate::BenchmarkTask>::Output, BenchmarkError> {
         Ok([
-            output.m[0][0], output.m[0][1], output.m[0][2],
-            output.m[1][0], output.m[1][1], output.m[1][2],
-            output.m[2][0], output.m[2][1], output.m[2][2],
+            output.m[0][0],
+            output.m[0][1],
+            output.m[0][2],
+            output.m[1][0],
+            output.m[1][1],
+            output.m[1][2],
+            output.m[2][0],
+            output.m[2][1],
+            output.m[2][2],
         ])
     }
 }
 
 pub struct RotateVectorLogic;
 impl RawTaskImplementation<RotateVectorTask> for RotateVectorLogic {
-    type PreparedInput = (mrs_benchmark_crazyflie_sys::quat, mrs_benchmark_crazyflie_sys::vec);
+    type PreparedInput = (
+        mrs_benchmark_crazyflie_sys::quat,
+        mrs_benchmark_crazyflie_sys::vec,
+    );
     type RawOutput = mrs_benchmark_crazyflie_sys::vec;
 
     fn prepare(
@@ -160,13 +172,13 @@ impl RawTaskImplementation<SqrtTask> for SqrtLogic {
 
 pub struct QuatMulLogic;
 impl RawTaskImplementation<QuatMulTask> for QuatMulLogic {
-    type PreparedInput = (mrs_benchmark_crazyflie_sys::quat, mrs_benchmark_crazyflie_sys::quat);
+    type PreparedInput = (
+        mrs_benchmark_crazyflie_sys::quat,
+        mrs_benchmark_crazyflie_sys::quat,
+    );
     type RawOutput = mrs_benchmark_crazyflie_sys::quat;
 
-    fn prepare(
-        &self,
-        input: &<QuatMulTask as crate::BenchmarkTask>::Input,
-    ) -> Self::PreparedInput {
+    fn prepare(&self, input: &<QuatMulTask as crate::BenchmarkTask>::Input) -> Self::PreparedInput {
         let lhs = mrs_benchmark_crazyflie_sys::quat {
             x: input.lhs[0],
             y: input.lhs[1],

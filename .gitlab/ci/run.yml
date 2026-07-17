@@ -54,7 +54,6 @@ run-host:
   stage: run
   needs:
     - build-host
-  before_script: []
   variables:
     GIT_STRATEGY: none
   script:

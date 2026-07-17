@@ -7,7 +7,6 @@ build-ci-image:
   image:
     name: gcr.io/kaniko-project/executor:debug
     entrypoint: [""]
-  before_script: []
   rules:
     - changes:
         - .gitlab/ci/Dockerfile.ci

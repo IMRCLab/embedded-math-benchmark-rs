@@ -24,9 +24,6 @@ default:
     pull_policy: always
   tags:
     - shared
-  before_script:
-    - rustup target add $TARGET
-    - rustup component add rustfmt clippy
 
 include:
   - local: .gitlab/ci/image.yml
