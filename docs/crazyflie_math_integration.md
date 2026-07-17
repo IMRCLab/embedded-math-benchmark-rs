@@ -71,3 +71,42 @@ Suppress warnings from the third-party Crazyflie headers (e.g., `-Wstrict-aliasi
 * `.flag_if_supported("-Wno-absolute-value")`
 * `.flag_if_supported("-Wno-strict-aliasing")`
 
+### 5. System Header Discovery for `bindgen`
+**Problem**: `bindgen`'s Clang doesn't know where the cross-compiler's headers (newlib's
+`math.h`) live — it's a packaging detail that differs per distro (Arch sysroots under
+`/usr/arm-none-eabi/include`; Debian under `/usr/lib/arm-none-eabi/include`), and no single
+gcc flag reports it everywhere (`-print-sysroot` works on Arch, returns empty on Debian).
+**Solution**: Not elegant, but portable — make gcc resolve the actual wrapper header via
+`gcc -M` (standard dependency-list output) and read the header directories off its answer,
+instead of asking gcc to describe its general config. Verified on both distros, including
+the Debian-based CI image (see below).
+
+---
+
+## CI Integration
+
+Building this crate on CI needs `arm-none-eabi-gcc`/`libnewlib-arm-none-eabi`, provided
+by a custom image — see [hil-setup.md](hil-setup.md#ci-image). `libnewlib-dev` (the actual
+header package) comes along for free as `libnewlib-arm-none-eabi`'s hard dependency; no
+separate Dockerfile entry needed.
+
+### Submodule fetch
+`GIT_SUBMODULE_STRATEGY: normal` + `GIT_SUBMODULE_DEPTH: 1` (in `.gitlab-ci.yml`) fetch
+only `benchmarks/vendor/crazyflie-firmware` itself, not its own nested submodules
+(`vendor/CMSIS`, `FreeRTOS`, `cmock`, `unity`, `libdw1000`) — none of which this suite
+touches today.
+
+**When CMSIS-DSP (ARM math) is added**, switch to `recursive` with `GIT_SUBMODULE_PATHS`
+excluding the other four vendor trees.
+
+### Testing against the CI image locally
+`.gitlab/ci/Dockerfile.ci` builds and runs directly, no registry needed:
+```bash
+docker build -t mrs-ci-test -f .gitlab/ci/Dockerfile.ci .gitlab/ci
+docker run --rm --user "$(id -u):$(id -g)" -v "$(pwd)":/work -w /work/benchmarks \
+  -e CARGO_TARGET_DIR=/tmp/ci-target -e CARGO_HOME=/tmp/cargo-home \
+  mrs-ci-test cargo build -p mrs-benchmark-crazyflie-sys --target thumbv7em-none-eabihf
+```
+Keep `--user` + the redirected `CARGO_TARGET_DIR`/`CARGO_HOME` — without them the container
+runs as root and litters the host's bind-mounted `target/` with root-owned files.
+
