@@ -7,17 +7,20 @@ alongside it. Each board drops into the same per-target CI structure.
 ## Design
 
 The benchmarks are a Cargo workspace (`benchmarks/`), one crate per target
-(`mrs-benchmark-host`, `mrs-benchmark-rp2040`, `mrs-benchmark-stm32`, ...). CI runs three
-stages (`build`, `run`, `check`) wired as a `needs:` DAG, so each firmware flashes as soon
-as its build finishes, in parallel with the other builds. Checks run last.
+(`mrs-benchmark-host`, `mrs-benchmark-rp2040`, `mrs-benchmark-stm32`, ...). CI runs
+stages `image → build → run → collect → check` wired as a `needs:` DAG, so each firmware
+flashes as soon as its build finishes, in parallel with the other builds. Checks run
+last. `image` only rebuilds the shared CI image when its Dockerfile changes — see
+[CI image](#ci-image).
 
 The boards connect to the lab Threadripper over SWD through debug probes. One
 `gitlab-runner` daemon there runs two registered runners:
 
-- **build** (`shared` tag, Docker, `rust:latest`): runs the per-target lints, builds and
-  runs the host benchmark natively (`build-host` / `run-host`), and cross-compiles the
-  firmware (`build-rp2040` / `build-stm32`), uploading each binary as a flat artifact.
-  `CARGO_HOME` and the target dir live under `/persist`, so builds stay warm between jobs.
+- **build** (`shared` tag, Docker, custom image — see [CI image](#ci-image)): runs the
+  per-target lints, builds and runs the host benchmark natively (`build-host` /
+  `run-host`), and cross-compiles the firmware (`build-rp2040` / `build-stm32`),
+  uploading each binary as a flat artifact. `CARGO_HOME` and the target dir live under
+  `/persist`, so builds stay warm between jobs.
 - **hil** (`hil` tag, shell executor): pulls a firmware binary, flashes and runs it with
   `probe-rs`, uploads the captured RTT log. One hil runner flashes every board
   (`run-rp2040`, `run-stm32`, ...); it picks the right probe by chip with
@@ -25,6 +28,20 @@ The boards connect to the lab Threadripper over SWD through debug probes. One
   passthrough.
 
 Output comes back over RTT with `probe-rs`.
+
+## CI image
+
+The `shared` runner's base image needs `arm-none-eabi-gcc`/`libnewlib-arm-none-eabi` and
+`libclang-dev` (for `mrs-benchmark-crazyflie-sys`'s C compile + `bindgen` steps) plus the
+firmware Rust targets, none of which `rust:latest` ships.
+[`Dockerfile.ci`](../.gitlab/ci/Dockerfile.ci) layers those on top of `rust:latest`;
+[`image.yml`](../.gitlab/ci/image.yml) builds and republishes it (`:latest` +
+`:$CI_COMMIT_SHORT_SHA`) only when the Dockerfile or the job itself changes.
+
+Built with kaniko, not `docker:dind` — the runner isn't (and can't easily be)
+configured with `privileged = true`, and kaniko builds from an unprivileged container
+instead. `before_script`'s `rustup target/component add` stays as a no-op fallback for
+anything not baked into the image.
 
 ## Probes
 

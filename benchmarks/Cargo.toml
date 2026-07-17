@@ -8,6 +8,7 @@ members = [
     "mrs-benchmark-rp2350",
     "mrs-benchmark-macros",
     "mrs-benchmark-collect",
+    "mrs-benchmark-crazyflie-sys",
 ]
 # Bare `cargo build`/`test`/`clippy` at the workspace root act on these native crates
 # only. The no_std firmware crates (mrs-benchmark-stm32, mrs-benchmark-rp2040,
@@ -17,6 +18,7 @@ default-members = [
     "mrs-benchmark-core",
     "mrs-benchmark-host",
     "mrs-benchmark-collect",
+    "mrs-benchmark-crazyflie-sys",
 ]
 
 [profile.dev]

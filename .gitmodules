@@ -1,0 +1,4 @@
+[submodule "benchmarks/vendor/crazyflie-firmware"]
+	path = benchmarks/vendor/crazyflie-firmware
+	url = https://github.com/bitcraze/crazyflie-firmware.git
+	branch = master

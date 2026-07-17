@@ -4,7 +4,8 @@
       "repetitions": 100,
       "libraries": [
         "glam",
-        "nalgebra"
+        "nalgebra",
+        "crazyflie-fw"
       ],
       "test": "MatMul3x3",
       "inputs": [
@@ -1215,7 +1216,8 @@
       "libraries": [
         "glam",
         "nalgebra",
-        "micromath"
+        "micromath",
+        "crazyflie-fw"
       ],
       "test": "RotateVector",
       "inputs": [
@@ -2535,7 +2537,8 @@
       "repetitions": 100,
       "libraries": [
         "libm",
-        "micromath"
+        "micromath",
+        "crazyflie-fw"
       ],
       "test": "Atan2",
       "inputs": [
@@ -2745,7 +2748,8 @@
       "repetitions": 100,
       "libraries": [
         "libm",
-        "micromath"
+        "micromath",
+        "crazyflie-fw"
       ],
       "test": "SinCos",
       "inputs": [
@@ -2905,7 +2909,8 @@
       "repetitions": 100,
       "libraries": [
         "libm",
-        "micromath"
+        "micromath",
+        "crazyflie-fw"
       ],
       "test": "Sqrt",
       "inputs": [
@@ -3066,7 +3071,8 @@
       "libraries": [
         "glam",
         "nalgebra",
-        "micromath"
+        "micromath",
+        "crazyflie-fw"
       ],
       "test": "QuatMul",
       "inputs": [
@@ -3777,7 +3783,8 @@
       "libraries": [
         "glam",
         "nalgebra",
-        "micromath"
+        "micromath",
+        "crazyflie-fw"
       ],
       "test": "QuatSlerp",
       "inputs": [

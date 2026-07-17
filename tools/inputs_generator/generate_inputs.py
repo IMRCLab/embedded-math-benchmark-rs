@@ -6,14 +6,14 @@ import numpy as np
 
 # Mapping of which libraries support which tests
 TEST_LIBRARY_MAPPING = {
-    "MatMul3x3": ["glam", "nalgebra"],
-    "RotateVector": ["glam", "nalgebra", "micromath"],
+    "MatMul3x3": ["glam", "nalgebra", "crazyflie-fw"],
+    "RotateVector": ["glam", "nalgebra", "micromath", "crazyflie-fw"],
     "MatInverse3x3": ["glam", "nalgebra"],
-    "Atan2": ["libm", "micromath"],
-    "SinCos": ["libm", "micromath"],
-    "Sqrt": ["libm", "micromath"],
-    "QuatMul": ["glam", "nalgebra", "micromath"],
-    "QuatSlerp": ["glam", "nalgebra", "micromath"],
+    "Atan2": ["libm", "micromath", "crazyflie-fw"],
+    "SinCos": ["libm", "micromath", "crazyflie-fw"],
+    "Sqrt": ["libm", "micromath", "crazyflie-fw"],
+    "QuatMul": ["glam", "nalgebra", "micromath", "crazyflie-fw"],
+    "QuatSlerp": ["glam", "nalgebra", "micromath", "crazyflie-fw"],
 }
 
 class TestCaseGenerator(ABC):
