@@ -1,6 +1,7 @@
 use crate::tasks::{
-    LeeController as LeeControllerTask, Atan2 as Atan2Task, QuatMul as QuatMulTask, QuatSlerp as QuatSlerpTask,
-    RotateVector as RotateVectorTask, SinCos as SinCosTask, Sqrt as SqrtTask,
+    Atan2 as Atan2Task, LeeController as LeeControllerTask, QuatMul as QuatMulTask,
+    QuatSlerp as QuatSlerpTask, RotateVector as RotateVectorTask, SinCos as SinCosTask,
+    Sqrt as SqrtTask,
 };
 use crate::{export_tasks, BenchmarkError, BenchmarkLibrary, RawTaskImplementation};
 use micromath::{F32Ext, Quaternion};
@@ -192,10 +193,18 @@ impl RawTaskImplementation<QuatSlerpTask> for QuatSlerpLogic {
 
 // --- Tiny Math Wrapper for LeeControllerSim in Micromath ---
 #[derive(Clone, Copy)]
-pub struct Vec3 { pub x: f32, pub y: f32, pub z: f32 }
+pub struct Vec3 {
+    pub x: f32,
+    pub y: f32,
+    pub z: f32,
+}
 impl Vec3 {
-    fn new(x: f32, y: f32, z: f32) -> Self { Self { x, y, z } }
-    fn dot(&self, o: &Self) -> f32 { self.x * o.x + self.y * o.y + self.z * o.z }
+    fn new(x: f32, y: f32, z: f32) -> Self {
+        Self { x, y, z }
+    }
+    fn dot(&self, o: &Self) -> f32 {
+        self.x * o.x + self.y * o.y + self.z * o.z
+    }
     fn cross(&self, o: &Self) -> Self {
         Self {
             x: self.y * o.z - self.z * o.y,
@@ -203,20 +212,89 @@ impl Vec3 {
             z: self.x * o.y - self.y * o.x,
         }
     }
-    fn length(&self) -> f32 { self.dot(self).sqrt() }
-    fn normalize(&self) -> Self { let n = self.length(); Self { x: self.x/n, y: self.y/n, z: self.z/n } }
+    fn length(&self) -> f32 {
+        self.dot(self).sqrt()
+    }
+    fn normalize(&self) -> Self {
+        let n = self.length();
+        Self {
+            x: self.x / n,
+            y: self.y / n,
+            z: self.z / n,
+        }
+    }
 }
-impl core::ops::Add for Vec3 { type Output = Self; fn add(self, o: Self) -> Self { Self { x: self.x + o.x, y: self.y + o.y, z: self.z + o.z } } }
-impl core::ops::Sub for Vec3 { type Output = Self; fn sub(self, o: Self) -> Self { Self { x: self.x - o.x, y: self.y - o.y, z: self.z - o.z } } }
-impl core::ops::Mul<f32> for Vec3 { type Output = Self; fn mul(self, s: f32) -> Self { Self { x: self.x * s, y: self.y * s, z: self.z * s } } }
-impl core::ops::Mul<Vec3> for f32 { type Output = Vec3; fn mul(self, v: Vec3) -> Vec3 { v * self } }
-impl core::ops::Mul<Vec3> for Vec3 { type Output = Self; fn mul(self, o: Self) -> Self { Self { x: self.x * o.x, y: self.y * o.y, z: self.z * o.z } } }
-impl core::ops::Neg for Vec3 { type Output = Self; fn neg(self) -> Self { Self { x: -self.x, y: -self.y, z: -self.z } } }
+impl core::ops::Add for Vec3 {
+    type Output = Self;
+    fn add(self, o: Self) -> Self {
+        Self {
+            x: self.x + o.x,
+            y: self.y + o.y,
+            z: self.z + o.z,
+        }
+    }
+}
+impl core::ops::Sub for Vec3 {
+    type Output = Self;
+    fn sub(self, o: Self) -> Self {
+        Self {
+            x: self.x - o.x,
+            y: self.y - o.y,
+            z: self.z - o.z,
+        }
+    }
+}
+impl core::ops::Mul<f32> for Vec3 {
+    type Output = Self;
+    fn mul(self, s: f32) -> Self {
+        Self {
+            x: self.x * s,
+            y: self.y * s,
+            z: self.z * s,
+        }
+    }
+}
+impl core::ops::Mul<Vec3> for f32 {
+    type Output = Vec3;
+    fn mul(self, v: Vec3) -> Vec3 {
+        v * self
+    }
+}
+impl core::ops::Mul<Vec3> for Vec3 {
+    type Output = Self;
+    fn mul(self, o: Self) -> Self {
+        Self {
+            x: self.x * o.x,
+            y: self.y * o.y,
+            z: self.z * o.z,
+        }
+    }
+}
+impl core::ops::Neg for Vec3 {
+    type Output = Self;
+    fn neg(self) -> Self {
+        Self {
+            x: -self.x,
+            y: -self.y,
+            z: -self.z,
+        }
+    }
+}
 
 #[derive(Clone, Copy)]
-pub struct Mat3 { pub x_axis: Vec3, pub y_axis: Vec3, pub z_axis: Vec3 }
+pub struct Mat3 {
+    pub x_axis: Vec3,
+    pub y_axis: Vec3,
+    pub z_axis: Vec3,
+}
 impl Mat3 {
-    fn from_cols(x_axis: Vec3, y_axis: Vec3, z_axis: Vec3) -> Self { Self { x_axis, y_axis, z_axis } }
+    fn from_cols(x_axis: Vec3, y_axis: Vec3, z_axis: Vec3) -> Self {
+        Self {
+            x_axis,
+            y_axis,
+            z_axis,
+        }
+    }
     fn transpose(&self) -> Self {
         Self {
             x_axis: Vec3::new(self.x_axis.x, self.y_axis.x, self.z_axis.x),
@@ -225,10 +303,18 @@ impl Mat3 {
         }
     }
     fn from_quat(q: Quaternion) -> Self {
-        let x2 = q.x() + q.x(); let y2 = q.y() + q.y(); let z2 = q.z() + q.z();
-        let xx = q.x() * x2; let xy = q.x() * y2; let xz = q.x() * z2;
-        let yy = q.y() * y2; let yz = q.y() * z2; let zz = q.z() * z2;
-        let wx = q.w() * x2; let wy = q.w() * y2; let wz = q.w() * z2;
+        let x2 = q.x() + q.x();
+        let y2 = q.y() + q.y();
+        let z2 = q.z() + q.z();
+        let xx = q.x() * x2;
+        let xy = q.x() * y2;
+        let xz = q.x() * z2;
+        let yy = q.y() * y2;
+        let yz = q.y() * z2;
+        let zz = q.z() * z2;
+        let wx = q.w() * x2;
+        let wy = q.w() * y2;
+        let wz = q.w() * z2;
         Self {
             x_axis: Vec3::new(1.0 - (yy + zz), xy + wz, xz - wy),
             y_axis: Vec3::new(xy - wz, 1.0 - (xx + zz), yz + wx),
@@ -238,37 +324,81 @@ impl Mat3 {
 }
 impl core::ops::Mul<Vec3> for Mat3 {
     type Output = Vec3;
-    fn mul(self, v: Vec3) -> Vec3 { self.x_axis * v.x + self.y_axis * v.y + self.z_axis * v.z }
+    fn mul(self, v: Vec3) -> Vec3 {
+        self.x_axis * v.x + self.y_axis * v.y + self.z_axis * v.z
+    }
 }
 impl core::ops::Mul<Mat3> for Mat3 {
     type Output = Mat3;
     fn mul(self, m: Mat3) -> Mat3 {
-        Self { x_axis: self * m.x_axis, y_axis: self * m.y_axis, z_axis: self * m.z_axis }
+        Self {
+            x_axis: self * m.x_axis,
+            y_axis: self * m.y_axis,
+            z_axis: self * m.z_axis,
+        }
     }
 }
 
 impl core::ops::Sub for Mat3 {
     type Output = Self;
     fn sub(self, o: Self) -> Self {
-        Self { x_axis: self.x_axis - o.x_axis, y_axis: self.y_axis - o.y_axis, z_axis: self.z_axis - o.z_axis }
+        Self {
+            x_axis: self.x_axis - o.x_axis,
+            y_axis: self.y_axis - o.y_axis,
+            z_axis: self.z_axis - o.z_axis,
+        }
     }
 }
 
 #[derive(Clone, Copy)]
-pub struct Vec4 { pub x: f32, pub y: f32, pub z: f32, pub w: f32 }
-impl Vec4 {
-    fn new(x: f32, y: f32, z: f32, w: f32) -> Self { Self { x, y, z, w } }
+pub struct Vec4 {
+    pub x: f32,
+    pub y: f32,
+    pub z: f32,
+    pub w: f32,
 }
-impl core::ops::Mul<f32> for Vec4 { type Output = Self; fn mul(self, s: f32) -> Self { Self { x: self.x * s, y: self.y * s, z: self.z * s, w: self.w * s } } }
-impl core::ops::Add for Vec4 { type Output = Self; fn add(self, o: Self) -> Self { Self { x: self.x + o.x, y: self.y + o.y, z: self.z + o.z, w: self.w + o.w } } }
+impl Vec4 {
+    fn new(x: f32, y: f32, z: f32, w: f32) -> Self {
+        Self { x, y, z, w }
+    }
+}
+impl core::ops::Mul<f32> for Vec4 {
+    type Output = Self;
+    fn mul(self, s: f32) -> Self {
+        Self {
+            x: self.x * s,
+            y: self.y * s,
+            z: self.z * s,
+            w: self.w * s,
+        }
+    }
+}
+impl core::ops::Add for Vec4 {
+    type Output = Self;
+    fn add(self, o: Self) -> Self {
+        Self {
+            x: self.x + o.x,
+            y: self.y + o.y,
+            z: self.z + o.z,
+            w: self.w + o.w,
+        }
+    }
+}
 
 pub struct LeeControllerLogic;
 
 impl RawTaskImplementation<LeeControllerTask> for LeeControllerLogic {
     type PreparedInput = (
-        Vec3, Vec3, Quaternion, Vec3, // state
-        Vec3, Vec3, Vec3, f32, f32, // cmd
-        f32 // mass
+        Vec3,
+        Vec3,
+        Quaternion,
+        Vec3, // state
+        Vec3,
+        Vec3,
+        Vec3,
+        f32,
+        f32, // cmd
+        f32, // mass
     );
     type RawOutput = [f32; 4];
 
@@ -276,15 +406,36 @@ impl RawTaskImplementation<LeeControllerTask> for LeeControllerLogic {
         &self,
         input: &<LeeControllerTask as crate::BenchmarkTask>::Input,
     ) -> Self::PreparedInput {
-        let q = Quaternion::new(input.attitude[3], input.attitude[0], input.attitude[1], input.attitude[2]);
+        let q = Quaternion::new(
+            input.attitude[3],
+            input.attitude[0],
+            input.attitude[1],
+            input.attitude[2],
+        );
         (
             Vec3::new(input.position[0], input.position[1], input.position[2]),
             Vec3::new(input.velocity[0], input.velocity[1], input.velocity[2]),
             q,
-            Vec3::new(input.angular_velocity[0], input.angular_velocity[1], input.angular_velocity[2]),
-            Vec3::new(input.setpoint_position[0], input.setpoint_position[1], input.setpoint_position[2]),
-            Vec3::new(input.setpoint_velocity[0], input.setpoint_velocity[1], input.setpoint_velocity[2]),
-            Vec3::new(input.setpoint_acceleration[0], input.setpoint_acceleration[1], input.setpoint_acceleration[2]),
+            Vec3::new(
+                input.angular_velocity[0],
+                input.angular_velocity[1],
+                input.angular_velocity[2],
+            ),
+            Vec3::new(
+                input.setpoint_position[0],
+                input.setpoint_position[1],
+                input.setpoint_position[2],
+            ),
+            Vec3::new(
+                input.setpoint_velocity[0],
+                input.setpoint_velocity[1],
+                input.setpoint_velocity[2],
+            ),
+            Vec3::new(
+                input.setpoint_acceleration[0],
+                input.setpoint_acceleration[1],
+                input.setpoint_acceleration[2],
+            ),
             input.setpoint_yaw,
             input.setpoint_yaw_dot,
             input.mass,
@@ -292,11 +443,8 @@ impl RawTaskImplementation<LeeControllerTask> for LeeControllerLogic {
     }
 
     fn execute(&self, input: &Self::PreparedInput) -> Result<Self::RawOutput, BenchmarkError> {
-        let (
-            pos, vel, att, ang_vel,
-            cmd_pos, cmd_vel, cmd_acc, cmd_yaw, cmd_yaw_rate,
-            mass
-        ) = *input;
+        let (pos, vel, att, ang_vel, cmd_pos, cmd_vel, cmd_acc, cmd_yaw, cmd_yaw_rate, mass) =
+            *input;
 
         use crate::suites::constants::*;
         let kp = Vec3::new(KP[0], KP[1], KP[2]);
@@ -308,36 +456,36 @@ impl RawTaskImplementation<LeeControllerTask> for LeeControllerLogic {
 
         let e_p = cmd_pos - pos;
         let e_v = cmd_vel - vel;
-        
+
         let f_d = mass * (cmd_acc + kp * e_p + kd * e_v - gravity);
-        
+
         let r_mat = Mat3::from_quat(att);
         let thrust = f_d.dot(&(r_mat * Vec3::new(0.0, 0.0, 1.0)));
-        
+
         let xcd = Vec3::new(cmd_yaw.cos(), cmd_yaw.sin(), 0.0);
         let ycd = Vec3::new(-cmd_yaw.sin(), cmd_yaw.cos(), 0.0);
-        
+
         let xbd = ycd.cross(&f_d).normalize();
         let ybd = f_d.cross(&xbd).normalize();
         let zbd = xbd.cross(&ybd);
         let r_d = Mat3::from_cols(xbd, ybd, zbd);
-        
+
         let r_d_t_r = r_d.transpose() * r_mat;
         let r_t_r_d = r_mat.transpose() * r_d;
         let err_mat = r_d_t_r - r_t_r_d;
-        
+
         let e_r = 0.5 * Vec3::new(err_mat.z_axis.y, err_mat.x_axis.z, err_mat.y_axis.x);
-        
+
         let w_d = if f_d.length() > f32::EPSILON {
             let cmd_jerk = Vec3::new(0.0, 0.0, 0.0);
             let c = zbd.dot(&(cmd_acc - gravity));
             let d1 = xbd.dot(&cmd_jerk);
             let d2 = -ybd.dot(&cmd_jerk);
             let d3 = cmd_yaw_rate * xcd.dot(&xbd);
-            
+
             let b3 = -ycd.dot(&zbd);
             let c3 = ycd.cross(&zbd).length();
-            
+
             let wxd = d2 / c;
             let wyd = d1 / c;
             let wzd = (c * d3 - b3 * d1) / (c * c3);
@@ -345,36 +493,36 @@ impl RawTaskImplementation<LeeControllerTask> for LeeControllerLogic {
         } else {
             Vec3::new(0.0, 0.0, 0.0)
         };
-        
+
         let e_w = ang_vel - r_mat.transpose() * r_d * w_d;
-        
+
         let feedback = -k_r * e_r - k_w * e_w;
         let gyro = ang_vel.cross(&(inertia * ang_vel));
         let feed_forward = -inertia * (ang_vel.cross(&(r_mat.transpose() * r_d * w_d)));
         let torque = feedback + gyro + feed_forward;
-        
+
         // --- Allocation ---
         let kappa_f = KAPPA_F;
         let kappa_tau = KAPPA_TAU;
         let a = A;
-        
+
         let inv_k_f = 1.0 / (4.0 * kappa_f);
         let inv_k_t_xy = 1.0 / (4.0 * kappa_f * a);
         let inv_k_t_z = 1.0 / (4.0 * kappa_tau);
-        
+
         let w = Vec4::new(thrust, torque.x, torque.y, torque.z);
         let c0 = Vec4::new(inv_k_f, inv_k_f, inv_k_f, inv_k_f);
         let c1 = Vec4::new(-inv_k_t_xy, -inv_k_t_xy, inv_k_t_xy, inv_k_t_xy);
         let c2 = Vec4::new(-inv_k_t_xy, inv_k_t_xy, inv_k_t_xy, -inv_k_t_xy);
         let c3 = Vec4::new(-inv_k_t_z, inv_k_t_z, -inv_k_t_z, inv_k_t_z);
-        
+
         let m1234_sq = c0 * w.x + c1 * w.y + c2 * w.z + c3 * w.w;
-        
+
         let motors = Vec4::new(
             m1234_sq.x.max(0.0).sqrt(),
             m1234_sq.y.max(0.0).sqrt(),
             m1234_sq.z.max(0.0).sqrt(),
-            m1234_sq.w.max(0.0).sqrt()
+            m1234_sq.w.max(0.0).sqrt(),
         );
 
         Ok([motors.x, motors.y, motors.z, motors.w])

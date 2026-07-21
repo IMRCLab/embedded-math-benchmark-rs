@@ -1,6 +1,6 @@
 use crate::inputs::{
-    Atan2Input, LeeControllerInput, MatInverse3x3Input, MatMul3x3Input, QuatMulInput, QuatSlerpInput,
-    RotateVectorInput, SinCosInput, SqrtInput,
+    Atan2Input, LeeControllerInput, MatInverse3x3Input, MatMul3x3Input, QuatMulInput,
+    QuatSlerpInput, RotateVectorInput, SinCosInput, SqrtInput,
 };
 use crate::BenchmarkTask;
 
