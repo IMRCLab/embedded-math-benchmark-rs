@@ -114,7 +114,7 @@ impl BenchmarkPlatform for Rp2350Platform {
 
 #[entry]
 fn main() -> ! {
-    rtt_init_print!();
+    rtt_init_print!(rtt_target::ChannelMode::BlockIfFull, 4096);
     rprintln!("Initializing RP2350 (Pico 2) Microbenchmarks...");
 
     let cp = cortex_m::Peripherals::take().unwrap();

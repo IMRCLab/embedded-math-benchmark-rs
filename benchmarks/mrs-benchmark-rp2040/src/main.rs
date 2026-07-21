@@ -108,7 +108,7 @@ impl BenchmarkPlatform for Rp2040Platform {
 
 #[entry]
 fn main() -> ! {
-    rtt_init_print!();
+    rtt_init_print!(rtt_target::ChannelMode::BlockIfFull, 4096);
     rprintln!("Initializing RP2040 (Pico 1) Microbenchmarks...");
 
     // TODO(hardware, optional): to report absolute time (µs) instead of raw
