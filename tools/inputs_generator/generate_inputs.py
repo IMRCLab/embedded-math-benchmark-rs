@@ -14,6 +14,7 @@ TEST_LIBRARY_MAPPING = {
     "Sqrt": ["libm", "micromath", "crazyflie-fw"],
     "QuatMul": ["glam", "nalgebra", "micromath", "crazyflie-fw"],
     "QuatSlerp": ["glam", "nalgebra", "micromath", "crazyflie-fw"],
+    "LeeController": ["glam", "nalgebra", "micromath"],
 }
 
 class TestCaseGenerator(ABC):
@@ -300,6 +301,54 @@ class QuatSlerpGenerator(TestCaseGenerator):
 
         return inputs
 
+class LeeControllerGenerator(TestCaseGenerator):
+    def __init__(self):
+        super().__init__("LeeController", 100)
+
+    def generate_inputs(self, rng: np.random.Generator) -> list[dict]:
+        inputs = []
+        import csv
+        
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        csv_path = os.path.abspath(os.path.join(script_dir, "../assets/figure8_dt0_01.csv"))
+        
+        with open(csv_path, 'r') as f:
+            reader = csv.DictReader(f)
+            rows = list(reader)
+        
+        # Take 50 random rows
+        sampled = rng.choice(rows, 50, replace=False)
+        
+        for row in sampled:
+            sp_pos = [float(row['posx']), float(row['posy']), float(row['posz'])]
+            sp_vel = [float(row['velx']), float(row['vely']), float(row['velz'])]
+            sp_acc = [float(row['accx']), float(row['accy']), float(row['accz'])]
+            
+            # Simulated States: Setpoint + noise
+            pos = [p + rng.uniform(-0.1, 0.1) for p in sp_pos]
+            vel = [v + rng.uniform(-0.5, 0.5) for v in sp_vel]
+            
+            # Random unit quaternion for attitude
+            q = rng.normal(size=4)
+            att = (q / np.linalg.norm(q)).tolist()
+            
+            ang_vel = rng.uniform(-2.0, 2.0, 3).tolist()
+            
+            inputs.append({
+                "position": pos,
+                "velocity": vel,
+                "attitude": att,
+                "angular_velocity": ang_vel,
+                "setpoint_position": sp_pos,
+                "setpoint_velocity": sp_vel,
+                "setpoint_acceleration": sp_acc,
+                "setpoint_yaw": 0.0,
+                "setpoint_yaw_dot": 0.0,
+                "mass": 0.033
+            })
+            
+        return inputs
+
 def main():
     parser = argparse.ArgumentParser(description="OOP-Based Distributed Inputs Generator")
     parser.add_argument("--seed", type=int, default=42, help="Random seed for reproducibility")
@@ -318,7 +367,8 @@ def main():
         SinCosGenerator(),
         SqrtGenerator(),
         QuatMulGenerator(),
-        QuatSlerpGenerator()
+        QuatSlerpGenerator(),
+        LeeControllerGenerator()
     ]
 
     # Run generation
