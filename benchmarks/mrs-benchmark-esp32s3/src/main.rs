@@ -88,7 +88,7 @@ impl BenchmarkPlatform for Esp32s3Platform {
 #[main]
 fn main() -> ! {
     let _peripherals = esp_hal::init(esp_hal::Config::default());
-    rtt_init_print!();
+    rtt_init_print!(rtt_target::ChannelMode::BlockIfFull, 4096);
     rprintln!("Initializing ESP32-S3 Microbenchmarks...");
 
     let mut platform = Esp32s3Platform;
