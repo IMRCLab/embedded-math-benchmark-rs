@@ -115,7 +115,24 @@ fn main() -> ! {
     // cycles, configure the clocks/PLL here (e.g. rp_pico::hal::clocks::
     // init_clocks_and_plls) and switch the platform to rp_pico::hal::Timer. The
     // default SysTick path needs no clock setup — it counts core cycles directly.
+    let dp = rp_pico::hal::pac::Peripherals::take().unwrap();
     let cp = cortex_m::Peripherals::take().unwrap();
+    
+    let mut resets = dp.RESETS;
+    let mut watchdog = rp_pico::hal::watchdog::Watchdog::new(dp.WATCHDOG);
+    // Configure the system clock (clk_sys) to run at its nominal 125 MHz
+    let _clocks = rp_pico::hal::clocks::init_clocks_and_plls(
+        12_000_000,
+        dp.XOSC,
+        dp.CLOCKS,
+        dp.PLL_SYS,
+        dp.PLL_USB,
+        &mut resets,
+        &mut watchdog,
+    )
+    .ok()
+    .unwrap();
+
     let mut platform = Rp2040Platform::new(cp.SYST);
     platform.setup();
 
