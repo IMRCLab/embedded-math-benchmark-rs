@@ -6,12 +6,16 @@ stages:
   - build
   - run
   - collect
+  - report
   - check
 
 variables:
   # Cargo state lives on the persistent /persist volume
   CARGO_HOME: /persist/cargo
   CARGO_TARGET_DIR: /persist/target
+  # uv state lives on /persist too, same reasoning as cargo above
+  UV_CACHE_DIR: /persist/uv
+  UV_PYTHON_INSTALL_DIR: /persist/uv-python
   WORKSPACE_DIR: benchmarks
   TARGET: x86_64-unknown-linux-gnu
   SELECT_PROBE_SCRIPT: .gitlab/ci/select-probe.sh
@@ -30,4 +34,5 @@ include:
   - local: .gitlab/ci/build.yml
   - local: .gitlab/ci/run.yml
   - local: .gitlab/ci/collect.yml
+  - local: .gitlab/ci/report.yml
   - local: .gitlab/ci/check.yml

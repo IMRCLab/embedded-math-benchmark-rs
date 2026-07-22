@@ -1,4 +1,8 @@
 FROM rust:latest
+
+# uv binary only (not its Python/wheels) - multi-stage copy, no curl+checksum step.
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /usr/local/bin/
+
 RUN apt-get update && apt-get install -y --no-install-recommends \
     gcc-arm-none-eabi libnewlib-arm-none-eabi libclang-dev \
     && rm -rf /var/lib/apt/lists/*
