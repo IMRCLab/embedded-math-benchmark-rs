@@ -50,6 +50,15 @@ run-stm32:
     ELF: mrs-benchmark-stm32
     LOG: stm32.log
 
+run-esp32s3:
+  extends: .firmware-flash
+  needs:
+    - build-esp32s3
+  variables:
+    CHIP: esp32s3
+    ELF: mrs-benchmark-esp32s3
+    LOG: esp32s3.log
+
 run-host:
   stage: run
   needs:

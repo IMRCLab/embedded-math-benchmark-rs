@@ -1,0 +1,25 @@
+# Not a workspace member: esp-hal (riscv-rt ^0.16) and rp235x-hal (riscv-rt ^0.12) both set
+# `links = "riscv-rt"`, and Cargo enforces that uniquely across the whole resolved graph even
+# though each dependency is target-gated to a chip family the other never builds for.
+[workspace]
+
+[package]
+name = "mrs-benchmark-esp32s3"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+# crazyflie feature off: its build.rs only cross-links libm for ARM, not Xtensa.
+mrs-benchmark-core = { path = "../mrs-benchmark-core", default-features = false }
+esp-hal = { version = "1.1", features = ["esp32s3", "unstable"] }
+esp-backtrace = { version = "0.19", features = ["esp32s3", "panic-handler", "println"] }
+# Picks esp-println's output transport for esp-backtrace's panic printing only (BENCH output goes via rtt-target instead).
+esp-println = { version = "0.17", default-features = false, features = ["esp32s3", "jtag-serial"] }
+esp-bootloader-esp-idf = { version = "0.5", features = ["esp32s3"] }
+xtensa-lx = "0.13"
+rtt-target = "0.5"
+# "openocd-semihosting": the JTAG interface probe-rs speaks, not QEMU's SIMCALL.
+semihosting = { version = "0.1", features = ["openocd-semihosting"] }
+
+[profile.release]
+panic = "abort"

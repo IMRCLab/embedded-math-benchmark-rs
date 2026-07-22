@@ -3,7 +3,7 @@
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 Embedded microbenchmarks comparing **C vs Rust** performance and scheduling on
-compute-constrained robotic hardware (STM32, RP2040/RP2350). Long-term goal: quantify
+compute-constrained robotic hardware (STM32, RP2040/RP2350, ESP32-S3). Long-term goal: quantify
 robotic workloads (controllers, state estimators, math), evaluate QP solvers, and compare
 scheduling (FreeRTOS vs Embassy). See [README.md](README.md) and
 [docs/project_requirements.md](docs/project_requirements.md).
@@ -67,6 +67,7 @@ You never touch the platform `main.rs` files — the macro weaves tasks in. Full
 - `mrs-benchmark-macros` — proc-macros reading `inputs.json` at build time.
 - `mrs-benchmark-host` — native runner, times in `ns`.
 - `mrs-benchmark-stm32` / `mrs-benchmark-rp2040` / `mrs-benchmark-rp2350` — `no_std` firmware, time in `cycles`, RTT out. (rp2350 = Pico 2, Cortex-M33: DWT timing like stm32, but boots via an `IMAGE_DEF` block, not boot2.)
+- `mrs-benchmark-esp32s3` — `no_std` firmware, Xtensa (not ARM), CCOUNT register timing, RTT out via native USB JTAG. Needs the `espup`-installed `esp` Rust toolchain, not plain `rustup target add`. **Not a `benchmarks/` workspace member**: `esp-hal`'s `riscv-rt` version conflicts with `rp235x-hal`'s, so it has its own standalone `Cargo.lock` (still built from its own crate dir like the others). Skips the `crazyflie-fw` library (that suite's C build only cross-links for ARM).
 - `mrs-benchmark-collect` — greps `BENCH ` rows from logs → one merged `results.csv`.
 
 ## Commands
@@ -77,6 +78,7 @@ Prefer `cargo-make` (`cargo install cargo-make`), run from repo root:
 cargo make bench-host                       # native, ns
 cargo make bench-stm                        # STM32F405 over probe-rs, cycles
 cargo make bench-pico                       # RP2040 over probe-rs, cycles
+cargo make bench-esp32                      # ESP32-S3 over probe-rs, cycles
 cargo make bench-host | cargo make collect -- -o results.csv
 ```
 
@@ -112,10 +114,18 @@ CLI end-to-end test in `tests/cli.rs`) — core/host/macros have none yet.
 - **`panic = "abort"`** in both profiles (workspace `Cargo.toml`).
 - The C side of the C-vs-Rust comparison is **not yet implemented** — current suites are all
   Rust math libraries. C slots into the same `library` CSV field when added.
+- **A suite that can't build on every platform is Cargo-feature-gated, not assumed universal.**
+  `crazyflie-fw` is behind `mrs-benchmark-core`'s `crazyflie` feature (default on); a platform
+  that can't build it disables `default-features` on its `mrs-benchmark-core` dependency. The
+  macro also needs to know: `suite_feature_gate()` in `mrs-benchmark-macros/src/lib.rs` wraps
+  that library's generated call sites in a matching `#[cfg(feature = ...)]`, since inputs.json
+  is shared across all platforms and the generated runner otherwise references every library
+  listed anywhere in it unconditionally.
 
 ## State (2026-07, moves fast)
 
-Host + RP2040 + RP2350 + STM32 run and benchmark on hardware in GitLab CI (RP2040/RP2350 on
-HIL), all with Rust math libraries. C implementations (still milestone 1) are next up.
-QP solvers and scheduling (FreeRTOS/Embassy) are later milestones, not current work.
-Check [docs/platforms.md](docs/platforms.md) for live status before assuming a target works.
+Host + RP2040 + RP2350 + STM32 + ESP32-S3 run and benchmark on hardware in GitLab CI
+(RP2040/RP2350/ESP32-S3 on HIL), all with Rust math libraries (ESP32-S3 minus
+`crazyflie-fw`). C implementations (still milestone 1) are next up. QP solvers and
+scheduling (FreeRTOS/Embassy) are later milestones, not current work. Check
+[docs/platforms.md](docs/platforms.md) for live status before assuming a target works.
