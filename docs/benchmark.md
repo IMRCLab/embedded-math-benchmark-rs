@@ -13,11 +13,8 @@ Use this guide as an index to explore the different components of the framework.
 
 ## Reports
 
-- **[Benchmark Plotting Script](benchmark-viz-plotting-design.md)**  
-  Design of `viz/plot.py`: how `results.csv` becomes the per-platform PDF chart report — chart layout, scale/mark rules, and the fixed library color map.
-
-- **[Benchmark Report CI](benchmark-viz-ci-design.md)**  
-  How the PDF report is built and published in CI: the `report` stage, the `report.pdf` artifact, and the stable "latest `main`" link.
+- **[Benchmark Report](benchmark-viz.md)**  
+  How `results.csv` becomes the per-platform `report.pdf`: chart design, the `report` CI stage, and the stable "latest `main`" link.
 
 ## Development & Configuration
 

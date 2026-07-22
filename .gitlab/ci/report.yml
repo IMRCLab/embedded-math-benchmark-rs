@@ -3,8 +3,8 @@
 # ----------------------------------------------------------------------------
 
 # Renders results.csv into a per-platform PDF via viz/plot.py (see
-# docs/benchmark-viz-plotting-design.md). Separate stage/job from collect so a
-# plotting bug can't fail the CSV artifact and can be retried alone.
+# docs/benchmark-viz.md). Separate stage/job from collect so a plotting bug
+# can't fail the CSV artifact and can be retried alone.
 report-pdf:
   stage: report
   needs:
