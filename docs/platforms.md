@@ -8,23 +8,19 @@ Where the benchmarks run, how each is timed, and their current status.
 | stm32 (F405/F411)   | `STM32F405RGTx` | `thumbv7em-none-eabihf`     | DWT cycle counter            | cycles | running                            |
 | rp2040 (Pico 1)     | `RP2040`        | `thumbv6m-none-eabi`        | SysTick 24-bit down-counter¹ | cycles | running                            |
 | rp2350-arm (Pico 2) | `RP235x`        | `thumbv8m.main-none-eabihf` | DWT cycle counter            | cycles | running                            |
+| esp32s3             | `esp32s3`       | `xtensa-esp32s3-none-elf`   | Xtensa `CCOUNT` register²    | cycles | running                            |
 
-¹ The RP2040's Cortex-M0+ has no DWT cycle counter. The crate defaults to the SysTick
-down-counter (core cycles, no clock setup needed); its 24-bit range caps a single
-measurement at ~16.7M cycles. The 64-bit 1 µs `TIMER` is the alternative for longer or
-absolute-time (µs) measurements. RP2350 can alternatively boot its RISC-V (Hazard3) cores
-(`RP235x_riscv`), a possible future comparison axis.
+¹ RP2040 has no DWT; times via SysTick's 24-bit down-counter (core cycles, caps a single
+measurement at ~16.7M cycles). The 64-bit `TIMER` is the fallback for longer or
+absolute-time measurements. RP2350 does have DWT and times like STM32; boots via an
+`IMAGE_DEF` block, not boot2; its `-eabihf` target gives it hardware float. Future axes
+(not implemented): DCP-based f64 (`dcp-fast-f64`, off by default), and Arm vs RISC-V via
+its Hazard3 cores.
 
-The RP2350's Cortex-M33 **has** a DWT cycle counter, so its crate times exactly like the
-STM32 (`DCB.enable_trace()` + `DWT.enable_cycle_counter()`), not like the RP2040. Its
-`-eabihf` target enables the FPU (float args in FPU registers), making it the first
-hard-float embedded data point. Unlike the RP2040 it boots not from a boot2 blob but from
-an **IMAGE_DEF** metadata block the bootrom scans for in the first flash pages — provided
-by an `IMAGE_DEF` static in `.start_block` (`rp235x_hal::block::ImageDef::secure_exe()`);
-omit it and the image links but the ROM won't boot it.
-
-Two future comparison axes the chip opens up (not yet implemented): **hardware f64** via
-the RP2350's DCP coprocessor (`rp235x-hal`'s `dcp-fast-f64` feature — deliberately left
-**off** so the baseline stays fair vs the other platforms; enable it only as a separate
-labeled config), and **Arm vs RISC-V** on the same silicon via the Hazard3 cores noted
-above (a `rp2350-riscv` variant).
+² ESP32-S3 is Xtensa, not ARM: needs the `espup`-installed `esp` toolchain, not
+`rustup target add`. Not a `benchmarks/` workspace member (`esp-hal` and `rp235x-hal` both set
+`links = "riscv-rt"` at incompatible versions, which Cargo forbids graph-wide even though each
+is target-gated to a chip family the other doesn't build), so it has its own `Cargo.lock`. Skips `crazyflie-fw`
+(ARM-only libm cross-link). Its USB Serial/JTAG Controller enumerates as a probe-rs probe
+directly, no external wiring needed. Clean-exit uses the `semihosting` crate's
+`openocd-semihosting` feature (`cortex-m-semihosting` is ARM-only).

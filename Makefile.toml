@@ -53,6 +53,26 @@ dependencies = ["build-pico2"]
 command = "probe-rs"
 args = ["run", "--chip", "RP235x", "benchmarks/target/thumbv8m.main-none-eabihf/release/mrs-benchmark-rp2350"]
 
+# --- ESP32-S3 ---
+[tasks.build-esp32]
+description = "Build the ESP32-S3 firmware"
+private = true
+cwd = "benchmarks/mrs-benchmark-esp32s3"
+# Pins the toolchain cargo-make's outer `cargo` dispatch would otherwise override (see script below).
+env = { RUSTUP_TOOLCHAIN = "esp" }
+script_runner = "@shell"
+# Sources espup's env (linker on PATH) so callers don't have to remember to.
+script = ['source "$HOME/export-esp.sh"', 'cargo build --release']
+
+[tasks.bench-esp32]
+description = "Build and run ESP32-S3 benchmarks over its native USB JTAG"
+category = "Benchmark"
+workspace = false
+dependencies = ["build-esp32"]
+command = "probe-rs"
+# Own Cargo.lock, own target dir (not benchmarks/target/ like the other firmware crates).
+args = ["run", "--chip", "esp32s3", "benchmarks/mrs-benchmark-esp32s3/target/xtensa-esp32s3-none-elf/release/mrs-benchmark-esp32s3"]
+
 # --- Collect ---
 [tasks.collect]
 description = "Merge benchmark BENCH lines into a single headed CSV (files or stdin)"

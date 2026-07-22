@@ -119,6 +119,14 @@ pub fn benchmark_input(args: TokenStream, input: TokenStream) -> TokenStream {
     TokenStream::from(expanded)
 }
 
+// Maps a library id to the Cargo feature gating its suite module, if any (see suites.rs).
+fn suite_feature_gate(lib: &str) -> Option<&'static str> {
+    match lib {
+        "crazyflie-fw" => Some("crazyflie"),
+        _ => None,
+    }
+}
+
 #[proc_macro]
 pub fn generate_benchmarks(_input: TokenStream) -> TokenStream {
     let config = load_config();
@@ -142,15 +150,24 @@ pub fn generate_benchmarks(_input: TokenStream) -> TokenStream {
                 );
             };
 
+            let gated_stmt = if let Some(feature) = suite_feature_gate(&lib) {
+                quote! {
+                    #[cfg(feature = #feature)]
+                    #stmt
+                }
+            } else {
+                stmt
+            };
+
             if let Some(platforms) = &case.platforms {
                 let platform_checks = platforms.iter().map(|p| quote! { platform.id() == #p });
                 runner_statements.push(quote! {
                     if #(#platform_checks)||* {
-                        #stmt
+                        #gated_stmt
                     }
                 });
             } else {
-                runner_statements.push(stmt);
+                runner_statements.push(gated_stmt);
             }
         }
     }

@@ -9,4 +9,9 @@ libm = { version = "0.2.16", default-features = false }
 micromath = { version = "2.1", default-features = false, features = ["quaternion", "vector"] }
 mrs-benchmark-macros = { version = "0.1.0", path = "../mrs-benchmark-macros" }
 nalgebra = { version = "0.33", default-features = false, features = ["libm"] }
-mrs-benchmark-crazyflie-sys = { version = "0.1.0", path = "../mrs-benchmark-crazyflie-sys" }
+mrs-benchmark-crazyflie-sys = { version = "0.1.0", path = "../mrs-benchmark-crazyflie-sys", optional = true }
+
+[features]
+default = ["crazyflie"]
+# Off for platforms whose build.rs can't cross-link libm (e.g. Xtensa/esp32s3): default-features = false on this dep.
+crazyflie = ["dep:mrs-benchmark-crazyflie-sys"]

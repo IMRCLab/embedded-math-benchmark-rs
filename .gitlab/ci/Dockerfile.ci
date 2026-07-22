@@ -6,3 +6,5 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # RUSTUP_HOME isn't. A new target must be added here too.
 RUN rustup target add thumbv7em-none-eabihf thumbv6m-none-eabi thumbv8m.main-none-eabihf \
     && rustup component add rustfmt clippy
+# Xtensa has no upstream Rust target: espup bakes in a separate "esp" toolchain + $HOME/export-esp.sh, sourced by the esp32s3 build job only.
+RUN cargo install espup --locked && espup install --targets esp32s3
