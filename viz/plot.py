@@ -12,6 +12,7 @@ Usage: uv run viz/plot.py results.csv report.pdf
 
 import random
 import sys
+from datetime import datetime
 
 import matplotlib.pyplot as plt
 import pandas as pd
@@ -140,14 +141,16 @@ def _task_note(task_errors):
     if not task_errors:
         return ""
     parts = [f"{lib}: {n} err" for lib, n in sorted(task_errors.items())]
-    return "\n" + ", ".join(parts)
+    return ", ".join(parts)
 
 
 def _paginate(items, page_size):
     return [items[i : i + page_size] for i in range(0, len(items), page_size)]
 
 
-def plot_platform_page(agg, df_ok, error_counts, platform, libs, tasks, page, n_pages):
+def plot_platform_page(
+    agg, df_ok, error_counts, platform, libs, tasks, page, n_pages, generated_at
+):
     n_rows, n_cols = GRID_SHAPE
     fig, axes = plt.subplots(n_rows, n_cols, figsize=(16, 8))
     axes = axes.flatten()
@@ -176,7 +179,16 @@ def plot_platform_page(agg, df_ok, error_counts, platform, libs, tasks, page, n_
             for (p, t, lib), n in error_counts.items()
             if p == platform and t == task
         }
-        ax.set_title(f"{task}{_task_note(task_errors)}", fontsize=9)
+        # Extra pad on the title leaves room for the (smaller, greyed-out)
+        # error note below it, so it doesn't compete visually with the task name.
+        ax.set_title(task, fontsize=9, pad=14)
+        note = _task_note(task_errors)
+        if note:
+            ax.text(
+                0.5, 1.0, note,
+                transform=ax.transAxes, ha="center", va="bottom",
+                fontsize=6, color="#999999",
+            )
 
         task_samples = platform_samples[platform_samples["task"] == task]
         x = list(range(len(libs)))
@@ -224,9 +236,14 @@ def plot_platform_page(agg, df_ok, error_counts, platform, libs, tasks, page, n_
     title = platform if n_pages == 1 else f"{platform} (page {page}/{n_pages})"
     fig.suptitle(title, fontsize=18, fontweight="bold", y=0.99)
     fig.text(
-        0.5, 0.95,
+        0.5, 0.94,
         f"n={total_n} rows",
         ha="center", fontsize=9, fontstyle="italic", color="#444444",
+    )
+    fig.text(
+        0.99, 0.01,
+        f"generated {generated_at}",
+        ha="right", va="bottom", fontsize=6, color="#999999",
     )
 
     handles = [
@@ -238,7 +255,7 @@ def plot_platform_page(agg, df_ok, error_counts, platform, libs, tasks, page, n_
         for lib in libs
     ]
     fig.legend(handles=handles, loc="lower center", ncol=len(libs), frameon=False)
-    fig.tight_layout(rect=(0, 0.05, 1, 0.92))
+    fig.tight_layout(rect=(0, 0.05, 1, 0.90))
     return fig
 
 
@@ -249,6 +266,7 @@ def main(argv):
     tasks = _ordered(df_ok["task"].unique(), TASK_ORDER, "task(s)")
     page_size = GRID_SHAPE[0] * GRID_SHAPE[1]
     task_pages = _paginate(tasks, page_size)
+    generated_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
     with PdfPages(out_pdf) as pdf:
         for platform in sorted(agg["platform"].unique()):
@@ -265,7 +283,7 @@ def main(argv):
                     continue
                 fig = plot_platform_page(
                     agg, df_ok, error_counts, platform, platform_libs, task_page,
-                    page_idx, len(task_pages),
+                    page_idx, len(task_pages), generated_at,
                 )
                 pdf.savefig(fig)
                 plt.close(fig)
