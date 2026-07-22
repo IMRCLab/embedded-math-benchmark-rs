@@ -40,3 +40,8 @@ Use this guide as an index to explore the different components of the framework.
 
 - **[Crazyflie C Math Integration](crazyflie_math_integration.md)**  
   Detailed architecture of the `crazyflie-fw` FFI reference suite, including required installs and cross-compilation workarounds.
+
+## Evaluation & Results
+
+- **[Lee Controller Evaluation](lee_controller_evaluation.md)**  
+  Runtime evaluation results and execution time comparison of the Lee Controller across host and embedded platforms.

@@ -53,3 +53,20 @@ pub struct QuatSlerpInput {
     pub to: [f32; 4],
     pub t: f32,
 }
+
+#[benchmark_input("LeeController")]
+#[derive(Clone, Debug)]
+pub struct LeeControllerInput {
+    pub position: [f32; 3],
+    pub velocity: [f32; 3],
+    pub attitude: [f32; 4], // [x, y, z, w]
+    pub angular_velocity: [f32; 3],
+
+    pub setpoint_position: [f32; 3],
+    pub setpoint_velocity: [f32; 3],
+    pub setpoint_acceleration: [f32; 3],
+    pub setpoint_yaw: f32,
+    pub setpoint_yaw_dot: f32,
+
+    pub mass: f32,
+}

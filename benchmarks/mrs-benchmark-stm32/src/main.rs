@@ -102,6 +102,19 @@ fn main() -> ! {
     rtt_init_print!(rtt_target::ChannelMode::BlockIfFull, 4096);
     rprintln!("Initializing STM32 Microbenchmarks...");
 
+    let dp = stm32f4xx_hal::pac::Peripherals::take().unwrap();
+    let rcc = dp.RCC.constrain();
+
+    // Configure system clock to 168 MHz using the 8 MHz HSE crystal on the Crazyflie
+    use stm32f4xx_hal::prelude::*;
+    let _clocks = rcc
+        .cfgr
+        .use_hse(8.MHz())
+        .sysclk(168.MHz())
+        .pclk1(42.MHz())
+        .pclk2(84.MHz())
+        .freeze();
+
     let cp = cortex_m::Peripherals::take().unwrap();
     let mut platform = Stm32Platform::new(cp.DWT);
     platform.setup();
