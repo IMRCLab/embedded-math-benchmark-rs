@@ -19,6 +19,9 @@ collect-results:
     - job: run-stm32
       artifacts: true
       optional: true
+    - job: run-esp32s3
+      artifacts: true
+      optional: true
   script:
     - cd "$WORKSPACE_DIR" && cargo run --quiet -p mrs-benchmark-collect -- ../*.log -o ../results.csv
   artifacts:
