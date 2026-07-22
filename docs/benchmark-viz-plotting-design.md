@@ -1,6 +1,6 @@
 # Benchmark Plotting Script: Design
 
-Last updated: 2026-07-16
+Last updated: 2026-07-22
 
 Design for `viz/plot.py`. Infrastructure (CI `report` stage, PDF artifact, stable link, image
 deps) lives in [benchmark-viz-ci-design.md](benchmark-viz-ci-design.md). This doc is the plots
@@ -23,7 +23,10 @@ From a real `results.csv` (4162 rows: 4 platforms × 5 libraries × 8 tasks × 5
   transcendentals** (SinCos: micromath 149 vs cf-fw 3981 cyc on stm32). Y-scale must adapt.
 - **Coverage is ragged:** libm does scalar ops only (Atan2/SinCos/Sqrt); MatInverse3x3 is
   glam+nalgebra only.
-- **93 `ERROR:` rows** (e.g. singular MatInverse3x3), dropped and counted.
+- **Tens of `ERROR:` rows per run** (93 in the run above, 87 in a later re-run — e.g. singular
+  MatInverse3x3), dropped and counted. The `result` field's `ERROR: MathError("...")` has
+  unescaped inner `"`, technically malformed CSV — confirmed `pandas.read_csv` parses it
+  correctly anyway, so no custom quoting/escaping logic is needed.
 - **C vs Rust:** crazyflie-fw is the only C impl (FFI); glam, nalgebra, micromath, libm are
   Rust (libm = the Rust crate).
 
@@ -37,7 +40,8 @@ Over plotnine, R/ggplot2, `plotters`, gnuplot, JS. Reasons that survive "AI writ
 - **Explicit beats declarative** for AI-written, human-maintained code: plotnine's brevity win
   vanishes, its hidden dodge/free-scale debugging cost stays.
 
-Deps via **uv**: PEP 723 inline block (`matplotlib`, `pandas`) plus a committed `uv.lock`. Run
+Deps via **uv**: PEP 723 inline block (`matplotlib`, `pandas`) plus a committed
+`plot.py.lock`. Run
 `uv run viz/plot.py results.csv report.pdf` locally and in CI; uv builds a pinned ephemeral
 venv, so both run identical versions (better than apt, which drifts by Debian release). The CI
 image carries the `uv` binary (see [benchmark-viz-ci-design.md](benchmark-viz-ci-design.md) §3).
@@ -74,7 +78,9 @@ when a library had errored inputs.
 
 ## Script structure
 
-Single file (~250 lines), PEP 723 header, `uv.lock` alongside.
+Single file at `viz/plot.py` (~180 lines), PEP 723 header, `viz/plot.py.lock` alongside
+(uv's actual naming for a locked script — `uv lock --script viz/plot.py` — not a generic
+`uv.lock`; verified against uv 0.11.28).
 
 ```
 load_and_clean(csv)                -> df_ok, error_counts   # add `per`, split ERROR rows
@@ -82,6 +88,12 @@ aggregate(df_ok)                   -> per-(platform,task,library) median/min/max
 plot_platform_page(agg, platform)  -> Figure                # 4x2 grid, scale + mark logic
 main(csv, out_pdf)                 -> loop platforms into PdfPages
 ```
+
+CLI: `uv run viz/plot.py results.csv report.pdf` (positional args only, no flags).
+
+**Verification:** no automated test suite — this project only tests `mrs-benchmark-collect`,
+and a plotting script's correctness is fundamentally visual. Verify by running against a real
+`results.csv` and reviewing the generated `report.pdf` by eye.
 
 ## Deferred
 

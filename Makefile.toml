@@ -80,3 +80,11 @@ category = "Benchmark"
 workspace = false
 command = "cargo"
 args = ["run", "--quiet", "--manifest-path", "benchmarks/Cargo.toml", "-p", "mrs-benchmark-collect", "${@}"]
+
+# --- Report ---
+[tasks.report]
+description = "Render results.csv into a per-platform PDF report via viz/plot.py"
+category = "Benchmark"
+workspace = false
+command = "uv"
+args = ["run", "viz/plot.py", "results.csv", "report.pdf"]

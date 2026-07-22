@@ -1,6 +1,6 @@
 # Benchmark Report CI: Design
 
-Last updated: 2026-07-16
+Last updated: 2026-07-22
 
 ## Problem
 
@@ -27,9 +27,9 @@ instead of being throwaway. Plot design: [benchmark-viz-plotting-design.md](benc
 ### 1. `results.csv` (already durable)
 
 `collect-results` merges `BENCH ` rows into `results.csv` and uploads it with
-`expire_in: 1 year` ([collect.yml](../../.gitlab/ci/collect.yml)). No new store.
+`expire_in: 1 year` ([collect.yml](../.gitlab/ci/collect.yml)). No new store.
 
-Columns in [core `lib.rs`](../../benchmarks/mrs-benchmark-core/src/lib.rs) (`CSV_HEADER`).
+Columns in [core `lib.rs`](../benchmarks/mrs-benchmark-core/src/lib.rs) (`CSV_HEADER`).
 `duration` is total over the whole `repetitions` loop, not per-iteration.
 
 ### 2. `viz/plot.py`
@@ -40,17 +40,43 @@ Reads `results.csv`, writes the PDF, runs identically local and in CI. Plot desi
 
 ### 3. CI changes
 
-- New `report` stage after `collect`.
-- **`report-pdf`** job: `needs: collect-results`, runs `uv run viz/plot.py results.csv
-  report.pdf`, uploads `report.pdf`. A separate job so a plotting failure can't fail `collect`
-  and can be retried alone.
-- Custom CI image gains the `uv` binary (baked alongside the C/Rust deps in
-  [image.yml](../../.gitlab/ci/image.yml)). Only the binary is baked, not the wheels.
+- New `report` stage, inserted between `collect` and `check` in `.gitlab-ci.yml`'s `stages:`
+  list (and `include:`d from a new `.gitlab/ci/report.yml`, matching the one-file-per-stage
+  split every other stage uses).
+- **`report-pdf`** job:
+  ```yaml
+  report-pdf:
+    stage: report
+    needs:
+      - job: collect-results
+        artifacts: true
+    allow_failure: true
+    script:
+      - uv run viz/plot.py results.csv report.pdf
+    artifacts:
+      name: "report-$CI_COMMIT_SHORT_SHA"
+      paths:
+        - report.pdf
+      expire_in: 1 year
+  ```
+  `allow_failure: true` mirrors the HIL `run-*` jobs in [run.yml](../.gitlab/ci/run.yml): a
+  plotting bug shouldn't block a merge. A separate job (not folded into `collect-results`) so a
+  plotting failure can't fail `collect` and can be retried alone.
+- **Custom CI image gains the `uv` binary** via a multi-stage `COPY` from the official image, in
+  [Dockerfile.ci](../.gitlab/ci/Dockerfile.ci):
+  ```dockerfile
+  COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /usr/local/bin/
+  ```
+  Kaniko builds multi-stage Dockerfiles fine. Only the binary is baked, not the wheels — no
+  checksum/install-script step needed.
 - **uv state on `/persist`:** set `UV_CACHE_DIR=/persist/uv` and
-  `UV_PYTHON_INSTALL_DIR=/persist/uv-python` next to the existing `CARGO_HOME`, so the
-  matplotlib/pandas wheels and the pinned CPython uv bootstraps are fetched once, not every
-  run. Same pattern as cargo, without cargo's rustup-baking special case (all uv state fits on
-  `/persist`).
+  `UV_PYTHON_INSTALL_DIR=/persist/uv-python` next to the existing `CARGO_HOME` in
+  `.gitlab-ci.yml`'s top-level `variables:`, so the matplotlib/pandas wheels and the pinned
+  CPython uv bootstraps are fetched once, not every run. Same pattern as cargo, without
+  cargo's rustup-baking special case (all uv state fits on `/persist`).
+- **`Makefile.toml`** gets a `[tasks.report]` entry (`uv run viz/plot.py results.csv
+  report.pdf`) alongside `bench-*`/`collect`, so `cargo make report` reaches it the same way as
+  every other benchmark step.
 
 ### 4. Stable "latest `main`" link
 
@@ -62,8 +88,8 @@ https://git.tu-berlin.de/imrc/teaching/multi-robot-systems-project/2026/mrs-micr
 
 - Always resolves to the latest successful `main` `report.pdf`. `raw/` previews inline;
   `download/` fetches; `browse?job=report-pdf` lists files.
-- Enable **"Keep artifacts from most recent successful jobs"** (on by default) so it survives
-  `expire_in`.
+- Relies on **"Keep artifacts from most recent successful jobs"** so the link survives
+  `expire_in` — confirmed on for this project (2026-07-22).
 - TU login gating applies, which is fine.
 
 ## Out of scope

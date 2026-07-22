@@ -11,6 +11,14 @@ Use this guide as an index to explore the different components of the framework.
 - **[Running the Benchmarks](running-benchmarks.md)**  
   Instructions on how to compile, flash, and execute the benchmarks on the host machine as well as microcontrollers (STM32, RP2040) using `probe-rs`.
 
+## Reports
+
+- **[Benchmark Plotting Script](benchmark-viz-plotting-design.md)**  
+  Design of `viz/plot.py`: how `results.csv` becomes the per-platform PDF chart report — chart layout, scale/mark rules, and the fixed library color map.
+
+- **[Benchmark Report CI](benchmark-viz-ci-design.md)**  
+  How the PDF report is built and published in CI: the `report` stage, the `report.pdf` artifact, and the stable "latest `main`" link.
+
 ## Development & Configuration
 
 - **[Inputs Configuration (`inputs.json`)](inputs_configuration.md)**  
