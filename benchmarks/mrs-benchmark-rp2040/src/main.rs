@@ -117,7 +117,7 @@ fn main() -> ! {
     // default SysTick path needs no clock setup — it counts core cycles directly.
     let dp = rp_pico::hal::pac::Peripherals::take().unwrap();
     let cp = cortex_m::Peripherals::take().unwrap();
-    
+
     let mut resets = dp.RESETS;
     let mut watchdog = rp_pico::hal::watchdog::Watchdog::new(dp.WATCHDOG);
     // Configure the system clock (clk_sys) to run at its nominal 125 MHz

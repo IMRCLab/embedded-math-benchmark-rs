@@ -104,7 +104,7 @@ fn main() -> ! {
 
     let dp = stm32f4xx_hal::pac::Peripherals::take().unwrap();
     let rcc = dp.RCC.constrain();
-    
+
     // Configure system clock to 168 MHz using the 8 MHz HSE crystal on the Crazyflie
     use stm32f4xx_hal::prelude::*;
     let _clocks = rcc

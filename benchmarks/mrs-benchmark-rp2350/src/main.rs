@@ -119,7 +119,7 @@ fn main() -> ! {
 
     let dp = rp235x_hal::pac::Peripherals::take().unwrap();
     let cp = cortex_m::Peripherals::take().unwrap();
-    
+
     let mut resets = dp.RESETS;
     let mut watchdog = rp235x_hal::watchdog::Watchdog::new(dp.WATCHDOG);
     // Configure the system clock (clk_sys) to run at its nominal 150 MHz
