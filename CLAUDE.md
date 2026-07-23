@@ -13,6 +13,14 @@ nalgebra, micromath, and eventually C equivalents) across platforms. QP solvers 
 RTOS/Embassy scheduling comparisons are later milestones — don't prioritize them or assume
 they're in scope unless the user brings them up.
 
+## Repo layout
+
+- `benchmarks/` — Cargo workspace (crates below)
+- `docs/` — source of truth, see below
+- `viz/` — `plot.py`, renders `results.csv` into a per-platform PDF report
+- `tools/` — standalone scripts, e.g. `inputs_generator/` (generates `benchmarks/inputs.json` cases)
+- `slides/` — Marp slide decks for periodic project update talks
+
 ## Docs are the source of truth
 
 `docs/` is maintained and current — read it before changing behavior, and update it in the
@@ -36,7 +44,7 @@ hardware, and status facts go in `docs/`, not memory.
 
 - [docs/benchmark.md](docs/benchmark.md) — documentation index, start here
 - [docs/adding_a_benchmark.md](docs/adding_a_benchmark.md) — full recipe for a new task
-- [docs/io-format.md](docs/io-format.md) / [docs/inputs_configuration.md](docs/inputs_configuration.md) — `inputs.json` in, `BENCH ` CSV out
+- [docs/io-format.md](docs/io-format.md) — `inputs.json` schema (generated via `tools/`) in, `BENCH ` CSV out
 - [docs/running-benchmarks.md](docs/running-benchmarks.md) — build/flash/run per platform
 - [docs/platforms.md](docs/platforms.md) — chips, target triples, timing sources, status
 - [docs/hil-setup.md](docs/hil-setup.md) — probe + GitLab HIL CI provisioning
