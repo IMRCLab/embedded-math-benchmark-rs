@@ -47,3 +47,14 @@ clippy-rp2350:
     TARGET: thumbv8m.main-none-eabihf
   script:
     - cd $WORKSPACE_DIR/mrs-benchmark-rp2350 && cargo clippy -- -D warnings
+
+clippy-esp32s3:
+  stage: check
+  needs: []
+  allow_failure: true
+  before_script:
+    - source "$HOME/export-esp.sh"
+  variables:
+    TARGET: xtensa-esp32s3-none-elf
+  script:
+    - cd $WORKSPACE_DIR/mrs-benchmark-esp32s3 && cargo clippy -- -D warnings
