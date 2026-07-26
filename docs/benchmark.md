@@ -21,6 +21,9 @@ Use this guide as an index to explore the different components of the framework.
 - **[Adding a New Benchmark](adding_a_benchmark.md)**  
   A step-by-step guide for developers on how to write new microbenchmark tasks (defining the inputs, registering the task, and writing the math operations) and integrate them across platforms.
 
+- **[Adding a New Platform](adding_a_platform.md)**  
+  Checklist for bringing up a new hardware target: crate layout, CI wiring, and the `viz/plot.py` reporting bits that live outside the Rust tree.
+
 - **[Benchmark I/O Format](io-format.md)**  
   The `inputs.json` schema (generated via `tools/inputs_generator`) and the `BENCH `-prefixed CSV format results come back in.
 
