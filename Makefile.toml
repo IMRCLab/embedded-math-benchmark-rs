@@ -80,3 +80,28 @@ category = "Benchmark"
 workspace = false
 command = "cargo"
 args = ["run", "--quiet", "--manifest-path", "benchmarks/Cargo.toml", "-p", "mrs-benchmark-collect", "${@}"]
+
+# --- Tools & Accuracy ---
+[tasks.inputs]
+description = "Generate benchmarks/inputs.json using Python task registry"
+category = "Tools"
+workspace = false
+cwd = "tools/inputs_generator"
+command = "uv"
+args = ["run", "python", "generate_inputs.py"]
+
+[tasks.generate-ref]
+description = "Generate benchmarks/reference_results.json f64 ground truth references"
+category = "Tools"
+workspace = false
+cwd = "tools/inputs_generator"
+command = "uv"
+args = ["run", "python", "generate_reference.py"]
+
+[tasks.eval-accuracy]
+description = "Evaluate numerical accuracy (ULP distance, relative error) against reference ground truth"
+category = "Tools"
+workspace = false
+cwd = "tools/inputs_generator"
+command = "uv"
+args = ["run", "python", "evaluate_accuracy.py"]

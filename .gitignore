@@ -3,4 +3,8 @@
 .DS_Store
 /*.csv
 *.png
+.rustup/
+__pycache__/
+.venv/
+accuracy_results.json
 

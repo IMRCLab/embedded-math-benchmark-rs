@@ -43,5 +43,8 @@ Use this guide as an index to explore the different components of the framework.
 
 ## Evaluation & Results
 
+- **[Numerical Accuracy Evaluation](accuracy_evaluation.md)**  
+  Scientific methodology, ULP distance metrics, and workflow tools for evaluating microbenchmark accuracy against 64-bit reference ground truth.
+
 - **[Lee Controller Evaluation](lee_controller_evaluation.md)**  
   Runtime evaluation results and execution time comparison of the Lee Controller across host and embedded platforms.
