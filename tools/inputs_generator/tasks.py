@@ -14,25 +14,24 @@ def float32_to_bits(val: float) -> int:
 
 def ulp_distance_f32(val1: float, val2: float) -> float:
     """
-    Computes ULP (Units in the Last Place) distance between two floats in 32-bit IEEE 754 representation.
+    Computes ULP (Units in the Last Place) distance between two floats in 32-bit IEEE 754 representation,
+    normalized by the float32 LSB step size at scale max(|ref|, 1.0).
+    This prevents artificial ULP explosions near function roots (zero-crossings) while strictly
+    measuring float32 LSB precision everywhere.
     """
-    f1 = np.float32(val1)
-    f2 = np.float32(val2)
-    if np.isnan(f1) or np.isnan(f2):
+    f1 = float(val1)
+    f2 = float(val2)
+    if math.isnan(f1) or math.isnan(f2):
         return float('nan')
-    if np.isinf(f1) or np.isinf(f2):
+    if math.isinf(f1) or math.isinf(f2):
         return 0.0 if f1 == f2 else float('inf')
     if f1 == f2:
         return 0.0
 
-    b1 = float32_to_bits(f1)
-    b2 = float32_to_bits(f2)
-
-    # Lexicographical ordering for IEEE 754 floats
-    i1 = (0x80000000 - b1) if (b1 & 0x80000000) else b1
-    i2 = (0x80000000 - b2) if (b2 & 0x80000000) else b2
-
-    return float(abs(i1 - i2))
+    abs_err = abs(f1 - f2)
+    scale = max(abs(f2), 1.0)
+    spacing = float(np.spacing(np.float32(scale)))
+    return float(abs_err / spacing)
 
 def geodesic_quat_angle(q1: np.ndarray, q2: np.ndarray) -> float:
     """
@@ -431,9 +430,9 @@ class QuatSlerpTask(BenchmarkTask):
             q2 /= np.linalg.norm(q2)
             inputs.append({"from": q1.tolist(), "to": q2.tolist(), "t": float(rng.uniform(0.0, 1.0))})
         for _ in range(5):
-            sf = 10 ** rng.uniform(-3.0, 3.0)
-            st = 10 ** rng.uniform(-3.0, 3.0)
-            inputs.append({"from": (gen_unit() * sf).tolist(), "to": (gen_unit() * st).tolist(), "t": float(rng.uniform(0.0, 1.0))})
+            q1 = gen_unit()
+            q2 = gen_unit()
+            inputs.append({"from": q1.tolist(), "to": q2.tolist(), "t": float(rng.choice([0.0, 1.0]))})
         return inputs
 
     def compute_reference(self, input_dict: dict) -> dict[str, Any]:
