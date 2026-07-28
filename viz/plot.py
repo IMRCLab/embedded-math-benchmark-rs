@@ -449,33 +449,42 @@ def main(argv):
                 pdf.savefig(fig)
                 plt.close(fig)
 
-        # Section 3: Pareto Runtime vs Accuracy Pages (per platform)
+        # Section 2: Execution Time (by task)
+        for page_idx, task_page in enumerate(by_task_pages, start=1):
+            page_rows = agg[agg["task"].isin(task_page)]
+            if page_rows.empty:
+                continue
+            fig = plot_task_page(
+                agg, df_ok, error_counts, task_page, all_platforms, all_libs,
+                page_idx, len(by_task_pages), generated_at,
+            )
+            pdf.savefig(fig)
+            plt.close(fig)
+
+        # Section 3: Accuracy Bar Charts (per platform)
         acc_df = load_accuracy_df(csv_path)
         if acc_df is not None:
-            pareto_page_size = 4  # 2x2 grid per page
-            pareto_task_pages = _paginate(tasks, pareto_page_size)
-
             for platform in all_platforms:
-                # 1. Pareto Summary Table Page
-                summary_fig = plot_pareto_summary_table_page(agg, acc_df, platform, tasks, generated_at)
-                if summary_fig is not None:
-                    pdf.savefig(summary_fig)
-                    plt.close(summary_fig)
-
-                # 2. Pareto 2x2 Plot Pages
                 platform_libs = _ordered(
                     df_ok.loc[df_ok["platform"] == platform, "library"].unique(),
                     LIBRARY_ORDER,
                     f"library(ies) on {platform}",
                 )
-                for page_idx, task_page in enumerate(pareto_task_pages, start=1):
-                    fig = plot_pareto_platform_page(
-                        agg, acc_df, platform, platform_libs, task_page,
-                        page_idx, len(pareto_task_pages), generated_at,
+                for page_idx, task_page in enumerate(task_pages, start=1):
+                    fig = plot_accuracy_platform_page(
+                        acc_df, platform, platform_libs, task_page,
+                        page_idx, len(task_pages), generated_at,
                     )
                     if fig is not None:
                         pdf.savefig(fig)
                         plt.close(fig)
+
+            # Section 4: Accuracy & Speed Comparison Table (at the very end of report.pdf)
+            for platform in all_platforms:
+                summary_fig = plot_pareto_summary_table_page(agg, acc_df, platform, tasks, generated_at)
+                if summary_fig is not None:
+                    pdf.savefig(summary_fig)
+                    plt.close(summary_fig)
 
 
 def load_accuracy_df(csv_path):
@@ -488,6 +497,134 @@ def load_accuracy_df(csv_path):
         except Exception as e:
             print(f"plot.py: Warning - failed to load {acc_csv}: {e}", file=sys.stderr)
     return None
+
+
+def plot_accuracy_platform_page(
+    acc_df, platform, libs, tasks, page, n_pages, generated_at
+):
+    """Plots per-platform accuracy bar charts (Mean ULP) for each task, matching time bar chart styling."""
+    n_rows, n_cols = GRID_SHAPE
+    fig, axes = plt.subplots(n_rows, n_cols, figsize=(16, 8))
+    axes = axes.flatten()
+
+    plat_acc = acc_df[acc_df["platform"] == platform] if acc_df is not None else None
+
+    has_any_plot = False
+    x = list(range(len(libs)))
+
+    for ax, task in zip(axes, tasks):
+        if plat_acc is None:
+            ax.axis("off")
+            continue
+
+        task_acc = plat_acc[plat_acc["task"] == task]
+        if task_acc.empty:
+            ax.axis("off")
+            continue
+
+        acc_indexed = task_acc.set_index("library").reindex(libs)
+
+        present = [
+            lib in acc_indexed.index and pd.notna(acc_indexed.loc[lib, "mean_ulp"]) and not math.isinf(acc_indexed.loc[lib, "mean_ulp"])
+            for lib in libs
+        ]
+
+        x_present = [xi for xi, p in zip(x, present) if p]
+        if not x_present:
+            ax.axis("off")
+            continue
+
+        has_any_plot = True
+        ulps_present = [float(acc_indexed.loc[lib, "mean_ulp"]) for lib, p in zip(libs, present) if p]
+        colors_present = [LIBRARY_COLORS.get(lib, FALLBACK_COLOR) for lib, p in zip(libs, present) if p]
+        libs_present = [lib for lib, p in zip(libs, present) if p]
+
+        ax.set_title(f"{task} Accuracy", fontsize=9, pad=14)
+
+        # Plot bars: ULP + 1.0 on log scale so 0 ULP exact matches sit nicely at 1
+        bar_heights = [u + 1.0 for u in ulps_present]
+
+        bars = ax.bar(x_present, bar_heights, color=colors_present, width=0.6, zorder=2)
+        for bar, lib in zip(bars, libs_present):
+            if lib == "crazyflie-fw":
+                bar.set_hatch(CF_HATCH)
+
+        ax.set_yscale("log")
+
+        # Ensure y-axis always starts at baseline 1.0 (10^0 = 0 ULP) for consistent visual comparison
+        # and provide generous headroom for value labels above the highest bar
+        max_y = max(bar_heights) if bar_heights else 1.0
+        top_y = max(max_y * 4.0, 10.0)
+        ax.set_ylim(1.0, top_y)
+
+        # Label values above bars
+        for xi, u in zip(x_present, ulps_present):
+            y_pos = u + 1.0
+            if u == 0.0:
+                lbl = "0 (exact)"
+            elif u < 10.0:
+                lbl = f"{u:.1f} ULP"
+            elif u < 1000.0:
+                lbl = f"{u:.0f} ULP"
+            else:
+                lbl = f"{u:.1e} ULP"
+
+            ax.text(
+                xi, y_pos * 1.25, lbl,
+                ha="center", va="bottom", fontsize=7.5, fontweight="bold",
+                zorder=5, clip_on=True
+            )
+
+        ax.set_ylabel("Mean ULP + 1 (log)", fontsize=8, color=LOG_COLOR, fontweight="bold")
+
+        # Format y-axis ticks strictly as 10^0, 10^1, 10^2, 10^3, ...
+        import matplotlib.ticker as ticker
+        ax.yaxis.set_major_locator(ticker.LogLocator(base=10.0))
+        ax.yaxis.set_major_formatter(ticker.LogFormatterMathtext(base=10.0))
+
+        ax.set_xlim(-0.5, len(libs) - 0.5)
+        ax.set_xticks(x)
+        tick_labels = ax.set_xticklabels(libs, rotation=30, ha="right", fontsize=8)
+        for label, p in zip(tick_labels, present):
+            if not p:
+                label.set_color("#aaaaaa")
+                label.set_style("italic")
+
+        ax.grid(axis="y", color="#d0d0d0", linewidth=0.6, zorder=0)
+        ax.set_axisbelow(True)
+
+    if not has_any_plot:
+        plt.close(fig)
+        return None
+
+    for ax in axes[len(tasks):]:
+        ax.axis("off")
+
+    title = f"{platform} Accuracy (Mean ULP Error)"
+    title = title if n_pages == 1 else f"{title} (page {page}/{n_pages})"
+    fig.suptitle(title, fontsize=18, fontweight="bold", y=0.99)
+    fig.text(
+        0.5, 0.94,
+        "ULP (Unit in the Last Place): Float32 LSB bit distance. 0 ULP = Bit-exact match, 1-2 ULP = IEEE float noise",
+        ha="center", fontsize=9, fontstyle="italic", color="#444444",
+    )
+    fig.text(
+        0.99, 0.99,
+        f"generated {generated_at}",
+        ha="right", va="top", fontsize=9, color="#555555",
+    )
+
+    handles = [
+        Patch(
+            facecolor=LIBRARY_COLORS.get(lib, FALLBACK_COLOR),
+            hatch=CF_HATCH if lib == "crazyflie-fw" else None,
+            label=lib,
+        )
+        for lib in libs
+    ]
+    fig.legend(handles=handles, loc="lower center", ncol=len(libs), frameon=False)
+    fig.subplots_adjust(left=0.055, right=0.985, top=0.86, bottom=0.13, hspace=0.7, wspace=0.35)
+    return fig
 
 
 def compute_pareto_frontier(points):
@@ -512,7 +649,7 @@ def compute_pareto_frontier(points):
 
 
 def plot_pareto_summary_table_page(agg, acc_df, platform, tasks, generated_at):
-    """Renders a clean Pareto Classification Summary Table for a platform."""
+    """Renders a clean Pareto Classification Summary Table for a platform at the end of the report."""
     plat_agg = agg[agg["platform"] == platform]
     plat_acc = acc_df[acc_df["platform"] == platform] if acc_df is not None else None
     if plat_agg.empty or plat_acc is None:
@@ -531,8 +668,7 @@ def plot_pareto_summary_table_page(agg, acc_df, platform, tasks, generated_at):
             lib = row["library"]
             runtime = row["median"]
             ulp = row["mean_ulp"]
-            rel_err = row["mean_rel_error"]
-            points.append((lib, runtime, ulp, rel_err))
+            points.append((lib, runtime, ulp))
 
         if not points:
             continue
@@ -542,23 +678,13 @@ def plot_pareto_summary_table_page(agg, acc_df, platform, tasks, generated_at):
 
         if valid_acc:
             min_ulp_val = min(p[2] for p in valid_acc)
-            if min_ulp_val < 10000.0:
-                most_acc_libs = [p for p in valid_acc if abs(p[2] - min_ulp_val) < 0.1]
-                names = "/".join(sorted([p[0] for p in most_acc_libs]))
-                most_acc_str = f"{names} ({min_ulp_val:.1f} ULP)"
-            else:
-                valid_rel = [p for p in points if not pd.isna(p[3]) and not math.isinf(p[3])]
-                min_rel_val = min(p[3] for p in valid_rel) if valid_rel else float('inf')
-                if min_rel_val < 1e-4:
-                    most_acc_libs = [p for p in valid_rel if abs(p[3] - min_rel_val) < 1e-7 or p[3] <= min_rel_val * 1.05]
-                    names = "/".join(sorted([p[0] for p in most_acc_libs]))
-                    most_acc_str = f"{names} ({min_rel_val:.1e} rel err)"
-                else:
-                    most_acc_str = "None (>10k ULP)"
+            most_acc_libs = [p for p in valid_acc if abs(p[2] - min_ulp_val) < 0.1]
+            names = "/".join(sorted([p[0] for p in most_acc_libs]))
+            most_acc_str = f"{names} ({min_ulp_val:.1f} ULP)" if min_ulp_val < 1000.0 else f"{names} ({min_ulp_val:.1e} ULP)"
         else:
             most_acc_str = "N/A"
 
-        pareto_pts = compute_pareto_frontier([(p[0], p[1], p[2]) for p in points])
+        pareto_pts = compute_pareto_frontier(points)
         pareto_libs = {p[0] for p in pareto_pts}
         all_libs = {p[0] for p in points}
         dominated_libs = sorted(list(all_libs - pareto_libs))
@@ -591,10 +717,10 @@ def plot_pareto_summary_table_page(agg, acc_df, platform, tasks, generated_at):
         table[(0, i)].set_facecolor("#2a78d6")
         table[(0, i)].set_text_props(color="white", fontweight="bold")
 
-    fig.suptitle(f"{platform} - Pareto Trade-off Summary", fontsize=16, fontweight="bold", y=0.96)
+    fig.suptitle(f"{platform} - Speed & Accuracy Trade-off Summary", fontsize=16, fontweight="bold", y=0.96)
     fig.text(
         0.5, 0.90,
-        "ULP (Unit in the Last Place): Measures float32 bit distance (~1.19e-7 step at magnitude 1.0).\n0 ULP = Bit-exact float32 match | 1-2 ULP = Float noise | >10 ULP = Drift / Approximation.",
+        "ULP (Unit in the Last Place): Measures float32 LSB bit distance (~1.19e-7 step at magnitude 1.0).\n0 ULP = Bit-exact float32 match | 1-2 ULP = Float noise | >10 ULP = Drift / Approximation.",
         ha="center", va="top", fontsize=9, style="italic", color="#444444"
     )
     fig.text(
@@ -602,98 +728,6 @@ def plot_pareto_summary_table_page(agg, acc_df, platform, tasks, generated_at):
         f"generated {generated_at}",
         ha="right", va="top", fontsize=8, color="#555555",
     )
-    return fig
-
-
-def plot_pareto_platform_page(
-    agg, acc_df, platform, libs, tasks, page, n_pages, generated_at
-):
-    """Plots 2D Pareto Trade-off subplots (Median Runtime vs Mean ULP Error) in a 2x2 grid."""
-    n_rows, n_cols = (2, 2)
-    fig, axes = plt.subplots(n_rows, n_cols, figsize=(14, 8))
-    axes = axes.flatten()
-
-    plat_agg = agg[agg["platform"] == platform]
-    plat_acc = acc_df[acc_df["platform"] == platform] if acc_df is not None else None
-
-    has_any_plot = False
-    for ax, task in zip(axes, tasks):
-        sub_agg = plat_agg[plat_agg["task"] == task]
-        if sub_agg.empty or plat_acc is None:
-            ax.axis("off")
-            continue
-
-        sub_acc = plat_acc[plat_acc["task"] == task]
-        merged = pd.merge(sub_agg, sub_acc, on=["platform", "library", "task"], how="inner")
-        if merged.empty:
-            ax.axis("off")
-            continue
-
-        has_any_plot = True
-        points = []
-        for _, row in merged.iterrows():
-            lib = row["library"]
-            runtime = row["median"]
-            ulp = row["mean_ulp"]
-            points.append((lib, runtime, ulp))
-
-        ax.set_title(f"{task} (Runtime vs Accuracy)", fontsize=11, fontweight="bold", pad=8)
-
-        for lib, runtime, ulp in points:
-            color = LIBRARY_COLORS.get(lib, FALLBACK_COLOR)
-            marker = LIBRARY_MARKERS.get(lib, "o")
-            y_val = ulp + 1.0 if not pd.isna(ulp) else 1.0
-            ax.scatter(runtime, y_val, color=color, marker=marker, s=70, zorder=4, label=lib)
-            label_text = f" {lib}\n ({ulp:.1f} ULP)" if not pd.isna(ulp) else f" {lib}"
-            ax.annotate(
-                label_text,
-                (runtime, y_val),
-                xytext=(6, -6),
-                textcoords="offset points",
-                fontsize=7.5,
-                alpha=0.9,
-                fontweight="bold"
-            )
-
-        pareto_pts = compute_pareto_frontier(points)
-        if len(pareto_pts) > 1:
-            px = [p[1] for p in pareto_pts]
-            py = [p[2] + 1.0 for p in pareto_pts]
-            ax.plot(px, py, "--", color="#444444", linewidth=1.4, alpha=0.75, zorder=3, label="Pareto Frontier")
-
-        ax.set_xscale("log")
-        ax.set_yscale("log")
-        ax.set_xlabel(f"Median Time ({UNIT})", fontsize=8.5)
-        ax.set_ylabel("Mean ULP + 1 (log)", fontsize=8.5, color=LOG_COLOR, fontweight="bold")
-        ax.grid(True, which="both", linestyle=":", color="#d0d0d0", linewidth=0.5, zorder=0)
-
-    if not has_any_plot:
-        plt.close(fig)
-        return None
-
-    for ax in axes[len(tasks):]:
-        ax.axis("off")
-
-    title = f"{platform} Pareto Frontier (Page {page}/{n_pages})" if n_pages > 1 else f"{platform} Pareto Frontier"
-    fig.suptitle(title, fontsize=15, fontweight="bold", y=0.98)
-    fig.text(
-        0.5, 0.93,
-        "ULP (Unit in the Last Place): 0 ULP = Bit-exact float32 | 1-2 ULP = Float noise | >10 ULP = Drift / Approx",
-        ha="center", va="top", fontsize=8.5, style="italic", color="#555555"
-    )
-    fig.text(
-        0.99, 0.99,
-        f"generated {generated_at}",
-        ha="right", va="top", fontsize=8, color="#555555",
-    )
-
-    handles = [
-        plt.Line2D([0], [0], marker=LIBRARY_MARKERS.get(lib, "o"), color="w", markerfacecolor=LIBRARY_COLORS.get(lib, FALLBACK_COLOR), markersize=8, label=lib)
-        for lib in libs
-    ]
-    handles.append(plt.Line2D([0], [0], linestyle="--", color="#444444", label="Pareto Frontier"))
-    fig.legend(handles=handles, loc="lower center", ncol=len(libs) + 1, frameon=False, fontsize=8.5)
-    fig.subplots_adjust(left=0.07, right=0.97, top=0.87, bottom=0.12, hspace=0.45, wspace=0.25)
     return fig
 
 
