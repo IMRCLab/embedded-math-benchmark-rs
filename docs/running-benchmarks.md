@@ -1,24 +1,31 @@
 # Running the Benchmarks
 
-Build and run on the host or on a microcontroller. Inputs come from
-`benchmarks/inputs.json` (compiled in at build time); results print as a CSV block, see
-[Benchmark I/O Format](io-format.md). For the list of targets, chip names, and units, see
+Build and run on the host or a microcontroller. Inputs come from `benchmarks/inputs.json`
+(baked in at build time); results print as `BENCH `-prefixed CSV rows, see
+[Benchmark I/O Format](io-format.md). For chip names, target triples, and units, see
 [Targets & Platforms](platforms.md).
 
-## Host (native)
+## cargo-make
 
-```bash
-cd benchmarks/mrs-benchmark-host
-cargo run --release
-```
+`cargo install cargo-make` once, then from the repo root:
 
-## Microcontroller targets
+| Task                     | Result                                                                        |
+| ------------------------ | ----------------------------------------------------------------------------- |
+| `cargo make bench-host`  | build + run natively                                                          |
+| `cargo make bench-stm`   | build + flash STM32F405 over probe-rs                                         |
+| `cargo make bench-pico`  | build + flash RP2040 (Pico 1) over probe-rs                                   |
+| `cargo make bench-pico2` | build + flash RP2350 (Pico 2) over probe-rs                                   |
+| `cargo make bench-esp32` | build + flash ESP32-S3 over its native USB JTAG                               |
+| `cargo make report`      | render `results.csv` into `report.pdf` ([benchmark-viz.md](benchmark-viz.md)) |
 
-Build each firmware from its own crate directory (so its crate-local `.cargo/config.toml`
-is used), then flash and run with `probe-rs`, which streams RTT output back to your
-terminal.
+Firmware tasks need `probe-rs` and a connected probe, see [HIL Setup](hil-setup.md).
+ESP32-S3 additionally needs the `espup`-installed `esp` toolchain on `PATH`.
 
-**STM32F405:**
+## Without cargo-make
+
+Build each firmware crate from its own directory (so its crate-local `.cargo/config.toml`
+picks the right target), then flash with `probe-rs run --chip <chip>`.
+[`Makefile.toml`](../Makefile.toml) has the exact chip name and target triple per platform, e.g.:
 
 ```bash
 cd benchmarks/mrs-benchmark-stm32
@@ -26,53 +33,16 @@ cargo build --release
 probe-rs run --chip STM32F405RGTx ../target/thumbv7em-none-eabihf/release/mrs-benchmark-stm32
 ```
 
-**Raspberry Pi Pico 1 (RP2040):**
-
-```bash
-cd benchmarks/mrs-benchmark-rp2040
-cargo build --release
-probe-rs run --chip RP2040 ../target/thumbv6m-none-eabi/release/mrs-benchmark-rp2040
-```
-
-**Raspberry Pi Pico 2 (RP2350):**
-
-```bash
-cd benchmarks/mrs-benchmark-rp2350
-cargo build --release
-probe-rs run --chip RP235x ../target/thumbv8m.main-none-eabihf/release/mrs-benchmark-rp2350
-```
-
-The Pico is flashed over SWD with a separate probe, see [HIL Setup](hil-setup.md) for probe
-and udev details.
-
-## Shortcuts with cargo-make
-
-`cargo install cargo-make` once, then from the project root:
-
-- **Host:** `cargo make bench-host`
-- **STM32:** `cargo make bench-stm`
-- **Pico 1 (RP2040):** `cargo make bench-pico`
-- **Pico 2 (RP2350):** `cargo make bench-pico2`
-
 ## Collecting results into a CSV
 
-Each run streams result rows inline, prefixed with `BENCH ` (see
-[Benchmark I/O Format](io-format.md)). `mrs-benchmark-collect` pulls those rows
-out of one or more logs, sorts them, and writes a single headed `results.csv`. It
-treats each row as opaque text (no per-column parsing), so the output format can
-change without touching the tool. It reads the given files, or stdin when none
-are passed, and writes to `-o`/`--output` or stdout.
-
-Pipe a single run straight through:
+`mrs-benchmark-collect` (`cargo make collect`) greps `BENCH ` rows out of one or more logs
+and writes a single headed `results.csv`; it treats each row as opaque text, so the column
+format can change without touching the tool. Reads the given files, or stdin when none are
+passed; writes to `-o`/`--output` or stdout.
 
 ```bash
 cargo make bench-host | cargo make collect -- -o results.csv
+cargo make collect -- host.log rp2040.log stm32.log -o results.csv   # merge saved logs, as CI does
 ```
 
-Or merge several saved logs (as CI does across platforms):
-
-```bash
-cargo make collect -- host.log rp2040.log stm32.log -o results.csv
-```
-
-Input containing no `BENCH ` rows at all fails with a non-zero exit.
+Input with no `BENCH ` rows fails with a non-zero exit.

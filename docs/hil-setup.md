@@ -31,23 +31,20 @@ Output comes back over RTT with `probe-rs`.
 
 ## CI image
 
-The `shared` runner's base image needs `arm-none-eabi-gcc`/`libnewlib-arm-none-eabi` and
-`libclang-dev` (for `mrs-benchmark-crazyflie-sys`'s C compile + `bindgen` steps) plus the
+The `shared` runner's base image needs multiple dependencies plus the
 firmware Rust targets, none of which `rust:latest` ships. It also needs Espressif's `espup`
-Xtensa toolchain for `mrs-benchmark-esp32s3` (a separate rustc/LLVM fork, since Xtensa has
-no upstream-stable Rust target), baked in the same way as the ARM targets.
+Xtensa toolchain for `mrs-benchmark-esp32s3`.
 [`Dockerfile.ci`](../.gitlab/ci/Dockerfile.ci) layers those on top of `rust:latest`;
-[`image.yml`](../.gitlab/ci/image.yml) builds and republishes it (`:latest` +
-`:$CI_COMMIT_SHORT_SHA`) only when the Dockerfile or the job itself changes.
+[`image.yml`](../.gitlab/ci/image.yml) builds and republishes it when the Dockerfile or the job itself changes.
 
-Built with kaniko, not `docker:dind` — the runner isn't (and can't easily be)
-configured with `privileged = true`, and kaniko builds from an unprivileged container
-instead. Targets and components are baked into the image. A new target must be added to [`Dockerfile.ci`](../.gitlab/ci/Dockerfile.ci) too.
+Built with kaniko: it builds from an unprivileged container
+instead. Targets and components are baked into the image. So a new target must be added to [`Dockerfile.ci`](../.gitlab/ci/Dockerfile.ci) too.
 
 ## Probes
 
 Use existing J-Links if we have them (one covers all three chips with the best RTT).
-Otherwise ST-Link / RPi Debug Probe is the cheap default.
+Otherwise ST-Link / RPi Debug Probe is the cheap default. ESP32-S3 needs no external probe
+at all: its USB JTAG enumerates directly, see [Targets & Platforms](platforms.md).
 
 ### RPi debug probe
 
@@ -65,22 +62,12 @@ sudo mkdir -p /mnt/rp2 && sudo mount "$DEV" /mnt/rp2
 sudo cp /tmp/dp.uf2 /mnt/rp2/
 ```
 
-### ESP32-S3 (native USB JTAG)
-
-No external probe wiring needed: the ESP32-S3's built-in USB Serial/JTAG Controller
-enumerates directly as a probe-rs-visible "ESP JTAG" probe over its one USB cable
-(distinct VID:PID from the Debug Probe pool, so it never collides in
-[probe selection](#multiple-probes)). This is unlike a bare dongle-style board with no
-onboard debugger, which needs a separate SWD probe wired to its debug pads before
-`probe-rs` can reach it at all.
-
 ### Multiple probes
 
 Probes share the Debug Probe VID:PID (`2e8a:000c`), so `probe-rs run --chip <chip>` fails
 with "multiple probes found". Each run job calls
 [`select-probe.sh`](../.gitlab/ci/select-probe.sh) `<chip>` first, which greps each probe's
-`probe-rs info` for a per-chip signature and returns the `VID:PID:Serial` of the match. A
-wrong pick just fails at the flashing step that follows.
+`probe-rs info` for a per-chip signature and returns the `VID:PID:Serial` of the match.
 
 ## Provisioning
 
@@ -135,4 +122,4 @@ from this account directly: `cargo install espup --locked && espup install --tar
 esp32s3`, then `source $HOME/export-esp.sh` before `cargo build`.
 
 If the target wedges, `probe-rs` resets it over SWD. A locked-up probe is different: it
-needs a USB power cycle, so use a PPPS-capable hub (e.g. Rosonway RSH-A10 or RSH-A16).
+needs a USB power cycle, so use a PPPS-capable hub.

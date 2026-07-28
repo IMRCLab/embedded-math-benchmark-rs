@@ -1,0 +1,20 @@
+# ----------------------------------------------------------------------------
+# report
+# ----------------------------------------------------------------------------
+
+# Renders results.csv into a per-platform PDF via viz/plot.py (see
+# docs/benchmark-viz.md). Separate stage/job from collect so a plotting bug
+# can't fail the CSV artifact and can be retried alone.
+report-pdf:
+  stage: report
+  needs:
+    - job: collect-results
+      artifacts: true
+  allow_failure: true
+  script:
+    - uv run viz/plot.py results.csv report.pdf
+  artifacts:
+    name: "report-$CI_COMMIT_SHORT_SHA"
+    paths:
+      - report.pdf
+    expire_in: 1 year

@@ -2,6 +2,7 @@
 #![no_main]
 
 use esp_backtrace as _;
+use esp_hal::clock::CpuClock;
 use esp_hal::main;
 use rtt_target::{rprintln, rtt_init_print};
 use xtensa_lx::timer::get_cycle_count;
@@ -87,8 +88,9 @@ impl BenchmarkPlatform for Esp32s3Platform {
 
 #[main]
 fn main() -> ! {
-    let _peripherals = esp_hal::init(esp_hal::Config::default());
-    rtt_init_print!();
+    let config = esp_hal::Config::default().with_cpu_clock(CpuClock::_240MHz);
+    let _peripherals = esp_hal::init(config);
+    rtt_init_print!(rtt_target::ChannelMode::BlockIfFull, 4096);
     rprintln!("Initializing ESP32-S3 Microbenchmarks...");
 
     let mut platform = Esp32s3Platform;

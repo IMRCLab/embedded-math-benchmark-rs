@@ -9,18 +9,23 @@ Use this guide as an index to explore the different components of the framework.
 ## General Usage
 
 - **[Running the Benchmarks](running-benchmarks.md)**  
-  Instructions on how to compile, flash, and execute the benchmarks on the host machine as well as microcontrollers (STM32, RP2040) using `probe-rs`.
+  Instructions on how to compile, flash, and execute the benchmarks on the host machine as well as microcontrollers (STM32, RP2040, RP2350, ESP32-S3) using `probe-rs`.
+
+## Reports
+
+- **[Benchmark Report](benchmark-viz.md)**  
+  How `results.csv` becomes the per-platform `report.pdf`: chart design, the `report` CI stage, and the stable "latest `main`" link.
 
 ## Development & Configuration
 
-- **[Inputs Configuration (`inputs.json`)](inputs_configuration.md)**  
-  Learn how to define test cases, repetitions, target platforms, and target libraries using the central JSON configuration file.
-  
 - **[Adding a New Benchmark](adding_a_benchmark.md)**  
   A step-by-step guide for developers on how to write new microbenchmark tasks (defining the inputs, registering the task, and writing the math operations) and integrate them across platforms.
 
+- **[Adding a New Platform](adding_a_platform.md)**  
+  Checklist for bringing up a new hardware target: crate layout, CI wiring, and the `viz/plot.py` reporting bits that live outside the Rust tree.
+
 - **[Benchmark I/O Format](io-format.md)**  
-  Documentation detailing exactly how benchmark data is logged out of the platforms via standard serial output in CSV format, perfect for offline Python evaluation.
+  The `inputs.json` schema (generated via `tools/inputs_generator`) and the `BENCH `-prefixed CSV format results come back in.
 
 ## Hardware & Environment
 
