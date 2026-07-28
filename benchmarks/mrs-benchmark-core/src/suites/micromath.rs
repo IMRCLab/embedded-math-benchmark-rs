@@ -496,8 +496,8 @@ impl RawTaskImplementation<LeeControllerTask> for LeeControllerLogic {
         let r_d_t_r = r_d.transpose() * r_mat;
         let r_t_r_d = r_mat.transpose() * r_d;
         let err_mat = r_d_t_r - r_t_r_d;
-
-        let e_r = 0.5 * Vec3::new(err_mat.z_axis.y, err_mat.x_axis.z, err_mat.y_axis.x);
+        // vee map of skew symmetric matrix: (M_32, M_13, M_21)
+        let e_r = 0.5 * Vec3::new(err_mat.y_axis.z, err_mat.z_axis.x, err_mat.x_axis.y);
 
         let w_d = if f_d.length() > f32::EPSILON {
             let cmd_jerk = Vec3::new(0.0, 0.0, 0.0);

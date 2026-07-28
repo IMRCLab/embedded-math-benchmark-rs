@@ -49,13 +49,13 @@ impl RawTaskImplementation<MatMul3x3Task> for MatMul3x3Logic {
     ) -> Result<<MatMul3x3Task as crate::BenchmarkTask>::Output, BenchmarkError> {
         Ok([
             output.m[0][0],
-            output.m[0][1],
-            output.m[0][2],
             output.m[1][0],
-            output.m[1][1],
-            output.m[1][2],
             output.m[2][0],
+            output.m[0][1],
+            output.m[1][1],
             output.m[2][1],
+            output.m[0][2],
+            output.m[1][2],
             output.m[2][2],
         ])
     }
@@ -195,7 +195,7 @@ impl RawTaskImplementation<QuatMulTask> for QuatMulLogic {
     }
 
     fn execute(&self, input: &Self::PreparedInput) -> Result<Self::RawOutput, BenchmarkError> {
-        Ok(unsafe { mrs_benchmark_crazyflie_sys::cf_qqmul(input.0, input.1) })
+        Ok(unsafe { mrs_benchmark_crazyflie_sys::cf_qqmul(input.1, input.0) })
     }
 
     fn finalize(
@@ -230,7 +230,7 @@ impl RawTaskImplementation<UnitQuatMulTask> for UnitQuatMulLogic {
     }
 
     fn execute(&self, input: &Self::PreparedInput) -> Result<Self::RawOutput, BenchmarkError> {
-        Ok(unsafe { mrs_benchmark_crazyflie_sys::cf_qqmul(input.0, input.1) })
+        Ok(unsafe { mrs_benchmark_crazyflie_sys::cf_qqmul(input.1, input.0) })
     }
 
     fn finalize(
