@@ -10,6 +10,7 @@
 Usage: uv run viz/plot.py results.csv report.pdf
 """
 
+import math
 import os
 import random
 import sys
@@ -530,22 +531,39 @@ def plot_pareto_summary_table_page(agg, acc_df, platform, tasks, generated_at):
             lib = row["library"]
             runtime = row["median"]
             ulp = row["mean_ulp"]
-            points.append((lib, runtime, ulp))
+            rel_err = row["mean_rel_error"]
+            points.append((lib, runtime, ulp, rel_err))
 
         if not points:
             continue
 
         fastest = min(points, key=lambda p: p[1])
-        valid_ulp = [p for p in points if not pd.isna(p[2])]
-        most_accurate = min(valid_ulp, key=lambda p: p[2]) if valid_ulp else fastest
+        valid_acc = [p for p in points if not pd.isna(p[2]) and not math.isinf(p[2])]
 
-        pareto_pts = compute_pareto_frontier(points)
+        if valid_acc:
+            min_ulp_val = min(p[2] for p in valid_acc)
+            if min_ulp_val < 10000.0:
+                most_acc_libs = [p for p in valid_acc if abs(p[2] - min_ulp_val) < 0.1]
+                names = "/".join(sorted([p[0] for p in most_acc_libs]))
+                most_acc_str = f"{names} ({min_ulp_val:.1f} ULP)"
+            else:
+                valid_rel = [p for p in points if not pd.isna(p[3]) and not math.isinf(p[3])]
+                min_rel_val = min(p[3] for p in valid_rel) if valid_rel else float('inf')
+                if min_rel_val < 1e-4:
+                    most_acc_libs = [p for p in valid_rel if abs(p[3] - min_rel_val) < 1e-7 or p[3] <= min_rel_val * 1.05]
+                    names = "/".join(sorted([p[0] for p in most_acc_libs]))
+                    most_acc_str = f"{names} ({min_rel_val:.1e} rel err)"
+                else:
+                    most_acc_str = "None (>10k ULP)"
+        else:
+            most_acc_str = "N/A"
+
+        pareto_pts = compute_pareto_frontier([(p[0], p[1], p[2]) for p in points])
         pareto_libs = {p[0] for p in pareto_pts}
         all_libs = {p[0] for p in points}
         dominated_libs = sorted(list(all_libs - pareto_libs))
 
         fastest_str = f"{fastest[0]} ({fastest[1]:.1f} ns)"
-        most_acc_str = f"{most_accurate[0]} ({most_accurate[2]:.1f} ULP)" if not pd.isna(most_accurate[2]) else "N/A"
         pareto_str = ", ".join(sorted(list(pareto_libs)))
         dominated_str = ", ".join(dominated_libs) if dominated_libs else "None"
 

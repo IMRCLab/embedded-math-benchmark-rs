@@ -286,7 +286,7 @@ class SinCosTask(BenchmarkTask):
         for theta in np.linspace(-np.pi, np.pi, 40):
             inputs.append({"theta": float(theta)})
         for _ in range(10):
-            inputs.append({"theta": float(10 ** rng.uniform(2.0, 12.0))})
+            inputs.append({"theta": float(rng.uniform(-10.0 * np.pi, 10.0 * np.pi))})
         return inputs
 
     def compute_reference(self, input_dict: dict) -> dict[str, Any]:
