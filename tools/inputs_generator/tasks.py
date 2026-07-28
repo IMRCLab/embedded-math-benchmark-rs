@@ -50,7 +50,8 @@ TEST_LIBRARY_MAPPING = {
     "Atan2": ["libm", "micromath", "crazyflie-fw"],
     "SinCos": ["libm", "micromath", "crazyflie-fw"],
     "Sqrt": ["libm", "micromath", "crazyflie-fw"],
-    "QuatMul": ["glam", "nalgebra", "micromath", "crazyflie-fw"],
+    "QuatMul": ["glam", "micromath", "crazyflie-fw"],
+    "UnitQuatMul": ["glam", "nalgebra", "micromath", "crazyflie-fw"],
     "QuatSlerp": ["glam", "nalgebra", "micromath", "crazyflie-fw"],
     "LeeController": ["glam", "nalgebra", "micromath"],
 }
@@ -361,6 +362,52 @@ class QuatMulTask(BenchmarkTask):
         return metrics
 
 
+class UnitQuatMulTask(BenchmarkTask):
+    def __init__(self):
+        super().__init__("UnitQuatMul", 100)
+
+    def generate_inputs(self, rng: np.random.Generator) -> list[dict]:
+        inputs = []
+        def gen_unit():
+            q = rng.normal(size=4)
+            return q / np.linalg.norm(q)
+
+        for _ in range(50):
+            inputs.append({"lhs": gen_unit().tolist(), "rhs": gen_unit().tolist()})
+        return inputs
+
+    def compute_reference(self, input_dict: dict) -> dict[str, Any]:
+        q1 = np.array(input_dict["lhs"], dtype=np.float64)
+        q2 = np.array(input_dict["rhs"], dtype=np.float64)
+        q1 = q1 / np.linalg.norm(q1)
+        q2 = q2 / np.linalg.norm(q2)
+
+        x1, y1, z1, w1 = q1[0], q1[1], q1[2], q1[3]
+        x2, y2, z2, w2 = q2[0], q2[1], q2[2], q2[3]
+
+        w = w1 * w2 - x1 * x2 - y1 * y2 - z1 * z2
+        x = w1 * x2 + x1 * w2 + y1 * z2 - z1 * y2
+        y = w1 * y2 - x1 * z2 + y1 * w2 + z1 * x2
+        z = w1 * z2 + x1 * y2 - y1 * x2 + z1 * w2
+
+        res_q = np.array([x, y, z, w], dtype=np.float64)
+        res_q /= np.linalg.norm(res_q)
+
+        f64_res = res_q.tolist()
+        f32_res = np.float32(f64_res).tolist()
+        return {"f64": f64_res, "f32": f32_res}
+
+    def evaluate_accuracy(self, lib_output: Any, ref: dict[str, Any]) -> dict[str, Any]:
+        metrics = super().evaluate_accuracy(lib_output, ref)
+        if lib_output is not None:
+            out_q = np.array(lib_output, dtype=np.float64)
+            ref_q = np.array(ref["f64"], dtype=np.float64)
+            n_out, n_ref = np.linalg.norm(out_q), np.linalg.norm(ref_q)
+            if n_out > 1e-12 and n_ref > 1e-12:
+                metrics["geodesic_angle_rad"] = geodesic_quat_angle(out_q / n_out, ref_q / n_ref)
+        return metrics
+
+
 class QuatSlerpTask(BenchmarkTask):
     def __init__(self):
         super().__init__("QuatSlerp", 100)
@@ -582,6 +629,7 @@ TASK_REGISTRY: dict[str, BenchmarkTask] = {
     "SinCos": SinCosTask(),
     "Sqrt": SqrtTask(),
     "QuatMul": QuatMulTask(),
+    "UnitQuatMul": UnitQuatMulTask(),
     "QuatSlerp": QuatSlerpTask(),
     "LeeController": LeeControllerTask(),
 }

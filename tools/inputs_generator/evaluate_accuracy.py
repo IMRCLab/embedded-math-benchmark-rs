@@ -175,6 +175,7 @@ def main():
 
     # Print Markdown Summary
     print("\n# Microbenchmark Accuracy Evaluation Summary\n")
+    print("> **Note on ULP (Unit in the Last Place)**: ULP measures numerical distance in terms of the smallest representable float32 step (~1.19e-7 at magnitude 1.0). 0 ULP = bit-exact single-precision match; 1-2 ULP = standard float noise; >10 ULP = approximation drift.\n")
     print("| Task | Platform | Library | Max ULP | Mean ULP | Max Rel Error | Mean Rel Error | Bit-Exact (0 ULP) % | Errors |")
     print("| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |")
 

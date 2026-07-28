@@ -10,6 +10,7 @@
 Usage: uv run viz/plot.py results.csv report.pdf
 """
 
+import os
 import random
 import sys
 from datetime import datetime
@@ -30,6 +31,13 @@ LIBRARY_COLORS = {
     "nalgebra": "#eda100",
     "crazyflie-fw": "#e87ba4",
 }
+LIBRARY_MARKERS = {
+    "glam": "o",
+    "libm": "s",
+    "micromath": "^",
+    "nalgebra": "D",
+    "crazyflie-fw": "v",
+}
 CF_HATCH = "///"
 FALLBACK_COLOR = "#999999"
 
@@ -47,6 +55,7 @@ TASK_ORDER = [
     "SinCos",
     "Sqrt",
     "QuatMul",
+    "UnitQuatMul",
     "QuatSlerp",
     "LeeController",
 ]
@@ -439,16 +448,235 @@ def main(argv):
                 pdf.savefig(fig)
                 plt.close(fig)
 
-        for page_idx, task_page in enumerate(by_task_pages, start=1):
-            page_rows = agg[agg["task"].isin(task_page)]
-            if page_rows.empty:
-                continue
-            fig = plot_task_page(
-                agg, df_ok, error_counts, task_page, all_platforms, all_libs,
-                page_idx, len(by_task_pages), generated_at,
+        # Section 3: Pareto Runtime vs Accuracy Pages (per platform)
+        acc_df = load_accuracy_df(csv_path)
+        if acc_df is not None:
+            pareto_page_size = 4  # 2x2 grid per page
+            pareto_task_pages = _paginate(tasks, pareto_page_size)
+
+            for platform in all_platforms:
+                # 1. Pareto Summary Table Page
+                summary_fig = plot_pareto_summary_table_page(agg, acc_df, platform, tasks, generated_at)
+                if summary_fig is not None:
+                    pdf.savefig(summary_fig)
+                    plt.close(summary_fig)
+
+                # 2. Pareto 2x2 Plot Pages
+                platform_libs = _ordered(
+                    df_ok.loc[df_ok["platform"] == platform, "library"].unique(),
+                    LIBRARY_ORDER,
+                    f"library(ies) on {platform}",
+                )
+                for page_idx, task_page in enumerate(pareto_task_pages, start=1):
+                    fig = plot_pareto_platform_page(
+                        agg, acc_df, platform, platform_libs, task_page,
+                        page_idx, len(pareto_task_pages), generated_at,
+                    )
+                    if fig is not None:
+                        pdf.savefig(fig)
+                        plt.close(fig)
+
+
+def load_accuracy_df(csv_path):
+    """Loads accuracy_results.csv if present in the workspace root."""
+    root_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    acc_csv = os.path.join(root_dir, "accuracy_results.csv")
+    if os.path.exists(acc_csv):
+        try:
+            return pd.read_csv(acc_csv)
+        except Exception as e:
+            print(f"plot.py: Warning - failed to load {acc_csv}: {e}", file=sys.stderr)
+    return None
+
+
+def compute_pareto_frontier(points):
+    """
+    Given points = [(lib, runtime, error), ...], returns list of Pareto-optimal points
+    sorted by runtime ascending. Lower runtime and lower error are preferred.
+    """
+    valid_points = [p for p in points if not pd.isna(p[1]) and not pd.isna(p[2])]
+    if not valid_points:
+        return []
+
+    sorted_pts = sorted(valid_points, key=lambda p: (p[1], p[2]))
+    pareto = []
+    min_error = float('inf')
+
+    for pt in sorted_pts:
+        if pt[2] <= min_error:
+            pareto.append(pt)
+            min_error = pt[2]
+
+    return pareto
+
+
+def plot_pareto_summary_table_page(agg, acc_df, platform, tasks, generated_at):
+    """Renders a clean Pareto Classification Summary Table for a platform."""
+    plat_agg = agg[agg["platform"] == platform]
+    plat_acc = acc_df[acc_df["platform"] == platform] if acc_df is not None else None
+    if plat_agg.empty or plat_acc is None:
+        return None
+
+    table_data = []
+    for task in tasks:
+        sub_agg = plat_agg[plat_agg["task"] == task]
+        sub_acc = plat_acc[plat_acc["task"] == task]
+        merged = pd.merge(sub_agg, sub_acc, on=["platform", "library", "task"], how="inner")
+        if merged.empty:
+            continue
+
+        points = []
+        for _, row in merged.iterrows():
+            lib = row["library"]
+            runtime = row["median"]
+            ulp = row["mean_ulp"]
+            points.append((lib, runtime, ulp))
+
+        if not points:
+            continue
+
+        fastest = min(points, key=lambda p: p[1])
+        valid_ulp = [p for p in points if not pd.isna(p[2])]
+        most_accurate = min(valid_ulp, key=lambda p: p[2]) if valid_ulp else fastest
+
+        pareto_pts = compute_pareto_frontier(points)
+        pareto_libs = {p[0] for p in pareto_pts}
+        all_libs = {p[0] for p in points}
+        dominated_libs = sorted(list(all_libs - pareto_libs))
+
+        fastest_str = f"{fastest[0]} ({fastest[1]:.1f} ns)"
+        most_acc_str = f"{most_accurate[0]} ({most_accurate[2]:.1f} ULP)" if not pd.isna(most_accurate[2]) else "N/A"
+        pareto_str = ", ".join(sorted(list(pareto_libs)))
+        dominated_str = ", ".join(dominated_libs) if dominated_libs else "None"
+
+        table_data.append([task, fastest_str, most_acc_str, pareto_str, dominated_str])
+
+    if not table_data:
+        return None
+
+    fig, ax = plt.subplots(figsize=(14, 8))
+    ax.axis("off")
+
+    headers = ["Task", "Fastest Library", "Most Accurate Library", "Pareto Optimal Set", "Dominated Libraries"]
+    table = ax.table(
+        cellText=table_data,
+        colLabels=headers,
+        cellLoc="center",
+        loc="center",
+    )
+    table.auto_set_font_size(False)
+    table.set_fontsize(9)
+    table.scale(1.2, 1.8)
+
+    # Style table headers
+    for i in range(len(headers)):
+        table[(0, i)].set_facecolor("#2a78d6")
+        table[(0, i)].set_text_props(color="white", fontweight="bold")
+
+    fig.suptitle(f"{platform} - Pareto Trade-off Summary", fontsize=16, fontweight="bold", y=0.96)
+    fig.text(
+        0.5, 0.90,
+        "ULP (Unit in the Last Place): Measures float32 bit distance (~1.19e-7 step at magnitude 1.0).\n0 ULP = Bit-exact float32 match | 1-2 ULP = Float noise | >10 ULP = Drift / Approximation.",
+        ha="center", va="top", fontsize=9, style="italic", color="#444444"
+    )
+    fig.text(
+        0.99, 0.99,
+        f"generated {generated_at}",
+        ha="right", va="top", fontsize=8, color="#555555",
+    )
+    return fig
+
+
+def plot_pareto_platform_page(
+    agg, acc_df, platform, libs, tasks, page, n_pages, generated_at
+):
+    """Plots 2D Pareto Trade-off subplots (Median Runtime vs Mean ULP Error) in a 2x2 grid."""
+    n_rows, n_cols = (2, 2)
+    fig, axes = plt.subplots(n_rows, n_cols, figsize=(14, 8))
+    axes = axes.flatten()
+
+    plat_agg = agg[agg["platform"] == platform]
+    plat_acc = acc_df[acc_df["platform"] == platform] if acc_df is not None else None
+
+    has_any_plot = False
+    for ax, task in zip(axes, tasks):
+        sub_agg = plat_agg[plat_agg["task"] == task]
+        if sub_agg.empty or plat_acc is None:
+            ax.axis("off")
+            continue
+
+        sub_acc = plat_acc[plat_acc["task"] == task]
+        merged = pd.merge(sub_agg, sub_acc, on=["platform", "library", "task"], how="inner")
+        if merged.empty:
+            ax.axis("off")
+            continue
+
+        has_any_plot = True
+        points = []
+        for _, row in merged.iterrows():
+            lib = row["library"]
+            runtime = row["median"]
+            ulp = row["mean_ulp"]
+            points.append((lib, runtime, ulp))
+
+        ax.set_title(f"{task} (Runtime vs Accuracy)", fontsize=11, fontweight="bold", pad=8)
+
+        for lib, runtime, ulp in points:
+            color = LIBRARY_COLORS.get(lib, FALLBACK_COLOR)
+            marker = LIBRARY_MARKERS.get(lib, "o")
+            y_val = ulp + 1.0 if not pd.isna(ulp) else 1.0
+            ax.scatter(runtime, y_val, color=color, marker=marker, s=70, zorder=4, label=lib)
+            label_text = f" {lib}\n ({ulp:.1f} ULP)" if not pd.isna(ulp) else f" {lib}"
+            ax.annotate(
+                label_text,
+                (runtime, y_val),
+                xytext=(6, -6),
+                textcoords="offset points",
+                fontsize=7.5,
+                alpha=0.9,
+                fontweight="bold"
             )
-            pdf.savefig(fig)
-            plt.close(fig)
+
+        pareto_pts = compute_pareto_frontier(points)
+        if len(pareto_pts) > 1:
+            px = [p[1] for p in pareto_pts]
+            py = [p[2] + 1.0 for p in pareto_pts]
+            ax.plot(px, py, "--", color="#444444", linewidth=1.4, alpha=0.75, zorder=3, label="Pareto Frontier")
+
+        ax.set_xscale("log")
+        ax.set_yscale("log")
+        ax.set_xlabel(f"Median Time ({UNIT})", fontsize=8.5)
+        ax.set_ylabel("Mean ULP + 1 (log)", fontsize=8.5, color=LOG_COLOR, fontweight="bold")
+        ax.grid(True, which="both", linestyle=":", color="#d0d0d0", linewidth=0.5, zorder=0)
+
+    if not has_any_plot:
+        plt.close(fig)
+        return None
+
+    for ax in axes[len(tasks):]:
+        ax.axis("off")
+
+    title = f"{platform} Pareto Frontier (Page {page}/{n_pages})" if n_pages > 1 else f"{platform} Pareto Frontier"
+    fig.suptitle(title, fontsize=15, fontweight="bold", y=0.98)
+    fig.text(
+        0.5, 0.93,
+        "ULP (Unit in the Last Place): 0 ULP = Bit-exact float32 | 1-2 ULP = Float noise | >10 ULP = Drift / Approx",
+        ha="center", va="top", fontsize=8.5, style="italic", color="#555555"
+    )
+    fig.text(
+        0.99, 0.99,
+        f"generated {generated_at}",
+        ha="right", va="top", fontsize=8, color="#555555",
+    )
+
+    handles = [
+        plt.Line2D([0], [0], marker=LIBRARY_MARKERS.get(lib, "o"), color="w", markerfacecolor=LIBRARY_COLORS.get(lib, FALLBACK_COLOR), markersize=8, label=lib)
+        for lib in libs
+    ]
+    handles.append(plt.Line2D([0], [0], linestyle="--", color="#444444", label="Pareto Frontier"))
+    fig.legend(handles=handles, loc="lower center", ncol=len(libs) + 1, frameon=False, fontsize=8.5)
+    fig.subplots_adjust(left=0.07, right=0.97, top=0.87, bottom=0.12, hspace=0.45, wspace=0.25)
+    return fig
 
 
 if __name__ == "__main__":

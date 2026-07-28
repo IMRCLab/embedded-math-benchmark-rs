@@ -88,12 +88,14 @@ Prefer `cargo-make` (`cargo install cargo-make`), run from repo root:
 ```bash
 cargo make inputs                           # generate inputs.json via tasks.py
 cargo make generate-ref                     # compute f64 ground truth reference_results.json
+cargo make update                           # update inputs.json and reference_results.json together
 cargo make bench-host                       # native, ns
 cargo make bench-stm                        # STM32F405 over probe-rs, cycles
 cargo make bench-pico                       # RP2040 over probe-rs, cycles
 cargo make bench-esp32                      # ESP32-S3 over probe-rs, cycles
 cargo make bench-host | cargo make collect -- -o results.csv
 cargo make eval-accuracy                    # evaluate ULP distance & relative error vs f64 ref
+cargo make report                           # generate report.pdf with Pareto trade-off pages
 ```
 
 Bare `cargo build`/`test`/`clippy` at the workspace root (`benchmarks/`) act on **native

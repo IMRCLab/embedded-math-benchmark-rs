@@ -46,6 +46,13 @@ pub struct QuatMulInput {
     pub rhs: [f32; 4],
 }
 
+#[benchmark_input("UnitQuatMul")]
+#[derive(Clone, Debug)]
+pub struct UnitQuatMulInput {
+    pub lhs: [f32; 4],
+    pub rhs: [f32; 4],
+}
+
 #[benchmark_input("QuatSlerp")]
 #[derive(Clone, Debug)]
 pub struct QuatSlerpInput {

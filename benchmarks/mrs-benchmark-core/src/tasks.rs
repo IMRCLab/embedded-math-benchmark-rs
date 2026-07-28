@@ -1,6 +1,6 @@
 use crate::inputs::{
     Atan2Input, LeeControllerInput, MatInverse3x3Input, MatMul3x3Input, QuatMulInput,
-    QuatSlerpInput, RotateVectorInput, SinCosInput, SqrtInput,
+    QuatSlerpInput, RotateVectorInput, SinCosInput, SqrtInput, UnitQuatMulInput,
 };
 use crate::BenchmarkTask;
 
@@ -50,6 +50,13 @@ pub struct QuatMul;
 impl BenchmarkTask for QuatMul {
     const IDENTIFIER: &'static str = "QuatMul";
     type Input = QuatMulInput;
+    type Output = [f32; 4];
+}
+
+pub struct UnitQuatMul;
+impl BenchmarkTask for UnitQuatMul {
+    const IDENTIFIER: &'static str = "UnitQuatMul";
+    type Input = UnitQuatMulInput;
     type Output = [f32; 4];
 }
 

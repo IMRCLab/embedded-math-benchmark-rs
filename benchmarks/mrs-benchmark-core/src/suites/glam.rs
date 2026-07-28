@@ -1,7 +1,7 @@
 use crate::tasks::{
     LeeController as LeeControllerTask, MatInverse3x3 as MatInverse3x3Task,
     MatMul3x3 as MatMul3x3Task, QuatMul as QuatMulTask, QuatSlerp as QuatSlerpTask,
-    RotateVector as RotateVectorTask,
+    RotateVector as RotateVectorTask, UnitQuatMul as UnitQuatMulTask,
 };
 use crate::{export_tasks, BenchmarkError, BenchmarkLibrary, RawTaskImplementation};
 
@@ -116,6 +116,29 @@ impl RawTaskImplementation<QuatMulTask> for QuatMulLogic {
         &self,
         output: Self::RawOutput,
     ) -> Result<<QuatMulTask as crate::BenchmarkTask>::Output, BenchmarkError> {
+        Ok(output.to_array())
+    }
+}
+
+pub struct UnitQuatMulLogic;
+impl RawTaskImplementation<UnitQuatMulTask> for UnitQuatMulLogic {
+    type PreparedInput = (Quat, Quat);
+    type RawOutput = Quat;
+
+    fn prepare(&self, input: &<UnitQuatMulTask as crate::BenchmarkTask>::Input) -> Self::PreparedInput {
+        let lhs = Quat::from_xyzw(input.lhs[0], input.lhs[1], input.lhs[2], input.lhs[3]).normalize();
+        let rhs = Quat::from_xyzw(input.rhs[0], input.rhs[1], input.rhs[2], input.rhs[3]).normalize();
+        (lhs, rhs)
+    }
+
+    fn execute(&self, input: &Self::PreparedInput) -> Result<Self::RawOutput, BenchmarkError> {
+        Ok(input.0 * input.1)
+    }
+
+    fn finalize(
+        &self,
+        output: Self::RawOutput,
+    ) -> Result<<UnitQuatMulTask as crate::BenchmarkTask>::Output, BenchmarkError> {
         Ok(output.to_array())
     }
 }
@@ -284,6 +307,7 @@ export_tasks!(
     RotateVector => RotateVectorLogic,
     MatInverse3x3 => MatInverse3x3Logic,
     QuatMul => QuatMulLogic,
+    UnitQuatMul => UnitQuatMulLogic,
     QuatSlerp => QuatSlerpLogic,
     LeeController => LeeControllerLogic,
 );
