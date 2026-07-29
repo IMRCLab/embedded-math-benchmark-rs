@@ -10,6 +10,7 @@
 Usage: uv run viz/plot.py results.csv report.pdf
 """
 
+import json
 import math
 import os
 import random
@@ -462,7 +463,7 @@ def main(argv):
             plt.close(fig)
 
         # Section 3: Accuracy Bar Charts (per platform)
-        acc_df = load_accuracy_df(csv_path)
+        acc_df, samples_map = load_accuracy_df(csv_path)
         if acc_df is not None:
             for platform in all_platforms:
                 platform_libs = _ordered(
@@ -472,7 +473,7 @@ def main(argv):
                 )
                 for page_idx, task_page in enumerate(task_pages, start=1):
                     fig = plot_accuracy_platform_page(
-                        acc_df, platform, platform_libs, task_page,
+                        acc_df, samples_map, platform, platform_libs, task_page,
                         page_idx, len(task_pages), generated_at,
                     )
                     if fig is not None:
@@ -488,19 +489,35 @@ def main(argv):
 
 
 def load_accuracy_df(csv_path):
-    """Loads accuracy_results.csv if present in the workspace root."""
+    """Loads accuracy_results.csv and accuracy_results.json if present in the workspace root."""
     root_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     acc_csv = os.path.join(root_dir, "accuracy_results.csv")
+    acc_json = os.path.join(root_dir, "accuracy_results.json")
+    df = None
+    samples_map = {}
+
     if os.path.exists(acc_csv):
         try:
-            return pd.read_csv(acc_csv)
+            df = pd.read_csv(acc_csv)
         except Exception as e:
             print(f"plot.py: Warning - failed to load {acc_csv}: {e}", file=sys.stderr)
-    return None
+
+    if os.path.exists(acc_json):
+        try:
+            with open(acc_json) as f:
+                data = json.load(f)
+                for entry in data:
+                    key = (entry.get("platform"), entry.get("task"), entry.get("library"))
+                    if "ulp_samples" in entry:
+                        samples_map[key] = entry["ulp_samples"]
+        except Exception as e:
+            print(f"plot.py: Warning - failed to load {acc_json}: {e}", file=sys.stderr)
+
+    return df, samples_map
 
 
 def plot_accuracy_platform_page(
-    acc_df, platform, libs, tasks, page, n_pages, generated_at
+    acc_df, samples_map, platform, libs, tasks, page, n_pages, generated_at
 ):
     """Plots per-platform accuracy bar charts (Mean ULP) for each task, matching time bar chart styling."""
     n_rows, n_cols = GRID_SHAPE
@@ -511,6 +528,7 @@ def plot_accuracy_platform_page(
 
     has_any_plot = False
     x = list(range(len(libs)))
+    rng = random.Random(0)
 
     for ax, task in zip(axes, tasks):
         if plat_acc is None:
@@ -541,21 +559,30 @@ def plot_accuracy_platform_page(
 
         ax.set_title(f"{task} Accuracy", fontsize=9, pad=14)
 
-        # Plot bars: ULP + 1.0 on log scale so 0 ULP exact matches sit nicely at 1
+        ax.set_yscale("log")
+
         bar_heights = [u + 1.0 for u in ulps_present]
 
-        bars = ax.bar(x_present, bar_heights, color=colors_present, width=0.6, zorder=2)
+        # Round top_y to the next exact power of 10 so every decade (10^0 -> 10^1 -> 10^2 -> 10^3...)
+        # occupies a constant, equal visual distance on the log scale without label squishing
+        max_y = max(bar_heights) if bar_heights else 1.0
+        exp_headroom = math.ceil(math.log10(max(max_y * 1.8, 10.0)))
+        top_y = 10.0 ** exp_headroom
+        ax.set_ylim(1.0, top_y)
+
+        # Plot bars anchored at bottom=1.0 (10^0 = 0 ULP)
+        bars = ax.bar(x_present, bar_heights, bottom=1.0, color=colors_present, width=0.6, zorder=2)
         for bar, lib in zip(bars, libs_present):
             if lib == "crazyflie-fw":
                 bar.set_hatch(CF_HATCH)
 
-        ax.set_yscale("log")
-
-        # Ensure y-axis always starts at baseline 1.0 (10^0 = 0 ULP) for consistent visual comparison
-        # and provide generous headroom for value labels above the highest bar
-        max_y = max(bar_heights) if bar_heights else 1.0
-        top_y = max(max_y * 4.0, 10.0)
-        ax.set_ylim(1.0, top_y)
+        # Jittered raw ULP samples over each bar: matches execution time bar chart styling
+        for xi, lib in zip(x_present, libs_present):
+            sample_list = samples_map.get((platform, task, lib), [])
+            if sample_list:
+                vals = [u + 1.0 for u in sample_list if u is not None and not math.isnan(u) and not math.isinf(u)]
+                if vals:
+                    _scatter_jitter(ax, xi, vals, rng)
 
         # Label values above bars
         for xi, u in zip(x_present, ulps_present):

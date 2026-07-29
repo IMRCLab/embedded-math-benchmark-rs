@@ -163,20 +163,21 @@ def main():
             "mean_abs_error": mean_abs_err,
             "exact_bit_pct": exact_pct,
             "errors": error_count,
+            "ulp_samples": ulp_list,
         })
 
     # Sort summary rows by task, platform, library
     summary_rows.sort(key=lambda x: (x["task"], x["platform"], x["library"]))
 
-    # Write CSV
+    # Write CSV (exclude ulp_samples array for clean table formatting)
     if summary_rows:
-        fieldnames = list(summary_rows[0].keys())
+        fieldnames = [k for k in summary_rows[0].keys() if k != "ulp_samples"]
         with open(out_csv_path, "w", newline="") as f:
-            writer = csv.DictWriter(f, fieldnames=fieldnames)
+            writer = csv.DictWriter(f, fieldnames=fieldnames, extrasaction="ignore")
             writer.writeheader()
             writer.writerows(summary_rows)
 
-    # Write JSON
+    # Write JSON (includes ulp_samples for viz jitter plots)
     with open(out_json_path, "w") as f:
         json.dump(summary_rows, f, indent=2)
 
