@@ -13,7 +13,7 @@ report-pdf:
   allow_failure: true
   script:
     - uv run tools/inputs_generator/evaluate_accuracy.py --results results.csv --reference benchmarks/reference_results.json --output-csv accuracy_results.csv --output-json accuracy_results.json
-    - uv run viz/plot.py results.csv report.pdf
+    - uv run --project viz viz/plot.py results.csv report.pdf
   artifacts:
     name: "report-$CI_COMMIT_SHORT_SHA"
     paths:

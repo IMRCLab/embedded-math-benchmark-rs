@@ -1,0 +1,9 @@
+[project]
+name = "mrs-benchmarks-viz"
+version = "0.1.0"
+description = "Renders results.csv into a per-platform PDF benchmark report"
+requires-python = ">=3.11"
+dependencies = [
+    "matplotlib",
+    "pandas",
+]

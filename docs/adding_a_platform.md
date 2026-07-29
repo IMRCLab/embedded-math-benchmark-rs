@@ -42,10 +42,11 @@ Checklist for bringing up a new hardware target (or new architecture on existing
 5. **Local dev** (`Makefile.toml`): `build-<alias>` and `bench-<alias>` tasks mirroring the
    CI jobs.
 
-6. **Reporting** (`viz/plot.py`, outside the Rust tree, easy to forget):
+6. **Reporting** (`viz/config.py`, outside the Rust tree, easy to forget):
    - `PLATFORM_CLOCK_HZ["<platform-id>"] = <hz>`, matching `main.rs` exactly. Only for
      `cycles`-unit platforms; `host` reports `ns` natively and needs nothing here.
-   - `PLATFORM_ORDER`: add the platform id for stable report-page ordering.
+   - `PLATFORM_ORDER`: add the platform id (before `"host"`, which always sorts last)
+     for stable report-page ordering.
 
 7. **Docs**: `platforms.md` (table row + footnote), `hil-setup.md` (if provisioning is
    unusual), `CLAUDE.md` (crate map, `Commands`, `State`).

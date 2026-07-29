@@ -119,4 +119,4 @@ category = "Benchmark"
 workspace = false
 dependencies = ["eval-accuracy"]
 command = "uv"
-args = ["run", "viz/plot.py", "results.csv", "report.pdf"]
+args = ["run", "--project", "viz", "viz/plot.py", "results.csv", "report.pdf"]

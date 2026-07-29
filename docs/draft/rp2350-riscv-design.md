@@ -44,9 +44,10 @@ id split).
   and always prints `RP235x CoreSight ROM` for this board, so the default
   `signature="$chip"` fallback won't match `CHIP=RP235x_riscv`. Add
   `RP235x_riscv) signature='RP235x' ;;`, reusing the ARM job's signature.
-- **Reporting**: `viz/plot.py` needs `PLATFORM_CLOCK_HZ["rp2350-riscv"]` (both cores share
+- **Reporting**: `viz/config.py` needs `PLATFORM_CLOCK_HZ["rp2350-riscv"]` (both cores share
   `clk_sys`, so likely 150 MHz like `rp2350-arm`; confirm once `main.rs` sets it explicitly)
-  and a `PLATFORM_ORDER` entry. See `docs/adding_a_platform.md`.
+  and a `PLATFORM_ORDER` entry (before `"host"`, which always sorts last). See
+  `docs/adding_a_platform.md`.
 
 ## Blocker: `probe-rs` can't flash or run this chip's RISC-V cores yet
 

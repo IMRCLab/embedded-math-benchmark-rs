@@ -32,7 +32,8 @@ arrives.
 - `run.yml`: `run-nrf52840`, `CHIP: <probe-rs chip id, TBD>`.
 - `collect.yml`: add `run-nrf52840` to `collect-results`' `needs` (`optional: true`).
 - `select-probe.sh`: new case arm once the actual probe's signature is known.
-- `viz/plot.py`: `PLATFORM_CLOCK_HZ["nrf52840"] = 64e6` (confirm), `PLATFORM_ORDER` entry.
+- `viz/config.py`: `PLATFORM_CLOCK_HZ["nrf52840"] = 64e6` (confirm), `PLATFORM_ORDER` entry
+  (before `"host"`, which always sorts last).
 - `docs/platforms.md`: flip to `running`, fill in the real chip id.
 - `docs/hil-setup.md`: note the SWD wiring and probe once known.
 

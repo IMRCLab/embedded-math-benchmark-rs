@@ -14,9 +14,9 @@ pipeline artifact**.
 - Multipage PDF: first a page per platform, then a final section of pages grouped by task
   instead (see "By-task section" below). All times are converted to nanoseconds before
   plotting: firmware platforms report raw core cycles and are
-  divided by that platform's clock rate (`PLATFORM_CLOCK_HZ` in `viz/plot.py`, hardcoded from
+  divided by that platform's clock rate (`PLATFORM_CLOCK_HZ` in `viz/config.py`, hardcoded from
   each `mrs-benchmark-<platform>/src/main.rs`'s clock config)
-- Fixed grid of task subplots per page, in a fixed order (`TASK_ORDER` in `viz/plot.py`,
+- Fixed grid of task subplots per page, in a fixed order (`TASK_ORDER` in `viz/config.py`,
   mirroring `inputs.json`'s case order). A task beyond one page's capacity spills onto a
   numbered continuation page. Subplot geometry is fixed via `fig.subplots_adjust()` (not
   `tight_layout()`), so every page's grid is identical regardless of how many cells it uses —
@@ -44,12 +44,25 @@ subplot per task; x-axis grouped by platform (`PLATFORM_ORDER`), bars within eac
 library (same colors/order as the per-platform pages). Every platform group reserves the full
 library set so all groups are the same width, mirroring the per-platform pages' own
 same-width invariant one level down. Exists to compare whether libraries perform consistently
-relative to each other across platforms. Value labels are rotated 90° here (not on the
-per-platform pages) since up to 5 platforms x 5 libraries per subplot makes horizontal labels
-on similarly-tall neighboring bars run together; the error footnote is a single total count
-rather than a per-library breakdown for the same reason.
+relative to each other across platforms. Unlike the per-platform pages, bars here carry no
+value label (up to 5 platforms x 5 libraries per subplot leaves no room); the error footnote
+is a single total count rather than a per-library breakdown for the same reason. `host` is
+excluded entirely from this section (not just its x-axis -- its row/error counts too): it
+isn't a useful reference point next to real hardware. It still appears, ordered last, on
+every other section.
 
-Mark/scale/color logic lives in `viz/plot.py` itself, read the code for exact behavior.
+### Accuracy pages
+
+Section 3 (one page-set per platform, same pagination as Section 1) bar-charts mean ULP
+error per task/library on a log axis anchored at `bottom=1.0` (a `+1` offset so a bit-exact
+0-ULP result still has a defined position on a log scale). Value labels and axis headroom
+share the same placement math as the time charts (`common.label_offset`), with the top of
+the axis given at least `MIN_HEADROOM_DECADES` (`viz/pages_accuracy.py`) of clearance above
+the tallest bar so a label can't be clipped by the axis edge or crowd the subplot title.
+Section 4 is one Pareto speed/accuracy summary table per platform, appended at the very end.
+
+Mark/scale/color logic lives in `viz/pages_time.py`/`viz/pages_accuracy.py`, read the code
+for exact behavior.
 
 ## Tool choice: matplotlib + pandas, run via uv
 
@@ -57,9 +70,14 @@ Over plotnine/R-ggplot2/gnuplot: native multipage PDF (`PdfPages`), matures into
 paper-figure pass, and explicit code beats declarative for an AI-written, human-maintained
 script (plotnine's brevity win vanishes; its hidden dodge/free-scale debugging cost stays).
 
-Deps via **uv**: PEP 723 inline block plus a committed `viz/plot.py.lock`. Same command locally
-and in CI: `uv run viz/plot.py results.csv report.pdf`. uv builds a pinned ephemeral venv, so
-both run identical versions.
+`viz/` is a uv project: `viz/pyproject.toml` + `viz/uv.lock`, split into
+`config.py` (constants), `data.py` (pure load/transform functions), `common.py`
+(shared chart chrome: bar drawing, value labels, legend, grid/tick styling, page
+header/footer), `pages_time.py` / `pages_accuracy.py` (the four page-builder
+functions), and `plot.py` (CLI entry + `main()` orchestration only). Same command
+locally and in CI: `uv run --project viz viz/plot.py results.csv report.pdf` --
+`--project` resolves the environment from `viz/pyproject.toml` without changing cwd,
+so the `results.csv`/`report.pdf` arguments stay repo-root-relative.
 
 **Verification:** no automated test suite, a plotting script's correctness is fundamentally
 visual. Verify by running against a real `results.csv` and reviewing `report.pdf` by eye.

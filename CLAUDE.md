@@ -17,7 +17,8 @@ they're in scope unless the user brings them up.
 
 - `benchmarks/` — Cargo workspace (crates below)
 - `docs/` — source of truth, see below
-- `viz/` — `plot.py`, renders `results.csv` into a per-platform PDF report
+- `viz/` — uv project (`pyproject.toml`/`uv.lock`), renders `results.csv` into a
+  per-platform PDF report; entry point `plot.py`, see [docs/benchmark-viz.md](docs/benchmark-viz.md)
 - `tools/` — standalone scripts, e.g. `inputs_generator/` (generates `benchmarks/inputs.json` cases)
 - `slides/` — Marp slide decks for periodic project update talks
 
