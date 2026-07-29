@@ -4,5 +4,8 @@
 /*.csv
 *.png
 /report.pdf
+.rustup/
 __pycache__/
+.venv/
+accuracy_results.json
 

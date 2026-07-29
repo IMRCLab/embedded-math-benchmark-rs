@@ -1,7 +1,7 @@
 use crate::tasks::{
     Atan2 as Atan2Task, MatMul3x3 as MatMul3x3Task, QuatMul as QuatMulTask,
     QuatSlerp as QuatSlerpTask, RotateVector as RotateVectorTask, SinCos as SinCosTask,
-    Sqrt as SqrtTask,
+    Sqrt as SqrtTask, UnitQuatMul as UnitQuatMulTask,
 };
 use crate::{export_tasks, BenchmarkError, BenchmarkLibrary, RawTaskImplementation};
 
@@ -49,13 +49,13 @@ impl RawTaskImplementation<MatMul3x3Task> for MatMul3x3Logic {
     ) -> Result<<MatMul3x3Task as crate::BenchmarkTask>::Output, BenchmarkError> {
         Ok([
             output.m[0][0],
-            output.m[0][1],
-            output.m[0][2],
             output.m[1][0],
-            output.m[1][1],
-            output.m[1][2],
             output.m[2][0],
+            output.m[0][1],
+            output.m[1][1],
             output.m[2][1],
+            output.m[0][2],
+            output.m[1][2],
             output.m[2][2],
         ])
     }
@@ -195,13 +195,56 @@ impl RawTaskImplementation<QuatMulTask> for QuatMulLogic {
     }
 
     fn execute(&self, input: &Self::PreparedInput) -> Result<Self::RawOutput, BenchmarkError> {
-        Ok(unsafe { mrs_benchmark_crazyflie_sys::cf_qqmul(input.0, input.1) })
+        Ok(unsafe { mrs_benchmark_crazyflie_sys::cf_qqmul(input.1, input.0) })
     }
 
     fn finalize(
         &self,
         output: Self::RawOutput,
     ) -> Result<<QuatMulTask as crate::BenchmarkTask>::Output, BenchmarkError> {
+        Ok([output.x, output.y, output.z, output.w])
+    }
+}
+
+pub struct UnitQuatMulLogic;
+impl RawTaskImplementation<UnitQuatMulTask> for UnitQuatMulLogic {
+    type PreparedInput = (
+        mrs_benchmark_crazyflie_sys::quat,
+        mrs_benchmark_crazyflie_sys::quat,
+    );
+    type RawOutput = mrs_benchmark_crazyflie_sys::quat;
+
+    fn prepare(
+        &self,
+        input: &<UnitQuatMulTask as crate::BenchmarkTask>::Input,
+    ) -> Self::PreparedInput {
+        let norm = |x: f32, y: f32, z: f32, w: f32| {
+            let m = unsafe { mrs_benchmark_crazyflie_sys::sqrtf(x * x + y * y + z * z + w * w) };
+            if m > 1e-12 {
+                mrs_benchmark_crazyflie_sys::quat {
+                    x: x / m,
+                    y: y / m,
+                    z: z / m,
+                    w: w / m,
+                }
+            } else {
+                mrs_benchmark_crazyflie_sys::quat { x, y, z, w }
+            }
+        };
+        (
+            norm(input.lhs[0], input.lhs[1], input.lhs[2], input.lhs[3]),
+            norm(input.rhs[0], input.rhs[1], input.rhs[2], input.rhs[3]),
+        )
+    }
+
+    fn execute(&self, input: &Self::PreparedInput) -> Result<Self::RawOutput, BenchmarkError> {
+        Ok(unsafe { mrs_benchmark_crazyflie_sys::cf_qqmul(input.1, input.0) })
+    }
+
+    fn finalize(
+        &self,
+        output: Self::RawOutput,
+    ) -> Result<<UnitQuatMulTask as crate::BenchmarkTask>::Output, BenchmarkError> {
         Ok([output.x, output.y, output.z, output.w])
     }
 }
@@ -254,5 +297,6 @@ export_tasks!(
     SinCos => SinCosLogic,
     Sqrt => SqrtLogic,
     QuatMul => QuatMulLogic,
+    UnitQuatMul => UnitQuatMulLogic,
     QuatSlerp => QuatSlerpLogic,
 );

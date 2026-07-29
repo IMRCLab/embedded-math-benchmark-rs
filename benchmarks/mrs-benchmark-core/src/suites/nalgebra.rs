@@ -1,7 +1,7 @@
 use crate::tasks::{
     LeeController as LeeControllerTask, MatInverse3x3 as MatInverse3x3Task,
-    MatMul3x3 as MatMul3x3Task, QuatMul as QuatMulTask, QuatSlerp as QuatSlerpTask,
-    RotateVector as RotateVectorTask,
+    MatMul3x3 as MatMul3x3Task, QuatSlerp as QuatSlerpTask, RotateVector as RotateVectorTask,
+    UnitQuatMul as UnitQuatMulTask,
 };
 use crate::{export_tasks, BenchmarkError, BenchmarkLibrary, RawTaskImplementation};
 
@@ -100,12 +100,15 @@ impl RawTaskImplementation<MatInverse3x3Task> for MatInverse3x3Logic {
     }
 }
 
-pub struct QuatMulLogic;
-impl RawTaskImplementation<QuatMulTask> for QuatMulLogic {
+pub struct UnitQuatMulLogic;
+impl RawTaskImplementation<UnitQuatMulTask> for UnitQuatMulLogic {
     type PreparedInput = (nalgebra::UnitQuaternion<f32>, nalgebra::UnitQuaternion<f32>);
     type RawOutput = nalgebra::UnitQuaternion<f32>;
 
-    fn prepare(&self, input: &<QuatMulTask as crate::BenchmarkTask>::Input) -> Self::PreparedInput {
+    fn prepare(
+        &self,
+        input: &<UnitQuatMulTask as crate::BenchmarkTask>::Input,
+    ) -> Self::PreparedInput {
         let q_lhs =
             nalgebra::Quaternion::new(input.lhs[3], input.lhs[0], input.lhs[1], input.lhs[2]);
         let uq_lhs = nalgebra::UnitQuaternion::from_quaternion(q_lhs);
@@ -122,7 +125,7 @@ impl RawTaskImplementation<QuatMulTask> for QuatMulLogic {
     fn finalize(
         &self,
         output: Self::RawOutput,
-    ) -> Result<<QuatMulTask as crate::BenchmarkTask>::Output, BenchmarkError> {
+    ) -> Result<<UnitQuatMulTask as crate::BenchmarkTask>::Output, BenchmarkError> {
         Ok([
             output.coords.x,
             output.coords.y,
@@ -352,7 +355,7 @@ export_tasks!(
     MatMul3x3 => MatMul3x3Logic,
     RotateVector => RotateVectorLogic,
     MatInverse3x3 => MatInverse3x3Logic,
-    QuatMul => QuatMulLogic,
+    UnitQuatMul => UnitQuatMulLogic,
     QuatSlerp => QuatSlerpLogic,
     LeeController => LeeControllerLogic,
 );

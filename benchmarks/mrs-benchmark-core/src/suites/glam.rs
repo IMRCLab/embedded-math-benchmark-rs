@@ -1,7 +1,7 @@
 use crate::tasks::{
     LeeController as LeeControllerTask, MatInverse3x3 as MatInverse3x3Task,
     MatMul3x3 as MatMul3x3Task, QuatMul as QuatMulTask, QuatSlerp as QuatSlerpTask,
-    RotateVector as RotateVectorTask,
+    RotateVector as RotateVectorTask, UnitQuatMul as UnitQuatMulTask,
 };
 use crate::{export_tasks, BenchmarkError, BenchmarkLibrary, RawTaskImplementation};
 
@@ -120,6 +120,34 @@ impl RawTaskImplementation<QuatMulTask> for QuatMulLogic {
     }
 }
 
+pub struct UnitQuatMulLogic;
+impl RawTaskImplementation<UnitQuatMulTask> for UnitQuatMulLogic {
+    type PreparedInput = (Quat, Quat);
+    type RawOutput = Quat;
+
+    fn prepare(
+        &self,
+        input: &<UnitQuatMulTask as crate::BenchmarkTask>::Input,
+    ) -> Self::PreparedInput {
+        let lhs =
+            Quat::from_xyzw(input.lhs[0], input.lhs[1], input.lhs[2], input.lhs[3]).normalize();
+        let rhs =
+            Quat::from_xyzw(input.rhs[0], input.rhs[1], input.rhs[2], input.rhs[3]).normalize();
+        (lhs, rhs)
+    }
+
+    fn execute(&self, input: &Self::PreparedInput) -> Result<Self::RawOutput, BenchmarkError> {
+        Ok(input.0 * input.1)
+    }
+
+    fn finalize(
+        &self,
+        output: Self::RawOutput,
+    ) -> Result<<UnitQuatMulTask as crate::BenchmarkTask>::Output, BenchmarkError> {
+        Ok(output.to_array())
+    }
+}
+
 pub struct QuatSlerpLogic;
 impl RawTaskImplementation<QuatSlerpTask> for QuatSlerpLogic {
     type PreparedInput = (Quat, Quat, f32);
@@ -213,8 +241,8 @@ impl RawTaskImplementation<LeeControllerTask> for LeeControllerLogic {
         let r_d_t_r = r_d.transpose() * r_mat;
         let r_t_r_d = r_mat.transpose() * r_d;
         let err_mat = r_d_t_r - r_t_r_d;
-        // vee map of skew symmetric matrix
-        let e_r = 0.5 * Vec3::new(err_mat.z_axis.y, err_mat.x_axis.z, err_mat.y_axis.x);
+        // vee map of skew symmetric matrix: (M_32, M_13, M_21)
+        let e_r = 0.5 * Vec3::new(err_mat.y_axis.z, err_mat.z_axis.x, err_mat.x_axis.y);
 
         let w_d = if f_d.length() > f32::EPSILON {
             let cmd_jerk = Vec3::ZERO;
@@ -284,6 +312,7 @@ export_tasks!(
     RotateVector => RotateVectorLogic,
     MatInverse3x3 => MatInverse3x3Logic,
     QuatMul => QuatMulLogic,
+    UnitQuatMul => UnitQuatMulLogic,
     QuatSlerp => QuatSlerpLogic,
     LeeController => LeeControllerLogic,
 );

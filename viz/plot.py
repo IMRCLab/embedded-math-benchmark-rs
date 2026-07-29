@@ -10,6 +10,9 @@
 Usage: uv run viz/plot.py results.csv report.pdf
 """
 
+import json
+import math
+import os
 import random
 import sys
 from datetime import datetime
@@ -30,6 +33,13 @@ LIBRARY_COLORS = {
     "nalgebra": "#eda100",
     "crazyflie-fw": "#e87ba4",
 }
+LIBRARY_MARKERS = {
+    "glam": "o",
+    "libm": "s",
+    "micromath": "^",
+    "nalgebra": "D",
+    "crazyflie-fw": "v",
+}
 CF_HATCH = "///"
 FALLBACK_COLOR = "#999999"
 
@@ -47,6 +57,7 @@ TASK_ORDER = [
     "SinCos",
     "Sqrt",
     "QuatMul",
+    "UnitQuatMul",
     "QuatSlerp",
     "LeeController",
 ]
@@ -439,6 +450,7 @@ def main(argv):
                 pdf.savefig(fig)
                 plt.close(fig)
 
+        # Section 2: Execution Time (by task)
         for page_idx, task_page in enumerate(by_task_pages, start=1):
             page_rows = agg[agg["task"].isin(task_page)]
             if page_rows.empty:
@@ -449,6 +461,301 @@ def main(argv):
             )
             pdf.savefig(fig)
             plt.close(fig)
+
+        # Section 3: Accuracy Bar Charts (per platform)
+        acc_df, samples_map = load_accuracy_df(csv_path)
+        if acc_df is not None:
+            for platform in all_platforms:
+                platform_libs = _ordered(
+                    df_ok.loc[df_ok["platform"] == platform, "library"].unique(),
+                    LIBRARY_ORDER,
+                    f"library(ies) on {platform}",
+                )
+                for page_idx, task_page in enumerate(task_pages, start=1):
+                    fig = plot_accuracy_platform_page(
+                        acc_df, samples_map, platform, platform_libs, task_page,
+                        page_idx, len(task_pages), generated_at,
+                    )
+                    if fig is not None:
+                        pdf.savefig(fig)
+                        plt.close(fig)
+
+            # Section 4: Accuracy & Speed Comparison Table (at the very end of report.pdf)
+            for platform in all_platforms:
+                summary_fig = plot_pareto_summary_table_page(agg, acc_df, platform, tasks, generated_at)
+                if summary_fig is not None:
+                    pdf.savefig(summary_fig)
+                    plt.close(summary_fig)
+
+
+def load_accuracy_df(csv_path):
+    """Loads accuracy_results.csv and accuracy_results.json if present in the workspace root."""
+    root_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    acc_csv = os.path.join(root_dir, "accuracy_results.csv")
+    acc_json = os.path.join(root_dir, "accuracy_results.json")
+    df = None
+    samples_map = {}
+
+    if os.path.exists(acc_csv):
+        try:
+            df = pd.read_csv(acc_csv)
+        except Exception as e:
+            print(f"plot.py: Warning - failed to load {acc_csv}: {e}", file=sys.stderr)
+
+    if os.path.exists(acc_json):
+        try:
+            with open(acc_json) as f:
+                data = json.load(f)
+                for entry in data:
+                    key = (entry.get("platform"), entry.get("task"), entry.get("library"))
+                    if "ulp_samples" in entry:
+                        samples_map[key] = entry["ulp_samples"]
+        except Exception as e:
+            print(f"plot.py: Warning - failed to load {acc_json}: {e}", file=sys.stderr)
+
+    return df, samples_map
+
+
+def plot_accuracy_platform_page(
+    acc_df, samples_map, platform, libs, tasks, page, n_pages, generated_at
+):
+    """Plots per-platform accuracy bar charts (Mean ULP) for each task, matching time bar chart styling."""
+    n_rows, n_cols = GRID_SHAPE
+    fig, axes = plt.subplots(n_rows, n_cols, figsize=(16, 8))
+    axes = axes.flatten()
+
+    plat_acc = acc_df[acc_df["platform"] == platform] if acc_df is not None else None
+
+    has_any_plot = False
+    x = list(range(len(libs)))
+    rng = random.Random(0)
+
+    for ax, task in zip(axes, tasks):
+        if plat_acc is None:
+            ax.axis("off")
+            continue
+
+        task_acc = plat_acc[plat_acc["task"] == task]
+        if task_acc.empty:
+            ax.axis("off")
+            continue
+
+        acc_indexed = task_acc.set_index("library").reindex(libs)
+
+        present = [
+            lib in acc_indexed.index and pd.notna(acc_indexed.loc[lib, "mean_ulp"]) and not math.isinf(acc_indexed.loc[lib, "mean_ulp"])
+            for lib in libs
+        ]
+
+        x_present = [xi for xi, p in zip(x, present) if p]
+        if not x_present:
+            ax.axis("off")
+            continue
+
+        has_any_plot = True
+        ulps_present = [float(acc_indexed.loc[lib, "mean_ulp"]) for lib, p in zip(libs, present) if p]
+        colors_present = [LIBRARY_COLORS.get(lib, FALLBACK_COLOR) for lib, p in zip(libs, present) if p]
+        libs_present = [lib for lib, p in zip(libs, present) if p]
+
+        ax.set_title(f"{task} Accuracy", fontsize=9, pad=14)
+
+        ax.set_yscale("log")
+
+        bar_heights = [u + 1.0 for u in ulps_present]
+
+        # Round top_y to the next exact power of 10 so every decade (10^0 -> 10^1 -> 10^2 -> 10^3...)
+        # occupies a constant, equal visual distance on the log scale without label squishing
+        max_y = max(bar_heights) if bar_heights else 1.0
+        exp_headroom = math.ceil(math.log10(max(max_y * 1.8, 10.0)))
+        top_y = 10.0 ** exp_headroom
+        ax.set_ylim(1.0, top_y)
+
+        # Plot bars anchored at bottom=1.0 (10^0 = 0 ULP)
+        bars = ax.bar(x_present, bar_heights, bottom=1.0, color=colors_present, width=0.6, zorder=2)
+        for bar, lib in zip(bars, libs_present):
+            if lib == "crazyflie-fw":
+                bar.set_hatch(CF_HATCH)
+
+        # Jittered raw ULP samples over each bar: matches execution time bar chart styling
+        for xi, lib in zip(x_present, libs_present):
+            sample_list = samples_map.get((platform, task, lib), [])
+            if sample_list:
+                vals = [u + 1.0 for u in sample_list if u is not None and not math.isnan(u) and not math.isinf(u)]
+                if vals:
+                    _scatter_jitter(ax, xi, vals, rng)
+
+        # Label values above bars
+        for xi, u in zip(x_present, ulps_present):
+            y_pos = u + 1.0
+            if u == 0.0:
+                lbl = "0 (exact)"
+            elif u < 10.0:
+                lbl = f"{u:.1f} ULP"
+            elif u < 1000.0:
+                lbl = f"{u:.0f} ULP"
+            else:
+                lbl = f"{u:.1e} ULP"
+
+            ax.text(
+                xi, y_pos * 1.25, lbl,
+                ha="center", va="bottom", fontsize=7.5, fontweight="bold",
+                zorder=5, clip_on=True
+            )
+
+        ax.set_ylabel("Mean ULP + 1 (log)", fontsize=8, color=LOG_COLOR, fontweight="bold")
+
+        # Format y-axis ticks strictly as 10^0, 10^1, 10^2, 10^3, ...
+        import matplotlib.ticker as ticker
+        ax.yaxis.set_major_locator(ticker.LogLocator(base=10.0))
+        ax.yaxis.set_major_formatter(ticker.LogFormatterMathtext(base=10.0))
+
+        ax.set_xlim(-0.5, len(libs) - 0.5)
+        ax.set_xticks(x)
+        tick_labels = ax.set_xticklabels(libs, rotation=30, ha="right", fontsize=8)
+        for label, p in zip(tick_labels, present):
+            if not p:
+                label.set_color("#aaaaaa")
+                label.set_style("italic")
+
+        ax.grid(axis="y", color="#d0d0d0", linewidth=0.6, zorder=0)
+        ax.set_axisbelow(True)
+
+    if not has_any_plot:
+        plt.close(fig)
+        return None
+
+    for ax in axes[len(tasks):]:
+        ax.axis("off")
+
+    title = f"{platform} Accuracy (Mean ULP Error)"
+    title = title if n_pages == 1 else f"{title} (page {page}/{n_pages})"
+    fig.suptitle(title, fontsize=18, fontweight="bold", y=0.99)
+    fig.text(
+        0.5, 0.94,
+        "ULP (Unit in the Last Place): Float32 LSB bit distance. 0 ULP = Bit-exact match, 1-2 ULP = IEEE float noise",
+        ha="center", fontsize=9, fontstyle="italic", color="#444444",
+    )
+    fig.text(
+        0.99, 0.99,
+        f"generated {generated_at}",
+        ha="right", va="top", fontsize=9, color="#555555",
+    )
+
+    handles = [
+        Patch(
+            facecolor=LIBRARY_COLORS.get(lib, FALLBACK_COLOR),
+            hatch=CF_HATCH if lib == "crazyflie-fw" else None,
+            label=lib,
+        )
+        for lib in libs
+    ]
+    fig.legend(handles=handles, loc="lower center", ncol=len(libs), frameon=False)
+    fig.subplots_adjust(left=0.055, right=0.985, top=0.86, bottom=0.13, hspace=0.7, wspace=0.35)
+    return fig
+
+
+def compute_pareto_frontier(points):
+    """
+    Given points = [(lib, runtime, error), ...], returns list of Pareto-optimal points
+    sorted by runtime ascending. Lower runtime and lower error are preferred.
+    """
+    valid_points = [p for p in points if not pd.isna(p[1]) and not pd.isna(p[2])]
+    if not valid_points:
+        return []
+
+    sorted_pts = sorted(valid_points, key=lambda p: (p[1], p[2]))
+    pareto = []
+    min_error = float('inf')
+
+    for pt in sorted_pts:
+        if pt[2] <= min_error:
+            pareto.append(pt)
+            min_error = pt[2]
+
+    return pareto
+
+
+def plot_pareto_summary_table_page(agg, acc_df, platform, tasks, generated_at):
+    """Renders a clean Pareto Classification Summary Table for a platform at the end of the report."""
+    plat_agg = agg[agg["platform"] == platform]
+    plat_acc = acc_df[acc_df["platform"] == platform] if acc_df is not None else None
+    if plat_agg.empty or plat_acc is None:
+        return None
+
+    table_data = []
+    for task in tasks:
+        sub_agg = plat_agg[plat_agg["task"] == task]
+        sub_acc = plat_acc[plat_acc["task"] == task]
+        merged = pd.merge(sub_agg, sub_acc, on=["platform", "library", "task"], how="inner")
+        if merged.empty:
+            continue
+
+        points = []
+        for _, row in merged.iterrows():
+            lib = row["library"]
+            runtime = row["median"]
+            ulp = row["mean_ulp"]
+            points.append((lib, runtime, ulp))
+
+        if not points:
+            continue
+
+        fastest = min(points, key=lambda p: p[1])
+        valid_acc = [p for p in points if not pd.isna(p[2]) and not math.isinf(p[2])]
+
+        if valid_acc:
+            min_ulp_val = min(p[2] for p in valid_acc)
+            most_acc_libs = [p for p in valid_acc if abs(p[2] - min_ulp_val) < 0.1]
+            names = "/".join(sorted([p[0] for p in most_acc_libs]))
+            most_acc_str = f"{names} ({min_ulp_val:.1f} ULP)" if min_ulp_val < 1000.0 else f"{names} ({min_ulp_val:.1e} ULP)"
+        else:
+            most_acc_str = "N/A"
+
+        pareto_pts = compute_pareto_frontier(points)
+        pareto_libs = {p[0] for p in pareto_pts}
+        all_libs = {p[0] for p in points}
+        dominated_libs = sorted(list(all_libs - pareto_libs))
+
+        fastest_str = f"{fastest[0]} ({fastest[1]:.1f} ns)"
+        pareto_str = ", ".join(sorted(list(pareto_libs)))
+        dominated_str = ", ".join(dominated_libs) if dominated_libs else "None"
+
+        table_data.append([task, fastest_str, most_acc_str, pareto_str, dominated_str])
+
+    if not table_data:
+        return None
+
+    fig, ax = plt.subplots(figsize=(14, 8))
+    ax.axis("off")
+
+    headers = ["Task", "Fastest Library", "Most Accurate Library", "Pareto Optimal Set", "Dominated Libraries"]
+    table = ax.table(
+        cellText=table_data,
+        colLabels=headers,
+        cellLoc="center",
+        loc="center",
+    )
+    table.auto_set_font_size(False)
+    table.set_fontsize(9)
+    table.scale(1.2, 1.8)
+
+    # Style table headers
+    for i in range(len(headers)):
+        table[(0, i)].set_facecolor("#2a78d6")
+        table[(0, i)].set_text_props(color="white", fontweight="bold")
+
+    fig.suptitle(f"{platform} - Speed & Accuracy Trade-off Summary", fontsize=16, fontweight="bold", y=0.96)
+    fig.text(
+        0.5, 0.90,
+        "ULP (Unit in the Last Place): Measures float32 LSB bit distance (~1.19e-7 step at magnitude 1.0).\n0 ULP = Bit-exact float32 match | 1-2 ULP = Float noise | >10 ULP = Drift / Approximation.",
+        ha="center", va="top", fontsize=9, style="italic", color="#444444"
+    )
+    fig.text(
+        0.99, 0.99,
+        f"generated {generated_at}",
+        ha="right", va="top", fontsize=8, color="#555555",
+    )
+    return fig
 
 
 if __name__ == "__main__":

@@ -45,7 +45,8 @@ hardware, and status facts go in `docs/`, not memory.
 - [docs/benchmark.md](docs/benchmark.md) — documentation index, start here
 - [docs/adding_a_benchmark.md](docs/adding_a_benchmark.md) — full recipe for a new task
 - [docs/adding_a_platform.md](docs/adding_a_platform.md) — checklist for a new hardware target
-- [docs/io-format.md](docs/io-format.md) — `inputs.json` schema (generated via `tools/`) in, `BENCH ` CSV out
+- [docs/accuracy_evaluation.md](docs/accuracy_evaluation.md) — scientific methodology & ULP evaluation
+- [docs/io-format.md](docs/io-format.md) / [docs/inputs_configuration.md](docs/inputs_configuration.md) — `inputs.json` in, `BENCH ` CSV out
 - [docs/running-benchmarks.md](docs/running-benchmarks.md) — build/flash/run per platform
 - [docs/platforms.md](docs/platforms.md) — chips, target triples, timing sources, status
 - [docs/hil-setup.md](docs/hil-setup.md) — probe + GitLab HIL CI provisioning
@@ -66,6 +67,7 @@ Adding a task touches four coordinated places — the identifier string must mat
 2. `BenchmarkTask` impl in `mrs-benchmark-core/src/tasks.rs`
 3. `RawTaskImplementation` + `export_tasks!` in `mrs-benchmark-core/src/suites/<lib>.rs`
 4. A case in `benchmarks/inputs.json`
+5. A `BenchmarkTask` subclass in `tools/inputs_generator/tasks.py`
 
 You never touch the platform `main.rs` files — the macro weaves tasks in. Full walkthrough:
 [docs/adding_a_benchmark.md](docs/adding_a_benchmark.md).
@@ -84,11 +86,16 @@ You never touch the platform `main.rs` files — the macro weaves tasks in. Full
 Prefer `cargo-make` (`cargo install cargo-make`), run from repo root:
 
 ```bash
+cargo make inputs                           # generate inputs.json via tasks.py
+cargo make generate-ref                     # compute f64 ground truth reference_results.json
+cargo make update                           # update inputs.json and reference_results.json together
 cargo make bench-host                       # native, ns
 cargo make bench-stm                        # STM32F405 over probe-rs, cycles
 cargo make bench-pico                       # RP2040 over probe-rs, cycles
 cargo make bench-esp32                      # ESP32-S3 over probe-rs, cycles
 cargo make bench-host | cargo make collect -- -o results.csv
+cargo make eval-accuracy                    # evaluate ULP distance & relative error vs f64 ref
+cargo make report                           # generate report.pdf with Pareto trade-off pages
 ```
 
 Bare `cargo build`/`test`/`clippy` at the workspace root (`benchmarks/`) act on **native
