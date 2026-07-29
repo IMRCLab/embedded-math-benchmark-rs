@@ -214,11 +214,19 @@ impl RawTaskImplementation<UnitQuatMulTask> for UnitQuatMulLogic {
     );
     type RawOutput = mrs_benchmark_crazyflie_sys::quat;
 
-    fn prepare(&self, input: &<UnitQuatMulTask as crate::BenchmarkTask>::Input) -> Self::PreparedInput {
+    fn prepare(
+        &self,
+        input: &<UnitQuatMulTask as crate::BenchmarkTask>::Input,
+    ) -> Self::PreparedInput {
         let norm = |x: f32, y: f32, z: f32, w: f32| {
-            let m = unsafe { mrs_benchmark_crazyflie_sys::sqrtf(x*x + y*y + z*z + w*w) };
+            let m = unsafe { mrs_benchmark_crazyflie_sys::sqrtf(x * x + y * y + z * z + w * w) };
             if m > 1e-12 {
-                mrs_benchmark_crazyflie_sys::quat { x: x/m, y: y/m, z: z/m, w: w/m }
+                mrs_benchmark_crazyflie_sys::quat {
+                    x: x / m,
+                    y: y / m,
+                    z: z / m,
+                    w: w / m,
+                }
             } else {
                 mrs_benchmark_crazyflie_sys::quat { x, y, z, w }
             }

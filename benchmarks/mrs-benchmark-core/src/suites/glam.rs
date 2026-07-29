@@ -125,9 +125,14 @@ impl RawTaskImplementation<UnitQuatMulTask> for UnitQuatMulLogic {
     type PreparedInput = (Quat, Quat);
     type RawOutput = Quat;
 
-    fn prepare(&self, input: &<UnitQuatMulTask as crate::BenchmarkTask>::Input) -> Self::PreparedInput {
-        let lhs = Quat::from_xyzw(input.lhs[0], input.lhs[1], input.lhs[2], input.lhs[3]).normalize();
-        let rhs = Quat::from_xyzw(input.rhs[0], input.rhs[1], input.rhs[2], input.rhs[3]).normalize();
+    fn prepare(
+        &self,
+        input: &<UnitQuatMulTask as crate::BenchmarkTask>::Input,
+    ) -> Self::PreparedInput {
+        let lhs =
+            Quat::from_xyzw(input.lhs[0], input.lhs[1], input.lhs[2], input.lhs[3]).normalize();
+        let rhs =
+            Quat::from_xyzw(input.rhs[0], input.rhs[1], input.rhs[2], input.rhs[3]).normalize();
         (lhs, rhs)
     }
 

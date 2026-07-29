@@ -105,7 +105,10 @@ impl RawTaskImplementation<UnitQuatMulTask> for UnitQuatMulLogic {
     type PreparedInput = (nalgebra::UnitQuaternion<f32>, nalgebra::UnitQuaternion<f32>);
     type RawOutput = nalgebra::UnitQuaternion<f32>;
 
-    fn prepare(&self, input: &<UnitQuatMulTask as crate::BenchmarkTask>::Input) -> Self::PreparedInput {
+    fn prepare(
+        &self,
+        input: &<UnitQuatMulTask as crate::BenchmarkTask>::Input,
+    ) -> Self::PreparedInput {
         let q_lhs =
             nalgebra::Quaternion::new(input.lhs[3], input.lhs[0], input.lhs[1], input.lhs[2]);
         let uq_lhs = nalgebra::UnitQuaternion::from_quaternion(q_lhs);

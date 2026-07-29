@@ -136,9 +136,14 @@ impl RawTaskImplementation<UnitQuatMulTask> for UnitQuatMulLogic {
     type PreparedInput = (Quaternion, Quaternion);
     type RawOutput = Quaternion;
 
-    fn prepare(&self, input: &<UnitQuatMulTask as crate::BenchmarkTask>::Input) -> Self::PreparedInput {
-        let lhs = Quaternion::new(input.lhs[3], input.lhs[0], input.lhs[1], input.lhs[2]).normalize();
-        let rhs = Quaternion::new(input.rhs[3], input.rhs[0], input.rhs[1], input.rhs[2]).normalize();
+    fn prepare(
+        &self,
+        input: &<UnitQuatMulTask as crate::BenchmarkTask>::Input,
+    ) -> Self::PreparedInput {
+        let lhs =
+            Quaternion::new(input.lhs[3], input.lhs[0], input.lhs[1], input.lhs[2]).normalize();
+        let rhs =
+            Quaternion::new(input.rhs[3], input.rhs[0], input.rhs[1], input.rhs[2]).normalize();
         (lhs, rhs)
     }
 
