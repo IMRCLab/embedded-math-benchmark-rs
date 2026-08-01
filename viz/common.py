@@ -8,6 +8,7 @@ from matplotlib.patches import Patch
 from config import CF_HATCH, FALLBACK_COLOR, LIBRARY_COLORS
 
 LOG_LABEL_MULTIPLIER = 1.18  # bar_top -> label y on a log axis
+SYMLOG_LABEL_PIXEL_GAP = 10  # bar_top -> label y on a symlog axis, in display pixels
 
 
 def paginate(items, page_size):
@@ -41,13 +42,24 @@ def draw_bars(ax, x, heights, libs, *, bottom=0, width=0.6, zorder=2):
     return bars
 
 
-def label_offset(bar_top, scale, ax):
+def label_offset(bar_top, scale, ax, linthresh=None):
     """Y position for a value label above bar_top. On a log axis, callers that set
     their own y-limit must reserve more headroom above the tallest bar than this
     multiplier uses (see pages_accuracy.py's MIN_HEADROOM_DECADES) -- otherwise a
     label can be sized for one limit and rendered past another."""
     if scale == "log":
         return bar_top * LOG_LABEL_MULTIPLIER
+    if scale == "symlog":
+        # A flat data-value offset lands very differently depending on where
+        # bar_top falls: symlog's linear region (near zero) and log region
+        # (above linthresh) have very different data-to-pixel density, so the
+        # same offset can hug a bar in one chart and float well off it in
+        # another (e.g. a chart whose bars are all sub-linthresh, where the
+        # linear region fills most of the plot). Doing the offset in display
+        # pixels instead keeps the visual gap constant everywhere.
+        _, y_px = ax.transData.transform((0, bar_top))
+        _, y_data = ax.transData.inverted().transform((0, y_px + SYMLOG_LABEL_PIXEL_GAP))
+        return y_data
     lo, hi = ax.get_ylim()
     return bar_top + 0.045 * (hi - lo)
 

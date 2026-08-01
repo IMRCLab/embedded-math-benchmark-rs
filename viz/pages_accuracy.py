@@ -5,7 +5,6 @@ import math
 import random
 
 import matplotlib.pyplot as plt
-import matplotlib.ticker as ticker
 import pandas as pd
 
 import common
@@ -19,6 +18,23 @@ from data import compute_pareto_frontier
 # under a decade boundary, which is why labels used to get clipped by the axis's
 # hard top edge or crowd the subplot title above it.
 MIN_HEADROOM_DECADES = 0.5
+
+# Below this many ULP, the y-axis is linear instead of log (symlog): keeps 0 ULP
+# (bit-exact) a real, distinct position instead of the old "+1" bar-height hack
+# that made every bar's drawn height disagree with its printed label.
+ULP_LINTHRESH = 1.0
+
+# Minimum drawn bar height for an exact (0 ULP) result, in linthresh units --
+# a literal 0-height bar is visually indistinguishable from "library not run"
+# (which also draws no bar). Purely cosmetic: the printed label still reads the
+# true value ("0 (exact)"), only the rectangle gets a floor.
+ZERO_ULP_VISUAL_FLOOR = 0.03 * ULP_LINTHRESH
+
+# Verdict text colors for the Pareto summary table -- deliberately not reused
+# from LIBRARY_COLORS so a colored library name in these two columns can't be
+# misread as "this is that library's usual chart color".
+PARETO_COLOR = "#1e7a34"
+DOMINATED_COLOR = "#8a8a8a"
 
 
 def _format_ulp(u):
@@ -39,6 +55,11 @@ def plot_accuracy_platform_page(acc_df, samples_map, platform, libs, tasks, page
     n_rows, n_cols = GRID_SHAPE
     fig, axes = plt.subplots(n_rows, n_cols, figsize=(16, 8))
     axes = axes.flatten()
+    # Applied before the subplot loop (not after, as the time-chart pages do) because
+    # the symlog value-label placement below reads each axes' pixel geometry via
+    # ax.transData -- computing that against the default pre-adjustment layout gave
+    # a gap sized for a different subplot size than what actually renders.
+    fig.subplots_adjust(left=0.055, right=0.985, top=0.86, bottom=0.13, hspace=0.7, wspace=0.35)
 
     plat_acc = acc_df[acc_df["platform"] == platform] if acc_df is not None else None
 
@@ -75,35 +96,35 @@ def plot_accuracy_platform_page(acc_df, samples_map, platform, libs, tasks, page
         libs_present = [lib for lib, p in zip(libs, present) if p]
 
         ax.set_title(f"{task} Accuracy", fontsize=9, pad=14)
-        ax.set_yscale("log")
+        ax.set_yscale("symlog", linthresh=ULP_LINTHRESH, linscale=1.0)
 
-        # Bars anchored at bottom=1.0 (10^0 = 0 ULP): the +1 offset lets 0-ULP
-        # (bit-exact) results sit on a log axis instead of being undefined at 0.
-        bar_heights = [u + 1.0 for u in ulps_present]
-        max_y = max(bar_heights)
+        # Bars plot the real ULP value directly -- symlog's own linear region near
+        # zero (up to ULP_LINTHRESH) gives 0 ULP a real, defined position without
+        # the old "+1 to every bar" offset that made bar height disagree with the
+        # printed label. A true-zero bar still gets a small visual floor (see
+        # ZERO_ULP_VISUAL_FLOOR) so it stays visible instead of a zero-height
+        # rectangle indistinguishable from "library not run".
+        bar_heights = [u if u > 0 else ZERO_ULP_VISUAL_FLOOR for u in ulps_present]
+        max_y = max(max(ulps_present), ULP_LINTHRESH)
         exp_headroom = math.ceil(math.log10(max_y) + MIN_HEADROOM_DECADES)
         top_y = 10.0 ** exp_headroom
-        ax.set_ylim(1.0, top_y)
+        ax.set_ylim(0.0, top_y)
 
-        common.draw_bars(ax, x_present, bar_heights, libs_present, bottom=1.0, width=0.6)
+        common.draw_bars(ax, x_present, bar_heights, libs_present, bottom=0.0, width=0.6)
 
         # Jittered raw ULP samples over each bar: matches execution time bar chart styling
         for xi, lib in zip(x_present, libs_present):
             sample_list = samples_map.get((platform, task, lib), [])
             if sample_list:
-                vals = [u + 1.0 for u in sample_list if u is not None and not math.isnan(u) and not math.isinf(u)]
+                vals = [u for u in sample_list if u is not None and not math.isnan(u) and not math.isinf(u)]
                 if vals:
                     common.scatter_jitter(ax, xi, vals, rng)
 
-        for xi, u in zip(x_present, ulps_present):
-            y = common.label_offset(u + 1.0, "log", ax)
+        for xi, bh, u in zip(x_present, bar_heights, ulps_present):
+            y = common.label_offset(bh, "symlog", ax, linthresh=ULP_LINTHRESH)
             common.draw_value_label(ax, xi, y, _format_ulp(u))
 
-        ax.set_ylabel("Mean ULP + 1 (log)", fontsize=8, color=LOG_COLOR, fontweight="bold")
-
-        # Format y-axis ticks strictly as 10^0, 10^1, 10^2, 10^3, ...
-        ax.yaxis.set_major_locator(ticker.LogLocator(base=10.0))
-        ax.yaxis.set_major_formatter(ticker.LogFormatterMathtext(base=10.0))
+        ax.set_ylabel("Mean ULP (symlog)", fontsize=8, color=LOG_COLOR, fontweight="bold")
 
         ax.set_xlim(-0.5, len(libs) - 0.5)
         ax.set_xticks(x)
@@ -126,7 +147,6 @@ def plot_accuracy_platform_page(acc_df, samples_map, platform, libs, tasks, page
     )
     common.page_header(fig, title, subtitle, generated_at)
     common.add_legend(fig, libs)
-    fig.subplots_adjust(left=0.055, right=0.985, top=0.86, bottom=0.13, hspace=0.7, wspace=0.35)
     return fig
 
 
@@ -177,7 +197,7 @@ def plot_pareto_summary_table_page(agg, acc_df, platform, tasks, generated_at):
     if not table_data:
         return None
 
-    fig, ax = plt.subplots(figsize=(14, 8))
+    fig, ax = plt.subplots(figsize=(16, 8))
     ax.axis("off")
 
     headers = ["Task", "Fastest Library", "Most Accurate Library", "Pareto Optimal Set", "Dominated Libraries"]
@@ -190,11 +210,22 @@ def plot_pareto_summary_table_page(agg, acc_df, platform, tasks, generated_at):
         table[(0, i)].set_facecolor("#2a78d6")
         table[(0, i)].set_text_props(color="white", fontweight="bold")
 
+    # Color the verdict columns so "worth using" vs "skip it" reads at a glance
+    # instead of requiring the column headers to be re-read for every row.
+    pareto_col, dominated_col = headers.index("Pareto Optimal Set"), headers.index("Dominated Libraries")
+    for row_idx, row in enumerate(table_data, start=1):
+        table[(row_idx, pareto_col)].get_text().set_color(PARETO_COLOR)
+        table[(row_idx, pareto_col)].get_text().set_fontweight("bold")
+        if row[dominated_col] != "None":
+            table[(row_idx, dominated_col)].get_text().set_color(DOMINATED_COLOR)
+
     fig.suptitle(f"{platform} - Speed & Accuracy Trade-off Summary", fontsize=16, fontweight="bold", y=0.96)
     fig.text(
         0.5, 0.90,
         "ULP (Unit in the Last Place): Measures float32 LSB bit distance (~1.19e-7 step at magnitude 1.0).\n"
-        "0 ULP = Bit-exact float32 match | 1-2 ULP = Float noise | >10 ULP = Drift / Approximation.",
+        "0 ULP = Bit-exact float32 match | 1-2 ULP = Float noise | >10 ULP = Drift / Approximation.\n"
+        "Pareto optimal = no other library is both faster and more accurate on this task. "
+        "Dominated = at least one library beats it on both.",
         ha="center", va="top", fontsize=9, style="italic", color="#444444",
     )
     fig.text(0.99, 0.99, f"generated {generated_at}", ha="right", va="top", fontsize=8, color="#555555")

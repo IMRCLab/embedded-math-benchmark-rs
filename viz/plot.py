@@ -66,7 +66,10 @@ def main(argv):
             pdf.savefig(fig)
             plt.close(fig)
 
-        # Section 3: Accuracy Bar Charts (per platform)
+        # Section 3: Accuracy Bar Charts, each platform immediately followed by its
+        # own Section 4 Pareto speed/accuracy summary table (rather than batching
+        # all summary tables at the very end) so a reader never has to flip far
+        # from a platform's charts to find that platform's own verdict table.
         acc_df, samples_map = load_accuracy_df(csv_path)
         if acc_df is not None:
             for platform in all_platforms:
@@ -84,8 +87,6 @@ def main(argv):
                         pdf.savefig(fig)
                         plt.close(fig)
 
-            # Section 4: Accuracy & Speed Comparison Table (at the very end of report.pdf)
-            for platform in all_platforms:
                 summary_fig = plot_pareto_summary_table_page(agg, acc_df, platform, tasks, generated_at)
                 if summary_fig is not None:
                     pdf.savefig(summary_fig)
