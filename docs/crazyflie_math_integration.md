@@ -44,6 +44,15 @@ To bridge this to Rust, we created a system FFI crate:
 1. **C Wrapper File (`cf_math_wrapper.c`)**: Exposes the inline math functions under standard non-inline symbols (`cf_mmul`, `cf_qrot` (which wraps `qvrot`), `cf_qqmul`, `cf_qslerp`).
 2. **Header Entry (`crazyflie_fw.h`)**: Groups headers for the `bindgen` scanner to generate Rust FFI bindings.
 
+### `LeeController` reference (`cf_lee_controller.c`)
+
+Wraps `modules/src/controller/controller_lee.c` directly (a real `.c` file, compiled as its
+own source in `build.rs`, not a header-only inline). Builds the firmware's structs from flat
+args, forces the position-control branch, and returns `{ thrust, torque }`: the firmware's
+motor mixing is a separate, non-sqrt algorithm, out of scope here. Also zeroes `self.KI`
+after init, since a single call from a fresh reset still picks up one `dt`-step of integral
+windup the other 3 implementations don't model.
+
 ---
 
 ## Cross-Compilation Workarounds
@@ -80,6 +89,13 @@ gcc flag reports it everywhere (`-print-sysroot` works on Arch, returns empty on
 `gcc -M` (standard dependency-list output) and read the header directories off its answer,
 instead of asking gcc to describe its general config. Verified on both distros, including
 the Debian-based CI image (see below).
+
+### 6. Kconfig-Generated `autoconf.h`
+**Problem**: `controller_lee.c` needs `platform_defaults.h`, which includes `autoconf.h`,
+normally Kconfig-generated at firmware build time. Not present in the vendored submodule.
+**Solution**: `platform_defaults.h` already falls back to its own `#ifndef CF_MASS` / ...
+defaults when no `CONFIG_PLATFORM_*` is set, so an empty stub (`c_src/stub_autoconf/autoconf.h`)
+is enough; the wrapper overrides `self.mass` right after `controllerLeeInit()` anyway.
 
 ---
 

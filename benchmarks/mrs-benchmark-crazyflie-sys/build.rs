@@ -39,23 +39,33 @@ fn main() {
     let manifest_dir = PathBuf::from(env::var("CARGO_MANIFEST_DIR").unwrap());
     let cf_src = manifest_dir.join("../vendor/crazyflie-firmware/src");
     let wrapper_c = manifest_dir.join("c_src/cf_math_wrapper.c");
+    let lee_wrapper_c = manifest_dir.join("c_src/cf_lee_controller.c");
+    let lee_c = cf_src.join("modules/src/controller/controller_lee.c");
     let wrapper_h = manifest_dir.join("c_src/crazyflie_fw.h");
+    let stub_autoconf = manifest_dir.join("c_src/stub_autoconf");
 
     // Tell Cargo to rebuild if the wrapper files or inputs change
     println!("cargo:rerun-if-changed={}", wrapper_c.display());
+    println!("cargo:rerun-if-changed={}", lee_wrapper_c.display());
     println!("cargo:rerun-if-changed={}", wrapper_h.display());
 
     let project_includes = [
+        stub_autoconf.clone(),
         cf_src.clone(),
         cf_src.join("modules/interface"),
+        cf_src.join("modules/interface/controller"),
         cf_src.join("hal/interface"),
         cf_src.join("utils/interface"),
         cf_src.join("utils/interface/lighthouse"),
+        cf_src.join("platform/interface"),
+        cf_src.join("config"),
     ];
 
     // 1. Compile the wrapper C code using the cc crate
     let mut cc_build = cc::Build::new();
     cc_build.file(&wrapper_c);
+    cc_build.file(&lee_wrapper_c);
+    cc_build.file(&lee_c);
     for dir in &project_includes {
         cc_build.include(dir);
     }

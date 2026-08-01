@@ -378,41 +378,6 @@ impl core::ops::Sub for Mat3 {
     }
 }
 
-#[derive(Clone, Copy)]
-pub struct Vec4 {
-    pub x: f32,
-    pub y: f32,
-    pub z: f32,
-    pub w: f32,
-}
-impl Vec4 {
-    fn new(x: f32, y: f32, z: f32, w: f32) -> Self {
-        Self { x, y, z, w }
-    }
-}
-impl core::ops::Mul<f32> for Vec4 {
-    type Output = Self;
-    fn mul(self, s: f32) -> Self {
-        Self {
-            x: self.x * s,
-            y: self.y * s,
-            z: self.z * s,
-            w: self.w * s,
-        }
-    }
-}
-impl core::ops::Add for Vec4 {
-    type Output = Self;
-    fn add(self, o: Self) -> Self {
-        Self {
-            x: self.x + o.x,
-            y: self.y + o.y,
-            z: self.z + o.z,
-            w: self.w + o.w,
-        }
-    }
-}
-
 pub struct LeeControllerLogic;
 
 impl RawTaskImplementation<LeeControllerTask> for LeeControllerLogic {
@@ -529,31 +494,7 @@ impl RawTaskImplementation<LeeControllerTask> for LeeControllerLogic {
         let feed_forward = -inertia * (ang_vel.cross(&(r_mat.transpose() * r_d * w_d)));
         let torque = feedback + gyro + feed_forward;
 
-        // --- Allocation ---
-        let kappa_f = KAPPA_F;
-        let kappa_tau = KAPPA_TAU;
-        let a = A;
-
-        let inv_k_f = 1.0 / (4.0 * kappa_f);
-        let inv_k_t_xy = 1.0 / (4.0 * kappa_f * a);
-        let inv_k_t_z = 1.0 / (4.0 * kappa_tau);
-
-        let w = Vec4::new(thrust, torque.x, torque.y, torque.z);
-        let c0 = Vec4::new(inv_k_f, inv_k_f, inv_k_f, inv_k_f);
-        let c1 = Vec4::new(-inv_k_t_xy, -inv_k_t_xy, inv_k_t_xy, inv_k_t_xy);
-        let c2 = Vec4::new(-inv_k_t_xy, inv_k_t_xy, inv_k_t_xy, -inv_k_t_xy);
-        let c3 = Vec4::new(-inv_k_t_z, inv_k_t_z, -inv_k_t_z, inv_k_t_z);
-
-        let m1234_sq = c0 * w.x + c1 * w.y + c2 * w.z + c3 * w.w;
-
-        let motors = Vec4::new(
-            m1234_sq.x.max(0.0).sqrt(),
-            m1234_sq.y.max(0.0).sqrt(),
-            m1234_sq.z.max(0.0).sqrt(),
-            m1234_sq.w.max(0.0).sqrt(),
-        );
-
-        Ok([motors.x, motors.y, motors.z, motors.w])
+        Ok([thrust, torque.x, torque.y, torque.z])
     }
 
     fn finalize(

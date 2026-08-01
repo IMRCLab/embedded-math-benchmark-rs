@@ -301,45 +301,7 @@ impl RawTaskImplementation<LeeControllerTask> for LeeControllerLogic {
         let feed_forward = -inertia.component_mul(&ang_cross);
         let torque = feedback + gyro + feed_forward;
 
-        // --- Allocation ---
-        let kappa_f = KAPPA_F;
-        let kappa_tau = KAPPA_TAU;
-        let a = A;
-
-        let inv_k_f = 1.0 / (4.0 * kappa_f);
-        let inv_k_t_xy = 1.0 / (4.0 * kappa_f * a);
-        let inv_k_t_z = 1.0 / (4.0 * kappa_tau);
-
-        let w = nalgebra::Vector4::new(thrust, torque.x, torque.y, torque.z);
-        let alloc_mat = nalgebra::Matrix4::new(
-            inv_k_f,
-            -inv_k_t_xy,
-            -inv_k_t_xy,
-            -inv_k_t_z,
-            inv_k_f,
-            -inv_k_t_xy,
-            inv_k_t_xy,
-            inv_k_t_z,
-            inv_k_f,
-            inv_k_t_xy,
-            inv_k_t_xy,
-            -inv_k_t_z,
-            inv_k_f,
-            inv_k_t_xy,
-            -inv_k_t_xy,
-            inv_k_t_z,
-        );
-
-        let m1234_sq = alloc_mat * w;
-
-        let motors = nalgebra::Vector4::new(
-            libm::sqrtf(m1234_sq.x.max(0.0)),
-            libm::sqrtf(m1234_sq.y.max(0.0)),
-            libm::sqrtf(m1234_sq.z.max(0.0)),
-            libm::sqrtf(m1234_sq.w.max(0.0)),
-        );
-
-        Ok([motors.x, motors.y, motors.z, motors.w])
+        Ok([thrust, torque.x, torque.y, torque.z])
     }
 
     fn finalize(

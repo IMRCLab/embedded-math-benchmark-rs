@@ -5,7 +5,7 @@ use crate::tasks::{
 };
 use crate::{export_tasks, BenchmarkError, BenchmarkLibrary, RawTaskImplementation};
 
-use glam::{Mat3, Mat4, Quat, Vec3, Vec4};
+use glam::{Mat3, Quat, Vec3};
 
 pub struct Glam;
 impl BenchmarkLibrary for Glam {
@@ -269,33 +269,7 @@ impl RawTaskImplementation<LeeControllerTask> for LeeControllerLogic {
         let feed_forward = -inertia * (ang_vel.cross(r_mat.transpose() * r_d * w_d));
         let torque = feedback + gyro + feed_forward;
 
-        // --- Allocation ---
-        let kappa_f = KAPPA_F;
-        let kappa_tau = KAPPA_TAU;
-        let a = A;
-
-        let inv_k_f = 1.0 / (4.0 * kappa_f);
-        let inv_k_t_xy = 1.0 / (4.0 * kappa_f * a);
-        let inv_k_t_z = 1.0 / (4.0 * kappa_tau);
-
-        let w = Vec4::new(thrust, torque.x, torque.y, torque.z);
-        let alloc_mat = Mat4::from_cols(
-            Vec4::new(inv_k_f, inv_k_f, inv_k_f, inv_k_f),
-            Vec4::new(-inv_k_t_xy, -inv_k_t_xy, inv_k_t_xy, inv_k_t_xy),
-            Vec4::new(-inv_k_t_xy, inv_k_t_xy, inv_k_t_xy, -inv_k_t_xy),
-            Vec4::new(-inv_k_t_z, inv_k_t_z, -inv_k_t_z, inv_k_t_z),
-        );
-
-        let m1234_sq = alloc_mat * w;
-
-        let motors = Vec4::new(
-            libm::sqrtf(m1234_sq.x.max(0.0)),
-            libm::sqrtf(m1234_sq.y.max(0.0)),
-            libm::sqrtf(m1234_sq.z.max(0.0)),
-            libm::sqrtf(m1234_sq.w.max(0.0)),
-        );
-
-        Ok(motors.to_array())
+        Ok([thrust, torque.x, torque.y, torque.z])
     }
 
     fn finalize(
