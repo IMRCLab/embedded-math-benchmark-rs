@@ -1,5 +1,5 @@
 use crate::inputs::{
-    Atan2Input, LeeControllerInput, MatInverse3x3Input, MatMul3x3Input, QuatMulInput,
+    Atan2Input, EkfStepInput, LeeControllerInput, MatInverse3x3Input, MatMul3x3Input, QuatMulInput,
     QuatSlerpInput, RotateVectorInput, SinCosInput, SqrtInput, UnitQuatMulInput,
 };
 use crate::BenchmarkTask;
@@ -72,4 +72,11 @@ impl BenchmarkTask for LeeController {
     const IDENTIFIER: &'static str = "LeeController";
     type Input = LeeControllerInput;
     type Output = [f32; 4];
+}
+
+pub struct EkfStep;
+impl BenchmarkTask for EkfStep {
+    const IDENTIFIER: &'static str = "EkfStep";
+    type Input = EkfStepInput;
+    type Output = [f32; 10];
 }

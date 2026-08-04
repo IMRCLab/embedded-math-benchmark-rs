@@ -77,3 +77,17 @@ pub struct LeeControllerInput {
 
     pub mass: f32,
 }
+
+#[benchmark_input("EkfStep")]
+#[derive(Clone, Debug)]
+pub struct EkfStepInput {
+    pub position: [f32; 3],
+    pub velocity: [f32; 3],
+    pub attitude: [f32; 4], // [x, y, z, w]
+    pub accelerometer: [f32; 3],
+    pub gyroscope: [f32; 3],
+    pub range_z: f32,
+    pub flow_delta: [f32; 2],
+    pub dt: f32,
+    pub covariance: [f32; 81],
+}

@@ -1,5 +1,5 @@
 use crate::tasks::{
-    LeeController as LeeControllerTask, MatInverse3x3 as MatInverse3x3Task,
+    EkfStep as EkfStepTask, LeeController as LeeControllerTask, MatInverse3x3 as MatInverse3x3Task,
     MatMul3x3 as MatMul3x3Task, QuatSlerp as QuatSlerpTask, RotateVector as RotateVectorTask,
     UnitQuatMul as UnitQuatMulTask,
 };
@@ -350,6 +350,153 @@ impl RawTaskImplementation<LeeControllerTask> for LeeControllerLogic {
     }
 }
 
+pub struct EkfStepLogic;
+
+pub struct PreparedEkfInput {
+    pub position: nalgebra::Vector3<f32>,
+    pub velocity: nalgebra::Vector3<f32>,
+    pub attitude: nalgebra::UnitQuaternion<f32>,
+    pub accelerometer: nalgebra::Vector3<f32>,
+    pub gyroscope: nalgebra::Vector3<f32>,
+    pub range_z: f32,
+    pub dt: f32,
+    pub covariance: nalgebra::SMatrix<f32, 9, 9>,
+}
+
+impl RawTaskImplementation<EkfStepTask> for EkfStepLogic {
+    type PreparedInput = PreparedEkfInput;
+    type RawOutput = [f32; 10];
+
+    fn prepare(&self, input: &<EkfStepTask as crate::BenchmarkTask>::Input) -> Self::PreparedInput {
+        let pos = nalgebra::Vector3::new(input.position[0], input.position[1], input.position[2]);
+        let vel = nalgebra::Vector3::new(input.velocity[0], input.velocity[1], input.velocity[2]);
+        let q = nalgebra::Quaternion::new(
+            input.attitude[3],
+            input.attitude[0],
+            input.attitude[1],
+            input.attitude[2],
+        );
+        let uq = nalgebra::UnitQuaternion::from_quaternion(q);
+        let acc = nalgebra::Vector3::new(
+            input.accelerometer[0],
+            input.accelerometer[1],
+            input.accelerometer[2],
+        );
+        let gyro =
+            nalgebra::Vector3::new(input.gyroscope[0], input.gyroscope[1], input.gyroscope[2]);
+        let cov = nalgebra::SMatrix::<f32, 9, 9>::from_row_slice(&input.covariance);
+
+        PreparedEkfInput {
+            position: pos,
+            velocity: vel,
+            attitude: uq,
+            accelerometer: acc,
+            gyroscope: gyro,
+            range_z: input.range_z,
+            dt: input.dt,
+            covariance: cov,
+        }
+    }
+
+    fn execute(&self, input: &Self::PreparedInput) -> Result<Self::RawOutput, BenchmarkError> {
+        let mut p = input.position;
+        let mut v_b = input.velocity;
+        let mut q = input.attitude;
+        let acc = input.accelerometer;
+        let gyro = input.gyroscope;
+        let zrange = input.range_z;
+        let dt = input.dt;
+        let mut cov = input.covariance;
+        let mut delta = nalgebra::Vector3::zeros();
+
+        let r_mat = q.to_rotation_matrix();
+
+        // 1. Position update: p_world = p_world + R * v_body * dt
+        p += r_mat * v_b * dt;
+
+        // 2. Velocity update: v_body = v_body + (a_body + R.T * g - w x v_body) * dt
+        let gravity_world = nalgebra::Vector3::new(0.0, 0.0, -9.81);
+        let gravity_body = r_mat.inverse() * gravity_world;
+        let coriolis = gyro.cross(&v_b);
+        v_b += (acc + gravity_body - coriolis) * dt;
+
+        // 3. Attitude error: delta = delta + gyro * dt
+        delta += gyro * dt;
+
+        // 4. Covariance propagation: G * cov * G.T + R_proc
+        let mut g_mat = nalgebra::SMatrix::<f32, 9, 9>::identity();
+        let r_dt = r_mat.into_inner() * dt;
+        for r in 0..3 {
+            for c in 0..3 {
+                g_mat[(r, c + 3)] = r_dt[(r, c)];
+            }
+        }
+        g_mat[(3, 4)] += gyro.z * dt;
+        g_mat[(3, 5)] -= gyro.y * dt;
+        g_mat[(4, 3)] -= gyro.z * dt;
+        g_mat[(4, 5)] += gyro.x * dt;
+        g_mat[(5, 3)] += gyro.y * dt;
+        g_mat[(5, 4)] -= gyro.x * dt;
+
+        let r_proc = nalgebra::SMatrix::<f32, 9, 9>::from_diagonal(
+            &nalgebra::SVector::<f32, 9>::from_row_slice(&[
+                0.0, 0.0, 0.0, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1,
+            ]),
+        );
+        cov = g_mat * cov * g_mat.transpose() + r_proc;
+
+        // 5. Reset Step
+        let q_delta = nalgebra::Quaternion::new(0.0, delta.x, delta.y, delta.z);
+        let q_curr = q.into_inner();
+        let q_dot_val = q_curr * q_delta;
+        let q_new_quat = nalgebra::Quaternion::new(
+            q_curr.w + 0.5 * q_dot_val.w,
+            q_curr.i + 0.5 * q_dot_val.i,
+            q_curr.j + 0.5 * q_dot_val.j,
+            q_curr.k + 0.5 * q_dot_val.k,
+        );
+        q = nalgebra::UnitQuaternion::from_quaternion(q_new_quat);
+
+        // 6. Height measurement update
+        let exp_point_a = 2.5f32;
+        let exp_std_a = 0.0025f32;
+        let exp_point_b = 4.0f32;
+        let exp_std_b = 0.2f32;
+        let exp_coeff = libm::logf(exp_std_b / exp_std_a) / (exp_point_b - exp_point_a);
+        let std_dev = exp_std_a * (1.0 + libm::expf(exp_coeff * (p.z - exp_point_a)));
+        let q_height = std_dev * std_dev;
+
+        let denom = q_height + cov[(2, 2)];
+        let z_diff = zrange - p.z;
+
+        for i in 0..3 {
+            let k_p = cov[(i, 2)] / denom;
+            let k_v = cov[(i + 3, 2)] / denom;
+            p[i] += k_p * z_diff;
+            v_b[i] += k_v * z_diff;
+        }
+
+        let mut i_kh = nalgebra::SMatrix::<f32, 9, 9>::identity();
+        for i in 0..9 {
+            i_kh[(i, 2)] -= cov[(i, 2)] / denom;
+        }
+        cov = i_kh * cov;
+        let _ = cov;
+
+        let q_final = q.into_inner();
+        Ok([
+            p.x, p.y, p.z, v_b.x, v_b.y, v_b.z, q_final.i, q_final.j, q_final.k, q_final.w,
+        ])
+    }
+
+    fn finalize(
+        &self,
+        output: Self::RawOutput,
+    ) -> Result<<EkfStepTask as crate::BenchmarkTask>::Output, BenchmarkError> {
+        Ok(output)
+    }
+}
+
 export_tasks!(
     Nalgebra,
     MatMul3x3 => MatMul3x3Logic,
@@ -358,4 +505,5 @@ export_tasks!(
     UnitQuatMul => UnitQuatMulLogic,
     QuatSlerp => QuatSlerpLogic,
     LeeController => LeeControllerLogic,
+    EkfStep => EkfStepLogic,
 );
