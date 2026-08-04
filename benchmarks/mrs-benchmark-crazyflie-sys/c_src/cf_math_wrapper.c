@@ -63,6 +63,7 @@ void cf_ekf_step(
             coreData.P[i][j] = cov_in[i*9 + j];
         }
     }
+    arm_mat_init_f32(&coreData.Pm, KC_STATE_DIM, KC_STATE_DIM, (float *)coreData.P);
 
     Axis3f accAxis = { .x = acc[0], .y = acc[1], .z = acc[2] };
     Axis3f gyroAxis = { .x = gyro[0], .y = gyro[1], .z = gyro[2] };
