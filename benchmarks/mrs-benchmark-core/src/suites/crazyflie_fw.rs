@@ -1,5 +1,5 @@
 use crate::tasks::{
-    Atan2 as Atan2Task, MatMul3x3 as MatMul3x3Task, QuatMul as QuatMulTask,
+    Atan2 as Atan2Task, EkfStep as EkfStepTask, MatMul3x3 as MatMul3x3Task, QuatMul as QuatMulTask,
     QuatSlerp as QuatSlerpTask, RotateVector as RotateVectorTask, SinCos as SinCosTask,
     Sqrt as SqrtTask, UnitQuatMul as UnitQuatMulTask,
 };
@@ -289,6 +289,41 @@ impl RawTaskImplementation<QuatSlerpTask> for QuatSlerpLogic {
     }
 }
 
+pub struct EkfStepLogic;
+impl RawTaskImplementation<EkfStepTask> for EkfStepLogic {
+    type PreparedInput = <EkfStepTask as crate::BenchmarkTask>::Input;
+    type RawOutput = [f32; 10];
+
+    fn prepare(&self, input: &<EkfStepTask as crate::BenchmarkTask>::Input) -> Self::PreparedInput {
+        input.clone()
+    }
+
+    fn execute(&self, input: &Self::PreparedInput) -> Result<Self::RawOutput, BenchmarkError> {
+        let mut out = [0.0f32; 10];
+        unsafe {
+            mrs_benchmark_crazyflie_sys::cf_ekf_step(
+                input.position.as_ptr() as *mut f32,
+                input.velocity.as_ptr() as *mut f32,
+                input.attitude.as_ptr() as *mut f32,
+                input.accelerometer.as_ptr(),
+                input.gyroscope.as_ptr(),
+                input.range_z,
+                input.dt,
+                input.covariance.as_ptr(),
+                out.as_mut_ptr(),
+            );
+        }
+        Ok(out)
+    }
+
+    fn finalize(
+        &self,
+        output: Self::RawOutput,
+    ) -> Result<<EkfStepTask as crate::BenchmarkTask>::Output, BenchmarkError> {
+        Ok(output)
+    }
+}
+
 export_tasks!(
     CrazyflieFw,
     MatMul3x3 => MatMul3x3Logic,
@@ -299,4 +334,5 @@ export_tasks!(
     QuatMul => QuatMulLogic,
     UnitQuatMul => UnitQuatMulLogic,
     QuatSlerp => QuatSlerpLogic,
+    EkfStep => EkfStepLogic,
 );

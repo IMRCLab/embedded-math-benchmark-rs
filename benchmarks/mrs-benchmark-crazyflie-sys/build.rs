@@ -45,17 +45,52 @@ fn main() {
     println!("cargo:rerun-if-changed={}", wrapper_c.display());
     println!("cargo:rerun-if-changed={}", wrapper_h.display());
 
+    let c_src_dir = manifest_dir.join("c_src");
+    let cmsis_dir = cf_src.join("../vendor/CMSIS/CMSIS");
+
     let project_includes = [
+        c_src_dir.clone(),
         cf_src.clone(),
         cf_src.join("modules/interface"),
+        cf_src.join("modules/interface/kalman_core"),
         cf_src.join("hal/interface"),
+        cf_src.join("platform/interface"),
+        cf_src.join("config"),
+        cf_src.join("deck/interface"),
         cf_src.join("utils/interface"),
         cf_src.join("utils/interface/lighthouse"),
+        cmsis_dir.join("Core/Include"),
+        cmsis_dir.join("DSP/Include"),
     ];
 
-    // 1. Compile the wrapper C code using the cc crate
+    let kalman_core_c = cf_src.join("modules/src/kalman_core/kalman_core.c");
+
+    let cmsis_matrix_src = cmsis_dir.join("DSP/Source/MatrixFunctions");
+    let cmsis_fastmath_src = cmsis_dir.join("DSP/Source/FastMathFunctions");
+    let cmsis_tables_src = cmsis_dir.join("DSP/Source/CommonTables");
+
+    let target = env::var("TARGET").unwrap();
+
+    // 1. Compile the wrapper C code and CMSIS-DSP routines using the cc crate
     let mut cc_build = cc::Build::new();
     cc_build.file(&wrapper_c);
+    cc_build.file(&kalman_core_c);
+    cc_build.file(cmsis_matrix_src.join("arm_mat_init_f32.c"));
+    cc_build.file(cmsis_matrix_src.join("arm_mat_mult_f32.c"));
+    cc_build.file(cmsis_matrix_src.join("arm_mat_add_f32.c"));
+    cc_build.file(cmsis_matrix_src.join("arm_mat_sub_f32.c"));
+    cc_build.file(cmsis_matrix_src.join("arm_mat_trans_f32.c"));
+    cc_build.file(cmsis_fastmath_src.join("arm_cos_f32.c"));
+    cc_build.file(cmsis_fastmath_src.join("arm_sin_f32.c"));
+    cc_build.file(cmsis_tables_src.join("arm_common_tables.c"));
+
+    if target.starts_with("thumbv7em") {
+        cc_build.define("ARM_MATH_CM4", None);
+    } else if target.starts_with("thumbv8m") {
+        cc_build.define("ARM_MATH_CM33", None);
+    } else if target.starts_with("thumbv6m") {
+        cc_build.define("ARM_MATH_CM0PLUS", None);
+    }
     for dir in &project_includes {
         cc_build.include(dir);
     }

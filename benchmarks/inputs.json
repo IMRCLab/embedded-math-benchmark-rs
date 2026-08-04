@@ -7315,7 +7315,8 @@
     {
       "repetitions": 100,
       "libraries": [
-        "nalgebra"
+        "nalgebra",
+        "crazyflie-fw"
       ],
       "test": "EkfStep",
       "inputs": [
