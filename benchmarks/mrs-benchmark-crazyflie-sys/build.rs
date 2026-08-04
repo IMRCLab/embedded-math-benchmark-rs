@@ -51,7 +51,14 @@ fn main() {
     let cmsis_arm_math = cmsis_dir.join("DSP/Include/arm_math.h");
     if !cmsis_arm_math.exists() {
         let _ = std::process::Command::new("git")
-            .args(["submodule", "update", "--init", "--depth", "1", "vendor/CMSIS"])
+            .args([
+                "submodule",
+                "update",
+                "--init",
+                "--depth",
+                "1",
+                "vendor/CMSIS",
+            ])
             .current_dir(cf_src.join(".."))
             .status();
     }

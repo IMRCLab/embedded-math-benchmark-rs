@@ -58,14 +58,22 @@ void cf_ekf_step(
     coreData.q[2] = quat[1]; // y
     coreData.q[3] = quat[2]; // z
 
+    coreData.initialQuaternion[0] = quat[3];
+    coreData.initialQuaternion[1] = quat[0];
+    coreData.initialQuaternion[2] = quat[1];
+    coreData.initialQuaternion[3] = quat[2];
+
+    coreParams.attitudeReversion = 0.0f;
+
     for (int i=0; i<9; i++) {
         for (int j=0; j<9; j++) {
             coreData.P[i][j] = cov_in[i*9 + j];
         }
     }
     arm_mat_init_f32(&coreData.Pm, KC_STATE_DIM, KC_STATE_DIM, (float *)coreData.P);
+    kalmanCoreFinalize(&coreData);
 
-    Axis3f accAxis = { .x = acc[0], .y = acc[1], .z = acc[2] };
+    Axis3f accAxis = { .x = acc[0] * 9.81f, .y = acc[1] * 9.81f, .z = acc[2] * 9.81f };
     Axis3f gyroAxis = { .x = gyro[0], .y = gyro[1], .z = gyro[2] };
 
     uint32_t dtMs = (uint32_t)(dt * 1000.0f);
