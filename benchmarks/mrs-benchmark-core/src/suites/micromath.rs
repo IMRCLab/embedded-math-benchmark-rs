@@ -1,9 +1,10 @@
 use crate::tasks::{
-    Atan2 as Atan2Task, LeeController as LeeControllerTask, QuatMul as QuatMulTask,
-    QuatSlerp as QuatSlerpTask, RotateVector as RotateVectorTask, SinCos as SinCosTask,
-    Sqrt as SqrtTask, UnitQuatMul as UnitQuatMulTask,
+    Atan2 as Atan2Task, EkfStep as EkfStepTask, LeeController as LeeControllerTask,
+    QuatMul as QuatMulTask, QuatSlerp as QuatSlerpTask, RotateVector as RotateVectorTask,
+    SinCos as SinCosTask, Sqrt as SqrtTask, UnitQuatMul as UnitQuatMulTask,
 };
 use crate::{export_tasks, BenchmarkError, BenchmarkLibrary, RawTaskImplementation};
+#[allow(unused_imports)]
 use micromath::{F32Ext, Quaternion};
 
 pub struct Micromath;
@@ -564,6 +565,318 @@ impl RawTaskImplementation<LeeControllerTask> for LeeControllerLogic {
     }
 }
 
+#[derive(Clone, Copy)]
+pub struct Mat<const R: usize, const C: usize> {
+    pub m: [[f32; C]; R],
+}
+
+impl<const R: usize, const C: usize> Mat<R, C> {
+    pub fn zero() -> Self {
+        Mat { m: [[0.0; C]; R] }
+    }
+
+    pub fn transpose(&self) -> Mat<C, R> {
+        let mut out = Mat::<C, R>::zero();
+        for r in 0..R {
+            for c in 0..C {
+                out.m[c][r] = self.m[r][c];
+            }
+        }
+        out
+    }
+}
+
+impl<const N: usize> Mat<N, N> {
+    pub fn identity() -> Self {
+        let mut mat = Self::zero();
+        for i in 0..N {
+            mat.m[i][i] = 1.0;
+        }
+        mat
+    }
+}
+
+impl<const R: usize, const M: usize, const C: usize> core::ops::Mul<Mat<M, C>> for Mat<R, M> {
+    type Output = Mat<R, C>;
+
+    fn mul(self, rhs: Mat<M, C>) -> Self::Output {
+        let mut out = Mat::<R, C>::zero();
+        for r in 0..R {
+            for m in 0..M {
+                let s = self.m[r][m];
+                for c in 0..C {
+                    out.m[r][c] += s * rhs.m[m][c];
+                }
+            }
+        }
+        out
+    }
+}
+
+impl<const R: usize, const C: usize> core::ops::Add<Mat<R, C>> for Mat<R, C> {
+    type Output = Mat<R, C>;
+
+    fn add(self, rhs: Mat<R, C>) -> Self::Output {
+        let mut out = Mat::<R, C>::zero();
+        for r in 0..R {
+            for c in 0..C {
+                out.m[r][c] = self.m[r][c] + rhs.m[r][c];
+            }
+        }
+        out
+    }
+}
+
+impl<const R: usize, const C: usize> core::ops::Sub<Mat<R, C>> for Mat<R, C> {
+    type Output = Mat<R, C>;
+
+    fn sub(self, rhs: Mat<R, C>) -> Self::Output {
+        let mut out = Mat::<R, C>::zero();
+        for r in 0..R {
+            for c in 0..C {
+                out.m[r][c] = self.m[r][c] - rhs.m[r][c];
+            }
+        }
+        out
+    }
+}
+
+pub struct PreparedEkfStepInput {
+    pub position: [f32; 3],
+    pub velocity: [f32; 3],
+    pub attitude: Quaternion,
+    pub accelerometer: [f32; 3],
+    pub gyroscope: [f32; 3],
+    pub range_z: f32,
+    pub dt: f32,
+    pub covariance: Mat<9, 9>,
+}
+
+pub struct EkfStepLogic;
+
+impl RawTaskImplementation<EkfStepTask> for EkfStepLogic {
+    type PreparedInput = PreparedEkfStepInput;
+    type RawOutput = [f32; 10];
+
+    fn prepare(&self, input: &<EkfStepTask as crate::BenchmarkTask>::Input) -> Self::PreparedInput {
+        let q = Quaternion::new(
+            input.attitude[3],
+            input.attitude[0],
+            input.attitude[1],
+            input.attitude[2],
+        );
+        let mut cov = Mat::<9, 9>::zero();
+        for r in 0..9 {
+            for c in 0..9 {
+                cov.m[r][c] = input.covariance[r * 9 + c];
+            }
+        }
+        PreparedEkfStepInput {
+            position: input.position,
+            velocity: input.velocity,
+            attitude: q,
+            accelerometer: input.accelerometer,
+            gyroscope: input.gyroscope,
+            range_z: input.range_z,
+            dt: input.dt,
+            covariance: cov,
+        }
+    }
+
+    fn execute(&self, input: &Self::PreparedInput) -> Result<Self::RawOutput, BenchmarkError> {
+        let mut p = input.position;
+        let mut v_b = input.velocity;
+        let mut q = input.attitude; // w, x, y, z
+        let acc = input.accelerometer;
+        let gyro = input.gyroscope;
+        let zrange = input.range_z;
+        let dt = input.dt;
+        let mut cov = input.covariance;
+
+        let acc_m_s2 = [acc[0] * 9.81, acc[1] * 9.81, acc[2] * 9.81];
+
+        // 1. R matrix from q
+        let qw = q.w();
+        let qx = q.x();
+        let qy = q.y();
+        let qz = q.z();
+
+        let r = [
+            [
+                1.0 - 2.0 * (qy * qy + qz * qz),
+                2.0 * (qx * qy - qz * qw),
+                2.0 * (qx * qz + qy * qw),
+            ],
+            [
+                2.0 * (qx * qy + qz * qw),
+                1.0 - 2.0 * (qx * qx + qz * qz),
+                2.0 * (qy * qz - qx * qw),
+            ],
+            [
+                2.0 * (qx * qz - qy * qw),
+                2.0 * (qy * qz + qx * qw),
+                1.0 - 2.0 * (qx * qx + qy * qy),
+            ],
+        ];
+
+        let dx = v_b[0] * dt;
+        let dy = v_b[1] * dt;
+        let dz = v_b[2] * dt + acc_m_s2[2] * (dt * dt) / 2.0;
+
+        p[0] += r[0][0] * dx + r[0][1] * dy + r[0][2] * dz;
+        p[1] += r[1][0] * dx + r[1][1] * dy + r[1][2] * dz;
+        p[2] += r[2][0] * dx + r[2][1] * dy + r[2][2] * dz - 9.81 * (dt * dt) / 2.0;
+
+        let tmp_spx = v_b[0];
+        let tmp_spy = v_b[1];
+        let tmp_spz = v_b[2];
+
+        v_b[0] += dt * (gyro[2] * tmp_spy - gyro[1] * tmp_spz - 9.81 * r[2][0]);
+        v_b[1] += dt * (-gyro[2] * tmp_spx + gyro[0] * tmp_spz - 9.81 * r[2][1]);
+        v_b[2] += dt * (acc_m_s2[2] + gyro[1] * tmp_spx - gyro[0] * tmp_spy - 9.81 * r[2][2]);
+
+        let dtwx = dt * gyro[0];
+        let dtwy = dt * gyro[1];
+        let dtwz = dt * gyro[2];
+        let angle = (dtwx * dtwx + dtwy * dtwy + dtwz * dtwz).sqrt();
+        if angle > 1e-6 {
+            let ca = (angle / 2.0).cos();
+            let sa = (angle / 2.0).sin();
+            let dq = Quaternion::new(ca, sa * dtwx / angle, sa * dtwy / angle, sa * dtwz / angle);
+            q = q * dq;
+        }
+
+        let mut a_mat = Mat::<9, 9>::identity();
+        a_mat.m[0][3] = r[0][0] * dt;
+        a_mat.m[0][4] = r[0][1] * dt;
+        a_mat.m[0][5] = r[0][2] * dt;
+        a_mat.m[1][3] = r[1][0] * dt;
+        a_mat.m[1][4] = r[1][1] * dt;
+        a_mat.m[1][5] = r[1][2] * dt;
+        a_mat.m[2][3] = r[2][0] * dt;
+        a_mat.m[2][4] = r[2][1] * dt;
+        a_mat.m[2][5] = r[2][2] * dt;
+
+        a_mat.m[3][3] = 1.0;
+        a_mat.m[3][4] = gyro[2] * dt;
+        a_mat.m[3][5] = -gyro[1] * dt;
+        a_mat.m[4][3] = -gyro[2] * dt;
+        a_mat.m[4][4] = 1.0;
+        a_mat.m[4][5] = gyro[0] * dt;
+        a_mat.m[5][3] = gyro[1] * dt;
+        a_mat.m[5][4] = -gyro[0] * dt;
+        a_mat.m[5][5] = 1.0;
+
+        a_mat.m[3][6] = 0.0;
+        a_mat.m[3][7] = 9.81 * r[2][2] * dt;
+        a_mat.m[3][8] = -9.81 * r[2][1] * dt;
+        a_mat.m[4][6] = -9.81 * r[2][2] * dt;
+        a_mat.m[4][7] = 0.0;
+        a_mat.m[4][8] = 9.81 * r[2][0] * dt;
+        a_mat.m[5][6] = 9.81 * r[2][1] * dt;
+        a_mat.m[5][7] = -9.81 * r[2][0] * dt;
+        a_mat.m[5][8] = 0.0;
+
+        let d0 = gyro[0] * dt / 2.0;
+        let d1 = gyro[1] * dt / 2.0;
+        let d2 = gyro[2] * dt / 2.0;
+        a_mat.m[6][6] = 1.0 - d1 * d1 / 2.0 - d2 * d2 / 2.0;
+        a_mat.m[6][7] = d2 + d0 * d1 / 2.0;
+        a_mat.m[6][8] = -d1 + d0 * d2 / 2.0;
+        a_mat.m[7][6] = -d2 + d0 * d1 / 2.0;
+        a_mat.m[7][7] = 1.0 - d0 * d0 / 2.0 - d2 * d2 / 2.0;
+        a_mat.m[7][8] = d0 + d1 * d2 / 2.0;
+        a_mat.m[8][6] = d1 + d0 * d2 / 2.0;
+        a_mat.m[8][7] = -d0 + d1 * d2 / 2.0;
+        a_mat.m[8][8] = 1.0 - d0 * d0 / 2.0 - d1 * d1 / 2.0;
+
+        let mut r_proc = Mat::<9, 9>::zero();
+        r_proc.m[3][3] = 0.1;
+        r_proc.m[4][4] = 0.1;
+        r_proc.m[5][5] = 0.1;
+        r_proc.m[6][6] = 0.1;
+        r_proc.m[7][7] = 0.1;
+        r_proc.m[8][8] = 0.1;
+
+        cov = a_mat * cov * a_mat.transpose() + r_proc;
+
+        // Range measurement update
+        let exp_point_a = 2.5f32;
+        let exp_std_a = 0.0025f32;
+        let exp_point_b = 4.0f32;
+        let exp_std_b = 0.2f32;
+        let exp_coeff = (exp_std_b / exp_std_a).ln() / (exp_point_b - exp_point_a);
+        let std_dev = exp_std_a * (1.0 + (exp_coeff * (p[2] - exp_point_a)).exp());
+        let r_meas = std_dev * std_dev;
+
+        let mut h_mat = Mat::<1, 9>::zero();
+        h_mat.m[0][2] = 1.0;
+
+        let ht = h_mat.transpose();
+        let p_ht = cov * ht;
+        let hphr = r_meas + p_ht.m[2][0];
+
+        let mut k_gain = Mat::<9, 1>::zero();
+        for i in 0..9 {
+            k_gain.m[i][0] = p_ht.m[i][0] / hphr;
+        }
+        let z_diff = zrange - p[2];
+
+        p[0] += k_gain.m[0][0] * z_diff;
+        p[1] += k_gain.m[1][0] * z_diff;
+        p[2] += k_gain.m[2][0] * z_diff;
+
+        v_b[0] += k_gain.m[3][0] * z_diff;
+        v_b[1] += k_gain.m[4][0] * z_diff;
+        v_b[2] += k_gain.m[5][0] * z_diff;
+
+        let d0_err = k_gain.m[6][0] * z_diff;
+        let d1_err = k_gain.m[7][0] * z_diff;
+        let d2_err = k_gain.m[8][0] * z_diff;
+
+        let i_kh = Mat::<9, 9>::identity() - (k_gain * h_mat);
+        let mut r_meas_mat = Mat::<1, 1>::zero();
+        r_meas_mat.m[0][0] = r_meas;
+
+        cov = i_kh * cov * i_kh.transpose() + (k_gain * r_meas_mat * k_gain.transpose());
+        let _ = cov;
+
+        // Incorporate attitude error into q
+        let dq_err = Quaternion::new(1.0, d0_err / 2.0, d1_err / 2.0, d2_err / 2.0);
+        q = q * dq_err;
+
+        let q_norm = (q.w() * q.w() + q.x() * q.x() + q.y() * q.y() + q.z() * q.z()).sqrt();
+        if q_norm > 1e-12 {
+            q = Quaternion::new(
+                q.w() / q_norm,
+                q.x() / q_norm,
+                q.y() / q_norm,
+                q.z() / q_norm,
+            );
+        }
+
+        Ok([
+            p[0],
+            p[1],
+            p[2],
+            v_b[0],
+            v_b[1],
+            v_b[2],
+            q.x(),
+            q.y(),
+            q.z(),
+            q.w(),
+        ])
+    }
+
+    fn finalize(
+        &self,
+        output: Self::RawOutput,
+    ) -> Result<<EkfStepTask as crate::BenchmarkTask>::Output, BenchmarkError> {
+        Ok(output)
+    }
+}
+
 export_tasks!(
     Micromath,
     RotateVector => RotateVectorLogic,
@@ -574,4 +887,5 @@ export_tasks!(
     UnitQuatMul => UnitQuatMulLogic,
     QuatSlerp => QuatSlerpLogic,
     LeeController => LeeControllerLogic,
+    EkfStep => EkfStepLogic,
 );

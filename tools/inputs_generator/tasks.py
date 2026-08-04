@@ -53,7 +53,7 @@ TEST_LIBRARY_MAPPING = {
     "UnitQuatMul": ["glam", "nalgebra", "micromath", "crazyflie-fw"],
     "QuatSlerp": ["glam", "nalgebra", "micromath", "crazyflie-fw"],
     "LeeController": ["glam", "nalgebra", "micromath"],
-    "EkfStep": ["nalgebra", "crazyflie-fw"],
+    "EkfStep": ["nalgebra", "crazyflie-fw", "micromath"],
 }
 
 class BenchmarkTask(ABC):
