@@ -105,3 +105,25 @@ void cf_ekf_step(
     out_state[8] = coreData.q[3]; // z
     out_state[9] = coreData.q[0]; // w
 }
+
+void cmsis_matmul_9x9(const float a[81], const float b[81], float out[81]) {
+    arm_matrix_instance_f32 ma, mb, mout;
+    arm_mat_init_f32(&ma, 9, 9, (float *)a);
+    arm_mat_init_f32(&mb, 9, 9, (float *)b);
+    arm_mat_init_f32(&mout, 9, 9, out);
+    arm_mat_mult_f32(&ma, &mb, &mout);
+}
+
+int cmsis_matinverse_9x9(const float in[81], float out[81]) {
+    arm_matrix_instance_f32 min, mout;
+    arm_mat_init_f32(&min, 9, 9, (float *)in);
+    arm_mat_init_f32(&mout, 9, 9, out);
+    arm_status status = arm_mat_inverse_f32(&min, &mout);
+    return (status == ARM_MATH_SUCCESS) ? 0 : -1;
+}
+
+float cmsis_dotprod_64d(const float a[64], const float b[64]) {
+    float result = 0.0f;
+    arm_dot_prod_f32((float *)a, (float *)b, 64, &result);
+    return result;
+}

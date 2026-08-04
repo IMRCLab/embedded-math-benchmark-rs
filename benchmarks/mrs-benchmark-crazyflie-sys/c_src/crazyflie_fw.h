@@ -21,3 +21,7 @@ void cf_ekf_step(
     const float cov_in[81],
     float out_state[10]
 );
+
+void cmsis_matmul_9x9(const float a[81], const float b[81], float out[81]);
+int cmsis_matinverse_9x9(const float in[81], float out[81]);
+float cmsis_dotprod_64d(const float a[64], const float b[64]);

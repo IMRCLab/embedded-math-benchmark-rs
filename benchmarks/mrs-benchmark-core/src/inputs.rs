@@ -91,3 +91,23 @@ pub struct EkfStepInput {
     pub dt: f32,
     pub covariance: [f32; 81],
 }
+
+#[benchmark_input("MatMul9x9")]
+#[derive(Clone, Debug)]
+pub struct MatMul9x9Input {
+    pub lhs: [f32; 81],
+    pub rhs: [f32; 81],
+}
+
+#[benchmark_input("MatInverse9x9")]
+#[derive(Clone, Debug)]
+pub struct MatInverse9x9Input {
+    pub matrix: [f32; 81],
+}
+
+#[benchmark_input("DotProduct64D")]
+#[derive(Clone, Debug)]
+pub struct DotProduct64DInput {
+    pub lhs: [f32; 64],
+    pub rhs: [f32; 64],
+}

@@ -1,11 +1,14 @@
 use crate::tasks::{
-    EkfStep as EkfStepTask, LeeController as LeeControllerTask, MatInverse3x3 as MatInverse3x3Task,
-    MatMul3x3 as MatMul3x3Task, QuatSlerp as QuatSlerpTask, RotateVector as RotateVectorTask,
-    UnitQuatMul as UnitQuatMulTask,
+    DotProduct64D as DotProduct64DTask, EkfStep as EkfStepTask, LeeController as LeeControllerTask,
+    MatInverse3x3 as MatInverse3x3Task, MatInverse9x9 as MatInverse9x9Task,
+    MatMul3x3 as MatMul3x3Task, MatMul9x9 as MatMul9x9Task, QuatSlerp as QuatSlerpTask,
+    RotateVector as RotateVectorTask, UnitQuatMul as UnitQuatMulTask,
 };
 use crate::{export_tasks, BenchmarkError, BenchmarkLibrary, RawTaskImplementation};
 
 use nalgebra::Matrix3;
+type SMatrix9 = nalgebra::SMatrix<f32, 9, 9>;
+type SVector64 = nalgebra::SVector<f32, 64>;
 
 pub struct Nalgebra;
 impl BenchmarkLibrary for Nalgebra {
@@ -552,6 +555,88 @@ impl RawTaskImplementation<EkfStepTask> for EkfStepLogic {
     }
 }
 
+pub struct MatMul9x9Logic;
+impl RawTaskImplementation<MatMul9x9Task> for MatMul9x9Logic {
+    type PreparedInput = (SMatrix9, SMatrix9);
+    type RawOutput = SMatrix9;
+
+    fn prepare(
+        &self,
+        input: &<MatMul9x9Task as crate::BenchmarkTask>::Input,
+    ) -> Self::PreparedInput {
+        let lhs = SMatrix9::from_row_slice(&input.lhs);
+        let rhs = SMatrix9::from_row_slice(&input.rhs);
+        (lhs, rhs)
+    }
+
+    fn execute(&self, input: &Self::PreparedInput) -> Result<Self::RawOutput, BenchmarkError> {
+        Ok(input.0 * input.1)
+    }
+
+    fn finalize(
+        &self,
+        output: Self::RawOutput,
+    ) -> Result<<MatMul9x9Task as crate::BenchmarkTask>::Output, BenchmarkError> {
+        let mut res = [0.0f32; 81];
+        res.copy_from_slice(output.as_slice());
+        Ok(res)
+    }
+}
+
+pub struct MatInverse9x9Logic;
+impl RawTaskImplementation<MatInverse9x9Task> for MatInverse9x9Logic {
+    type PreparedInput = SMatrix9;
+    type RawOutput = SMatrix9;
+
+    fn prepare(
+        &self,
+        input: &<MatInverse9x9Task as crate::BenchmarkTask>::Input,
+    ) -> Self::PreparedInput {
+        SMatrix9::from_row_slice(&input.matrix)
+    }
+
+    fn execute(&self, input: &Self::PreparedInput) -> Result<Self::RawOutput, BenchmarkError> {
+        input
+            .try_inverse()
+            .ok_or(BenchmarkError::MathError("Matrix non-invertible"))
+    }
+
+    fn finalize(
+        &self,
+        output: Self::RawOutput,
+    ) -> Result<<MatInverse9x9Task as crate::BenchmarkTask>::Output, BenchmarkError> {
+        let mut res = [0.0f32; 81];
+        res.copy_from_slice(output.as_slice());
+        Ok(res)
+    }
+}
+
+pub struct DotProduct64DLogic;
+impl RawTaskImplementation<DotProduct64DTask> for DotProduct64DLogic {
+    type PreparedInput = (SVector64, SVector64);
+    type RawOutput = f32;
+
+    fn prepare(
+        &self,
+        input: &<DotProduct64DTask as crate::BenchmarkTask>::Input,
+    ) -> Self::PreparedInput {
+        let lhs = SVector64::from_row_slice(&input.lhs);
+        let rhs = SVector64::from_row_slice(&input.rhs);
+        (lhs, rhs)
+    }
+
+    fn execute(&self, input: &Self::PreparedInput) -> Result<Self::RawOutput, BenchmarkError> {
+        Ok(input.0.dot(&input.1))
+    }
+
+    fn finalize(
+        &self,
+        output: Self::RawOutput,
+    ) -> Result<<DotProduct64DTask as crate::BenchmarkTask>::Output, BenchmarkError> {
+        Ok(output)
+    }
+}
+
 export_tasks!(
     Nalgebra,
     MatMul3x3 => MatMul3x3Logic,
@@ -561,4 +646,7 @@ export_tasks!(
     QuatSlerp => QuatSlerpLogic,
     LeeController => LeeControllerLogic,
     EkfStep => EkfStepLogic,
+    MatMul9x9 => MatMul9x9Logic,
+    MatInverse9x9 => MatInverse9x9Logic,
+    DotProduct64D => DotProduct64DLogic,
 );

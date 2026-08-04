@@ -1,4 +1,6 @@
 #[cfg(feature = "crazyflie")]
+pub mod cmsis_dsp;
+#[cfg(feature = "crazyflie")]
 pub mod crazyflie_fw;
 pub mod glam;
 pub mod libm;

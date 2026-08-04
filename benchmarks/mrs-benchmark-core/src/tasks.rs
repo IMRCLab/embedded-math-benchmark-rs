@@ -1,6 +1,7 @@
 use crate::inputs::{
-    Atan2Input, EkfStepInput, LeeControllerInput, MatInverse3x3Input, MatMul3x3Input, QuatMulInput,
-    QuatSlerpInput, RotateVectorInput, SinCosInput, SqrtInput, UnitQuatMulInput,
+    Atan2Input, DotProduct64DInput, EkfStepInput, LeeControllerInput, MatInverse3x3Input,
+    MatInverse9x9Input, MatMul3x3Input, MatMul9x9Input, QuatMulInput, QuatSlerpInput,
+    RotateVectorInput, SinCosInput, SqrtInput, UnitQuatMulInput,
 };
 use crate::BenchmarkTask;
 
@@ -79,4 +80,25 @@ impl BenchmarkTask for EkfStep {
     const IDENTIFIER: &'static str = "EkfStep";
     type Input = EkfStepInput;
     type Output = [f32; 10];
+}
+
+pub struct MatMul9x9;
+impl BenchmarkTask for MatMul9x9 {
+    const IDENTIFIER: &'static str = "MatMul9x9";
+    type Input = MatMul9x9Input;
+    type Output = [f32; 81];
+}
+
+pub struct MatInverse9x9;
+impl BenchmarkTask for MatInverse9x9 {
+    const IDENTIFIER: &'static str = "MatInverse9x9";
+    type Input = MatInverse9x9Input;
+    type Output = [f32; 81];
+}
+
+pub struct DotProduct64D;
+impl BenchmarkTask for DotProduct64D {
+    const IDENTIFIER: &'static str = "DotProduct64D";
+    type Input = DotProduct64DInput;
+    type Output = f32;
 }

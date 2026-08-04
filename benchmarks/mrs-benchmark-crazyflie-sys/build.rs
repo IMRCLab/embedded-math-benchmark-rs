@@ -82,6 +82,7 @@ fn main() {
 
     let cmsis_matrix_src = cmsis_dir.join("DSP/Source/MatrixFunctions");
     let cmsis_fastmath_src = cmsis_dir.join("DSP/Source/FastMathFunctions");
+    let cmsis_basicmath_src = cmsis_dir.join("DSP/Source/BasicMathFunctions");
     let cmsis_tables_src = cmsis_dir.join("DSP/Source/CommonTables");
 
     let target = env::var("TARGET").unwrap();
@@ -95,6 +96,8 @@ fn main() {
     cc_build.file(cmsis_matrix_src.join("arm_mat_add_f32.c"));
     cc_build.file(cmsis_matrix_src.join("arm_mat_sub_f32.c"));
     cc_build.file(cmsis_matrix_src.join("arm_mat_trans_f32.c"));
+    cc_build.file(cmsis_matrix_src.join("arm_mat_inverse_f32.c"));
+    cc_build.file(cmsis_basicmath_src.join("arm_dot_prod_f32.c"));
     cc_build.file(cmsis_fastmath_src.join("arm_cos_f32.c"));
     cc_build.file(cmsis_fastmath_src.join("arm_sin_f32.c"));
     cc_build.file(cmsis_tables_src.join("arm_common_tables.c"));

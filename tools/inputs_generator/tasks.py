@@ -54,6 +54,9 @@ TEST_LIBRARY_MAPPING = {
     "QuatSlerp": ["glam", "nalgebra", "micromath", "crazyflie-fw"],
     "LeeController": ["glam", "nalgebra", "micromath"],
     "EkfStep": ["nalgebra", "crazyflie-fw", "micromath"],
+    "MatMul9x9": ["nalgebra", "cmsis-dsp"],
+    "MatInverse9x9": ["nalgebra", "cmsis-dsp"],
+    "DotProduct64D": ["nalgebra", "cmsis-dsp"],
 }
 
 class BenchmarkTask(ABC):
@@ -818,6 +821,67 @@ class EkfStepTask(BenchmarkTask):
         return {"f64": res_f64, "f32": res_f32}
 
 
+class MatMul9x9Task(BenchmarkTask):
+    def __init__(self):
+        super().__init__("MatMul9x9", repetitions=100)
+
+    def generate_inputs(self, rng: np.random.Generator) -> list[dict]:
+        inputs = []
+        for _ in range(50):
+            lhs = rng.uniform(-5.0, 5.0, 81).astype(np.float32).tolist()
+            rhs = rng.uniform(-5.0, 5.0, 81).astype(np.float32).tolist()
+            inputs.append({"lhs": lhs, "rhs": rhs})
+        return inputs
+
+    def compute_reference(self, input_dict: dict) -> dict:
+        lhs = np.array(input_dict["lhs"], dtype=np.float64)
+        rhs = np.array(input_dict["rhs"], dtype=np.float64)
+        out = lhs @ rhs
+        res_f64 = out.flatten().tolist()
+        res_f32 = np.float32(res_f64).tolist()
+        return {"f64": res_f64, "f32": res_f32}
+
+
+class MatInverse9x9Task(BenchmarkTask):
+    def __init__(self):
+        super().__init__("MatInverse9x9", repetitions=100)
+
+    def generate_inputs(self, rng: np.random.Generator) -> list[dict]:
+        inputs = []
+        for _ in range(50):
+            mat = rng.uniform(-2.0, 2.0, (9, 9)).astype(np.float32)
+            mat = mat @ mat.T + np.eye(9, dtype=np.float32) * 5.0
+            inputs.append({"matrix": mat.flatten().tolist()})
+        return inputs
+
+    def compute_reference(self, input_dict: dict) -> dict:
+        mat = np.array(input_dict["matrix"], dtype=np.float64).reshape((9, 9))
+        out = np.linalg.inv(mat)
+        res_f64 = out.flatten().tolist()
+        res_f32 = np.float32(res_f64).tolist()
+        return {"f64": res_f64, "f32": res_f32}
+
+
+class DotProduct64DTask(BenchmarkTask):
+    def __init__(self):
+        super().__init__("DotProduct64D", repetitions=100)
+
+    def generate_inputs(self, rng: np.random.Generator) -> list[dict]:
+        inputs = []
+        for _ in range(50):
+            lhs = rng.uniform(-10.0, 10.0, 64).astype(np.float32).tolist()
+            rhs = rng.uniform(-10.0, 10.0, 64).astype(np.float32).tolist()
+            inputs.append({"lhs": lhs, "rhs": rhs})
+        return inputs
+
+    def compute_reference(self, input_dict: dict) -> dict:
+        lhs = np.array(input_dict["lhs"], dtype=np.float64)
+        rhs = np.array(input_dict["rhs"], dtype=np.float64)
+        res_f64 = float(np.dot(lhs, rhs))
+        res_f32 = float(np.float32(res_f64))
+        return {"f64": res_f64, "f32": res_f32}
+
+
 TASK_REGISTRY: dict[str, BenchmarkTask] = {
     "MatMul3x3": MatMul3x3Task(),
     "RotateVector": RotateVectorTask(),
@@ -830,4 +894,7 @@ TASK_REGISTRY: dict[str, BenchmarkTask] = {
     "QuatSlerp": QuatSlerpTask(),
     "LeeController": LeeControllerTask(),
     "EkfStep": EkfStepTask(),
+    "MatMul9x9": MatMul9x9Task(),
+    "MatInverse9x9": MatInverse9x9Task(),
+    "DotProduct64D": DotProduct64DTask(),
 }
