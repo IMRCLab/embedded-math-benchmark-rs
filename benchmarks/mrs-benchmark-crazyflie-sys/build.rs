@@ -48,6 +48,14 @@ fn main() {
     let c_src_dir = manifest_dir.join("c_src");
     let cmsis_dir = cf_src.join("../vendor/CMSIS/CMSIS");
 
+    let cmsis_arm_math = cmsis_dir.join("DSP/Include/arm_math.h");
+    if !cmsis_arm_math.exists() {
+        let _ = std::process::Command::new("git")
+            .args(["submodule", "update", "--init", "--depth", "1", "vendor/CMSIS"])
+            .current_dir(cf_src.join(".."))
+            .status();
+    }
+
     let project_includes = [
         c_src_dir.clone(),
         cf_src.clone(),
