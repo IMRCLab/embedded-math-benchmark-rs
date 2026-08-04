@@ -712,75 +712,108 @@ class EkfStepTask(BenchmarkTask):
         dt = float(input_dict["dt"])
         cov = np.array(input_dict["covariance"], dtype=np.float64).reshape((9, 9))
 
-        qx, qy, qz, qw = att[0], att[1], att[2], att[3]
-        delta = np.zeros(3, dtype=np.float64)
+    def compute_reference(self, input_dict: dict) -> dict:
+        p = np.array(input_dict["position"], dtype=np.float64)
+        v_b = np.array(input_dict["velocity"], dtype=np.float64)
+        att = np.array(input_dict["attitude"], dtype=np.float64)
+        acc = np.array(input_dict["accelerometer"], dtype=np.float64) * 9.81
+        gyro = np.array(input_dict["gyroscope"], dtype=np.float64)
+        zrange = float(input_dict["range_z"])
+        dt = float(input_dict["dt"])
+        cov = np.array(input_dict["covariance"], dtype=np.float64).reshape((9, 9))
 
-        # 1. Rotation matrix from quaternion
-        R_mat = np.array([
+        qx, qy, qz, qw = att[0], att[1], att[2], att[3]
+
+        R = np.array([
             [1.0 - 2.0*(qy**2 + qz**2), 2.0*(qx*qy - qz*qw),     2.0*(qx*qz + qy*qw)],
             [2.0*(qx*qy + qz*qw),     1.0 - 2.0*(qx**2 + qz**2), 2.0*(qy*qz - qx*qw)],
             [2.0*(qx*qz - qy*qw),     2.0*(qy*qz + qx*qw),     1.0 - 2.0*(qx**2 + qy**2)]
         ], dtype=np.float64)
 
-        # 2. Body-Frame Prediction Step
-        # Position: p_world = p_world + R * v_body * dt
-        p = p + (R_mat @ v_b) * dt
+        dx = v_b[0] * dt
+        dy = v_b[1] * dt
+        dz = v_b[2] * dt + acc[2] * (dt**2) / 2.0
 
-        # Velocity: v_body = v_body + (a_body + R.T * g - w x v_body) * dt
-        gravity_world = np.array([0.0, 0.0, -9.81], dtype=np.float64)
-        gravity_body = R_mat.T @ gravity_world
-        coriolis = np.cross(gyro, v_b)
-        v_b = v_b + (acc + gravity_body - coriolis) * dt
+        p[0] += R[0, 0] * dx + R[0, 1] * dy + R[0, 2] * dz
+        p[1] += R[1, 0] * dx + R[1, 1] * dy + R[1, 2] * dz
+        p[2] += R[2, 0] * dx + R[2, 1] * dy + R[2, 2] * dz - 9.81 * (dt**2) / 2.0
 
-        # Attitude error propagation: delta = delta + w * dt
-        delta = delta + gyro * dt
+        tmpSPX, tmpSPY, tmpSPZ = v_b[0], v_b[1], v_b[2]
+        v_b[0] += dt * (gyro[2] * tmpSPY - gyro[1] * tmpSPZ - 9.81 * R[2, 0])
+        v_b[1] += dt * (-gyro[2] * tmpSPX + gyro[0] * tmpSPZ - 9.81 * R[2, 1])
+        v_b[2] += dt * (acc[2] + gyro[1] * tmpSPX - gyro[0] * tmpSPY - 9.81 * R[2, 2])
 
-        # Covariance propagation G * cov * G.T + R_proc
-        G = np.eye(9, dtype=np.float64)
-        G[0:3, 3:6] = R_mat * dt
-        G[3:6, 3:6] -= np.array([
-            [0.0, -gyro[2], gyro[1]],
-            [gyro[2], 0.0, -gyro[0]],
-            [-gyro[1], gyro[0], 0.0]
-        ], dtype=np.float64) * dt
+        dtwx, dtwy, dtwz = dt * gyro[0], dt * gyro[1], dt * gyro[2]
+        angle = math.sqrt(dtwx**2 + dtwy**2 + dtwz**2)
+        if angle > 1e-6:
+            ca = math.cos(angle / 2.0)
+            sa = math.sin(angle / 2.0)
+            dq = np.array([sa * dtwx / angle, sa * dtwy / angle, sa * dtwz / angle, ca], dtype=np.float64)
+            qw_n = qw*dq[3] - qx*dq[0] - qy*dq[1] - qz*dq[2]
+            qx_n = qx*dq[3] + qw*dq[0] + qy*dq[2] - qz*dq[1]
+            qy_n = qy*dq[3] + qw*dq[1] + qz*dq[0] - qx*dq[2]
+            qz_n = qz*dq[3] + qw*dq[2] + qx*dq[1] - qy*dq[0]
+            qx, qy, qz, qw = qx_n, qy_n, qz_n, qw_n
+
+        A = np.eye(9, dtype=np.float64)
+        A[0, 3] = R[0, 0] * dt; A[0, 4] = R[0, 1] * dt; A[0, 5] = R[0, 2] * dt
+        A[1, 3] = R[1, 0] * dt; A[1, 4] = R[1, 1] * dt; A[1, 5] = R[1, 2] * dt
+        A[2, 3] = R[2, 0] * dt; A[2, 4] = R[2, 1] * dt; A[2, 5] = R[2, 2] * dt
+
+        A[3, 3] = 1.0;          A[3, 4] = gyro[2] * dt; A[3, 5] = -gyro[1] * dt
+        A[4, 3] = -gyro[2] * dt; A[4, 4] = 1.0;          A[4, 5] = gyro[0] * dt
+        A[5, 3] = gyro[1] * dt;  A[5, 4] = -gyro[0] * dt; A[5, 5] = 1.0
+
+        A[3, 6] = 0.0;                   A[3, 7] = 9.81 * R[2, 2] * dt;  A[3, 8] = -9.81 * R[2, 1] * dt
+        A[4, 6] = -9.81 * R[2, 2] * dt; A[4, 7] = 0.0;                   A[4, 8] = 9.81 * R[2, 0] * dt
+        A[5, 6] = 9.81 * R[2, 1] * dt;  A[5, 7] = -9.81 * R[2, 0] * dt; A[5, 8] = 0.0
+
+        d0, d1, d2 = gyro[0]*dt/2.0, gyro[1]*dt/2.0, gyro[2]*dt/2.0
+        A[6, 6] = 1.0 - d1**2/2.0 - d2**2/2.0; A[6, 7] = d2 + d0*d1/2.0;            A[6, 8] = -d1 + d0*d2/2.0
+        A[7, 6] = -d2 + d0*d1/2.0;            A[7, 7] = 1.0 - d0**2/2.0 - d2**2/2.0; A[7, 8] = d0 + d1*d2/2.0
+        A[8, 6] = d1 + d0*d2/2.0;             A[8, 7] = -d0 + d1*d2/2.0;            A[8, 8] = 1.0 - d0**2/2.0 - d1**2/2.0
 
         R_proc = np.diag([0.0, 0.0, 0.0, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1])
-        cov = G @ cov @ G.T + R_proc
+        cov = A @ cov @ A.T + R_proc
 
-        # 3. Reset step
-        q_delta = np.array([delta[0], delta[1], delta[2], 0.0], dtype=np.float64)
-        q_curr = np.array([qx, qy, qz, qw], dtype=np.float64)
-        qw_d = q_curr[3]*q_delta[3] - q_curr[0]*q_delta[0] - q_curr[1]*q_delta[1] - q_curr[2]*q_delta[2]
-        qx_d = q_curr[0]*q_delta[3] + q_curr[3]*q_delta[0] - q_curr[2]*q_delta[1] + q_curr[1]*q_delta[2]
-        qy_d = q_curr[1]*q_delta[3] + q_curr[2]*q_delta[0] + q_curr[3]*q_delta[1] - q_curr[0]*q_delta[2]
-        qz_d = q_curr[2]*q_delta[3] - q_curr[1]*q_delta[0] + q_curr[0]*q_delta[1] + q_curr[3]*q_delta[2]
-        q_dot = 0.5 * np.array([qx_d, qy_d, qz_d, qw_d], dtype=np.float64)
-        q_new = q_curr + q_dot
-        q_norm = np.linalg.norm(q_new)
-        if q_norm > 1e-12:
-            q_new = q_new / q_norm
-        qx, qy, qz, qw = q_new[0], q_new[1], q_new[2], q_new[3]
+        R = np.array([
+            [1.0 - 2.0*(qy**2 + qz**2), 2.0*(qx*qy - qz*qw),     2.0*(qx*qz + qy*qw)],
+            [2.0*(qx*qy + qz*qw),     1.0 - 2.0*(qx**2 + qz**2), 2.0*(qy*qz - qx*qw)],
+            [2.0*(qx*qz - qy*qw),     2.0*(qy*qz + qx*qw),     1.0 - 2.0*(qx**2 + qy**2)]
+        ], dtype=np.float64)
 
-        # 4. Measure height (Z-range update)
-        expPointA = 2.5
-        expStdA = 0.0025
-        expPointB = 4.0
-        expStdB = 0.2
+        expPointA, expStdA, expPointB, expStdB = 2.5, 0.0025, 4.0, 0.2
         expCoeff = math.log(expStdB / expStdA) / (expPointB - expPointA)
         stdDev = expStdA * (1.0 + math.exp(expCoeff * (p[2] - expPointA)))
-        Q_height = stdDev * stdDev
+        R_meas = stdDev * stdDev
 
-        K_h = cov[:, 2] / (Q_height + cov[2, 2])
-        z_diff = zrange - p[2]
-        p = p + K_h[0:3] * z_diff
-        v_b = v_b + K_h[3:6] * z_diff
+        H = np.zeros((1, 9), dtype=np.float64)
+        H[0, 2] = 1.0
 
-        I_minusKH = np.eye(9, dtype=np.float64)
-        for i in range(9):
-            I_minusKH[i, 2] -= K_h[i]
-        cov = I_minusKH @ cov
+        HT = H.T
+        PHT = cov @ HT
+        HPHR = R_meas + PHT[2, 0]
+        K = PHT / HPHR
+        error = zrange - p[2]
 
-        res_f64 = np.concatenate([p, v_b, np.array([qx, qy, qz, qw])]).tolist()
+        S_state = np.array([p[0], p[1], p[2], v_b[0], v_b[1], v_b[2], 0.0, 0.0, 0.0], dtype=np.float64)
+        S_state += K.flatten() * error
+        p[0], p[1], p[2] = S_state[0], S_state[1], S_state[2]
+        v_b[0], v_b[1], v_b[2] = S_state[3], S_state[4], S_state[5]
+        d0, d1, d2 = S_state[6], S_state[7], S_state[8]
+
+        I_KH = np.eye(9, dtype=np.float64) - K @ H
+        cov = I_KH @ cov @ I_KH.T + K @ np.array([[R_meas]]) @ K.T
+
+        dq_err = np.array([d0 / 2.0, d1 / 2.0, d2 / 2.0, 1.0], dtype=np.float64)
+        qw_f = qw*dq_err[3] - qx*dq_err[0] - qy*dq_err[1] - qz*dq_err[2]
+        qx_f = qx*dq_err[3] + qw*dq_err[0] + qy*dq_err[2] - qz*dq_err[1]
+        qy_f = qy*dq_err[3] + qw*dq_err[1] + qz*dq_err[0] - qx*dq_err[2]
+        qz_f = qz*dq_err[3] + qw*dq_err[2] + qx*dq_err[1] - qy*dq_err[0]
+        q_final = np.array([qx_f, qy_f, qz_f, qw_f], dtype=np.float64)
+        q_final = q_final / np.linalg.norm(q_final)
+
+        res_f64 = np.concatenate([p, v_b, q_final]).tolist()
         res_f32 = np.float32(res_f64).tolist()
         return {"f64": res_f64, "f32": res_f32}
 

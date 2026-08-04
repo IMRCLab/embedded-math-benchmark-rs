@@ -407,81 +407,136 @@ impl RawTaskImplementation<EkfStepTask> for EkfStepLogic {
         let zrange = input.range_z;
         let dt = input.dt;
         let mut cov = input.covariance;
-        let mut delta = nalgebra::Vector3::zeros();
+        let acc_m_s2 = acc * 9.81;
 
-        let r_mat = q.to_rotation_matrix();
+        let r_3d = q.to_rotation_matrix();
+        let r = r_3d.matrix();
 
-        // 1. Position update: p_world = p_world + R * v_body * dt
-        p += r_mat * v_b * dt;
+        let dx = v_b.x * dt;
+        let dy = v_b.y * dt;
+        let dz = v_b.z * dt + acc_m_s2.z * (dt * dt) / 2.0;
 
-        // 2. Velocity update: v_body = v_body + (a_body + R.T * g - w x v_body) * dt
-        let gravity_world = nalgebra::Vector3::new(0.0, 0.0, -9.81);
-        let gravity_body = r_mat.inverse() * gravity_world;
-        let coriolis = gyro.cross(&v_b);
-        v_b += (acc + gravity_body - coriolis) * dt;
+        p.x += r[(0, 0)] * dx + r[(0, 1)] * dy + r[(0, 2)] * dz;
+        p.y += r[(1, 0)] * dx + r[(1, 1)] * dy + r[(1, 2)] * dz;
+        p.z += r[(2, 0)] * dx + r[(2, 1)] * dy + r[(2, 2)] * dz - 9.81 * (dt * dt) / 2.0;
 
-        // 3. Attitude error: delta = delta + gyro * dt
-        delta += gyro * dt;
+        let tmp_spx = v_b.x;
+        let tmp_spy = v_b.y;
+        let tmp_spz = v_b.z;
 
-        // 4. Covariance propagation: G * cov * G.T + R_proc
-        let mut g_mat = nalgebra::SMatrix::<f32, 9, 9>::identity();
-        let r_dt = r_mat.into_inner() * dt;
-        for r in 0..3 {
-            for c in 0..3 {
-                g_mat[(r, c + 3)] = r_dt[(r, c)];
-            }
+        v_b.x += dt * (gyro.z * tmp_spy - gyro.y * tmp_spz - 9.81 * r[(2, 0)]);
+        v_b.y += dt * (-gyro.z * tmp_spx + gyro.x * tmp_spz - 9.81 * r[(2, 1)]);
+        v_b.z += dt * (acc_m_s2.z + gyro.y * tmp_spx - gyro.x * tmp_spy - 9.81 * r[(2, 2)]);
+
+        let dtwx = dt * gyro.x;
+        let dtwy = dt * gyro.y;
+        let dtwz = dt * gyro.z;
+        let angle = libm::sqrtf(dtwx * dtwx + dtwy * dtwy + dtwz * dtwz);
+        if angle > 1e-6 {
+            let ca = libm::cosf(angle / 2.0);
+            let sa = libm::sinf(angle / 2.0);
+            let dq = nalgebra::Quaternion::new(
+                ca,
+                sa * dtwx / angle,
+                sa * dtwy / angle,
+                sa * dtwz / angle,
+            );
+            let q_curr = q.into_inner();
+            let q_new = q_curr * dq;
+            q = nalgebra::UnitQuaternion::from_quaternion(q_new);
         }
-        g_mat[(3, 4)] += gyro.z * dt;
-        g_mat[(3, 5)] -= gyro.y * dt;
-        g_mat[(4, 3)] -= gyro.z * dt;
-        g_mat[(4, 5)] += gyro.x * dt;
-        g_mat[(5, 3)] += gyro.y * dt;
-        g_mat[(5, 4)] -= gyro.x * dt;
+
+        let mut a_mat = nalgebra::SMatrix::<f32, 9, 9>::identity();
+        a_mat[(0, 3)] = r[(0, 0)] * dt;
+        a_mat[(0, 4)] = r[(0, 1)] * dt;
+        a_mat[(0, 5)] = r[(0, 2)] * dt;
+        a_mat[(1, 3)] = r[(1, 0)] * dt;
+        a_mat[(1, 4)] = r[(1, 1)] * dt;
+        a_mat[(1, 5)] = r[(1, 2)] * dt;
+        a_mat[(2, 3)] = r[(2, 0)] * dt;
+        a_mat[(2, 4)] = r[(2, 1)] * dt;
+        a_mat[(2, 5)] = r[(2, 2)] * dt;
+
+        a_mat[(3, 3)] = 1.0;
+        a_mat[(3, 4)] = gyro.z * dt;
+        a_mat[(3, 5)] = -gyro.y * dt;
+        a_mat[(4, 3)] = -gyro.z * dt;
+        a_mat[(4, 4)] = 1.0;
+        a_mat[(4, 5)] = gyro.x * dt;
+        a_mat[(5, 3)] = gyro.y * dt;
+        a_mat[(5, 4)] = -gyro.x * dt;
+        a_mat[(5, 5)] = 1.0;
+
+        a_mat[(3, 6)] = 0.0;
+        a_mat[(3, 7)] = 9.81 * r[(2, 2)] * dt;
+        a_mat[(3, 8)] = -9.81 * r[(2, 1)] * dt;
+        a_mat[(4, 6)] = -9.81 * r[(2, 2)] * dt;
+        a_mat[(4, 7)] = 0.0;
+        a_mat[(4, 8)] = 9.81 * r[(2, 0)] * dt;
+        a_mat[(5, 6)] = 9.81 * r[(2, 1)] * dt;
+        a_mat[(5, 7)] = -9.81 * r[(2, 0)] * dt;
+        a_mat[(5, 8)] = 0.0;
+
+        let d0 = gyro.x * dt / 2.0;
+        let d1 = gyro.y * dt / 2.0;
+        let d2 = gyro.z * dt / 2.0;
+        a_mat[(6, 6)] = 1.0 - d1 * d1 / 2.0 - d2 * d2 / 2.0;
+        a_mat[(6, 7)] = d2 + d0 * d1 / 2.0;
+        a_mat[(6, 8)] = -d1 + d0 * d2 / 2.0;
+        a_mat[(7, 6)] = -d2 + d0 * d1 / 2.0;
+        a_mat[(7, 7)] = 1.0 - d0 * d0 / 2.0 - d2 * d2 / 2.0;
+        a_mat[(7, 8)] = d0 + d1 * d2 / 2.0;
+        a_mat[(8, 6)] = d1 + d0 * d2 / 2.0;
+        a_mat[(8, 7)] = -d0 + d1 * d2 / 2.0;
+        a_mat[(8, 8)] = 1.0 - d0 * d0 / 2.0 - d1 * d1 / 2.0;
 
         let r_proc = nalgebra::SMatrix::<f32, 9, 9>::from_diagonal(
             &nalgebra::SVector::<f32, 9>::from_row_slice(&[
                 0.0, 0.0, 0.0, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1,
             ]),
         );
-        cov = g_mat * cov * g_mat.transpose() + r_proc;
+        cov = a_mat * cov * a_mat.transpose() + r_proc;
 
-        // 5. Reset Step
-        let q_delta = nalgebra::Quaternion::new(0.0, delta.x, delta.y, delta.z);
-        let q_curr = q.into_inner();
-        let q_dot_val = q_curr * q_delta;
-        let q_new_quat = nalgebra::Quaternion::new(
-            q_curr.w + 0.5 * q_dot_val.w,
-            q_curr.i + 0.5 * q_dot_val.i,
-            q_curr.j + 0.5 * q_dot_val.j,
-            q_curr.k + 0.5 * q_dot_val.k,
-        );
-        q = nalgebra::UnitQuaternion::from_quaternion(q_new_quat);
-
-        // 6. Height measurement update
+        // 3. Range scalar update
         let exp_point_a = 2.5f32;
         let exp_std_a = 0.0025f32;
         let exp_point_b = 4.0f32;
         let exp_std_b = 0.2f32;
         let exp_coeff = libm::logf(exp_std_b / exp_std_a) / (exp_point_b - exp_point_a);
         let std_dev = exp_std_a * (1.0 + libm::expf(exp_coeff * (p.z - exp_point_a)));
-        let q_height = std_dev * std_dev;
+        let r_meas = std_dev * std_dev;
 
-        let denom = q_height + cov[(2, 2)];
+        let mut h_mat = nalgebra::SMatrix::<f32, 1, 9>::zeros();
+        h_mat[(0, 2)] = 1.0;
+
+        let ht = h_mat.transpose();
+        let p_ht = cov * ht;
+        let hphr = r_meas + p_ht[(2, 0)];
+        let k_gain = p_ht / hphr;
         let z_diff = zrange - p.z;
 
-        for i in 0..3 {
-            let k_p = cov[(i, 2)] / denom;
-            let k_v = cov[(i + 3, 2)] / denom;
-            p[i] += k_p * z_diff;
-            v_b[i] += k_v * z_diff;
-        }
+        p.x += k_gain[(0, 0)] * z_diff;
+        p.y += k_gain[(1, 0)] * z_diff;
+        p.z += k_gain[(2, 0)] * z_diff;
 
-        let mut i_kh = nalgebra::SMatrix::<f32, 9, 9>::identity();
-        for i in 0..9 {
-            i_kh[(i, 2)] -= cov[(i, 2)] / denom;
-        }
-        cov = i_kh * cov;
+        v_b.x += k_gain[(3, 0)] * z_diff;
+        v_b.y += k_gain[(4, 0)] * z_diff;
+        v_b.z += k_gain[(5, 0)] * z_diff;
+
+        let d0_err = k_gain[(6, 0)] * z_diff;
+        let d1_err = k_gain[(7, 0)] * z_diff;
+        let d2_err = k_gain[(8, 0)] * z_diff;
+
+        let i_kh = nalgebra::SMatrix::<f32, 9, 9>::identity() - k_gain * h_mat;
+        let r_meas_mat = nalgebra::SMatrix::<f32, 1, 1>::new(r_meas);
+        cov = i_kh * cov * i_kh.transpose() + k_gain * r_meas_mat * k_gain.transpose();
         let _ = cov;
+
+        // 4. Incorporate attitude error into q
+        let dq_err = nalgebra::Quaternion::new(1.0, d0_err / 2.0, d1_err / 2.0, d2_err / 2.0);
+        let q_curr = q.into_inner();
+        let q_new_quat = q_curr * dq_err;
+        q = nalgebra::UnitQuaternion::from_quaternion(q_new_quat);
 
         let q_final = q.into_inner();
         Ok([
