@@ -40,9 +40,7 @@ fn main() {
     let cf_src = manifest_dir.join("../vendor/crazyflie-firmware/src");
     let wrapper_c = manifest_dir.join("c_src/cf_math_wrapper.c");
     let lee_wrapper_c = manifest_dir.join("c_src/cf_lee_controller.c");
-    let lee_c = cf_src.join("modules/src/controller/controller_lee.c");
     let wrapper_h = manifest_dir.join("c_src/crazyflie_fw.h");
-    let stub_autoconf = manifest_dir.join("c_src/stub_autoconf");
 
     // Tell Cargo to rebuild if the wrapper files or inputs change
     println!("cargo:rerun-if-changed={}", wrapper_c.display());
