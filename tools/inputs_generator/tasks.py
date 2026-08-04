@@ -53,6 +53,7 @@ TEST_LIBRARY_MAPPING = {
     "UnitQuatMul": ["glam", "nalgebra", "micromath", "crazyflie-fw"],
     "QuatSlerp": ["glam", "nalgebra", "micromath", "crazyflie-fw"],
     "LeeController": ["glam", "nalgebra", "micromath"],
+    "EkfStep": ["nalgebra"],
 }
 
 class BenchmarkTask(ABC):
@@ -620,6 +621,168 @@ class LeeControllerTask(BenchmarkTask):
         f32_res = np.float32(f64_res).tolist()
         return {"f64": f64_res, "f32": f32_res}
 
+
+class EkfStepTask(BenchmarkTask):
+    def __init__(self):
+        super().__init__("EkfStep", 100)
+
+    def generate_inputs(self, rng: np.random.Generator) -> list[dict]:
+        import csv, os
+        inputs = []
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        csv_path = os.path.abspath(os.path.join(script_dir, "../assets/estimate.csv"))
+
+        with open(csv_path, 'r') as f:
+            rows = list(csv.DictReader(f))
+
+        acc_rows = [r for r in rows if r.get('acc.x') and r.get('acc.x') != 'nan']
+        gyro_rows = [r for r in rows if r.get('gyro.x') and r.get('gyro.x') != 'nan']
+        pos_rows = [r for r in rows if r.get('stateEstimate.x') and r.get('stateEstimate.x') != 'nan']
+
+        count = min(50, len(acc_rows), len(gyro_rows), len(pos_rows))
+        acc_samples = rng.choice(acc_rows, count, replace=False)
+        gyro_samples = rng.choice(gyro_rows, count, replace=False)
+        pos_samples = rng.choice(pos_rows, count, replace=False)
+
+        for i in range(count):
+            r_acc = acc_samples[i]
+            r_gyro = gyro_samples[i]
+            r_pos = pos_samples[i]
+
+            acc = [float(r_acc['acc.x']), float(r_acc['acc.y']), float(r_acc['acc.z'])]
+            gyro = [float(r_gyro['gyro.x']), float(r_gyro['gyro.y']), float(r_gyro['gyro.z'])]
+
+            pos = [float(r_pos['stateEstimate.x']), float(r_pos['stateEstimate.y']), float(r_pos['stateEstimate.z'])]
+            v_world = np.array([float(r_pos['stateEstimate.vx']), float(r_pos['stateEstimate.vy']), float(r_pos['stateEstimate.vz'])], dtype=np.float64)
+
+            qw = float(r_pos['stateEstimate.qw'])
+            qx = float(r_pos['stateEstimate.qx'])
+            qy = float(r_pos['stateEstimate.qy'])
+            qz = float(r_pos['stateEstimate.qz'])
+
+            q_norm = math.sqrt(qw*qw + qx*qx + qy*qy + qz*qz)
+            if q_norm < 1e-6:
+                att = [0.0, 0.0, 0.0, 1.0]
+                qw, qx, qy, qz = 1.0, 0.0, 0.0, 0.0
+            else:
+                qw, qx, qy, qz = qw/q_norm, qx/q_norm, qy/q_norm, qz/q_norm
+                att = [qx, qy, qz, qw]
+
+            # Convert world velocity to body velocity: v_body = R(q)^T * v_world
+            R_mat = np.array([
+                [1.0 - 2.0*(qy**2 + qz**2), 2.0*(qx*qy - qz*qw),     2.0*(qx*qz + qy*qw)],
+                [2.0*(qx*qy + qz*qw),     1.0 - 2.0*(qx**2 + qz**2), 2.0*(qy*qz - qx*qw)],
+                [2.0*(qx*qz - qy*qw),     2.0*(qy*qz + qx*qw),     1.0 - 2.0*(qx**2 + qy**2)]
+            ], dtype=np.float64)
+            v_body = R_mat.T @ v_world
+
+            zrange = float(r_pos['stateEstimate.z']) + float(rng.normal(0, 0.02))
+            delta_n_x = float(rng.normal(0, 0.05))
+            delta_n_y = float(rng.normal(0, 0.05))
+            dt = 0.01
+
+            cov = [0.0] * 81
+            for k in range(3):
+                cov[k*9 + k] = 0.1
+                cov[(k+3)*9 + (k+3)] = 0.1
+                cov[(k+6)*9 + (k+6)] = 0.01
+
+            inputs.append({
+                "position": pos,
+                "velocity": v_body.tolist(),
+                "attitude": att,
+                "accelerometer": acc,
+                "gyroscope": gyro,
+                "range_z": zrange,
+                "flow_delta": [delta_n_x, delta_n_y],
+                "dt": dt,
+                "covariance": cov
+            })
+        return inputs
+
+    def compute_reference(self, input_dict: dict) -> dict[str, Any]:
+        p = np.array(input_dict["position"], dtype=np.float64)
+        v_b = np.array(input_dict["velocity"], dtype=np.float64)
+        att = np.array(input_dict["attitude"], dtype=np.float64)  # [qx, qy, qz, qw]
+        acc = np.array(input_dict["accelerometer"], dtype=np.float64)
+        gyro = np.array(input_dict["gyroscope"], dtype=np.float64)
+        zrange = float(input_dict["range_z"])
+        dt = float(input_dict["dt"])
+        cov = np.array(input_dict["covariance"], dtype=np.float64).reshape((9, 9))
+
+        qx, qy, qz, qw = att[0], att[1], att[2], att[3]
+        delta = np.zeros(3, dtype=np.float64)
+
+        # 1. Rotation matrix from quaternion
+        R_mat = np.array([
+            [1.0 - 2.0*(qy**2 + qz**2), 2.0*(qx*qy - qz*qw),     2.0*(qx*qz + qy*qw)],
+            [2.0*(qx*qy + qz*qw),     1.0 - 2.0*(qx**2 + qz**2), 2.0*(qy*qz - qx*qw)],
+            [2.0*(qx*qz - qy*qw),     2.0*(qy*qz + qx*qw),     1.0 - 2.0*(qx**2 + qy**2)]
+        ], dtype=np.float64)
+
+        # 2. Body-Frame Prediction Step
+        # Position: p_world = p_world + R * v_body * dt
+        p = p + (R_mat @ v_b) * dt
+
+        # Velocity: v_body = v_body + (a_body + R.T * g - w x v_body) * dt
+        gravity_world = np.array([0.0, 0.0, -9.81], dtype=np.float64)
+        gravity_body = R_mat.T @ gravity_world
+        coriolis = np.cross(gyro, v_b)
+        v_b = v_b + (acc + gravity_body - coriolis) * dt
+
+        # Attitude error propagation: delta = delta + w * dt
+        delta = delta + gyro * dt
+
+        # Covariance propagation G * cov * G.T + R_proc
+        G = np.eye(9, dtype=np.float64)
+        G[0:3, 3:6] = R_mat * dt
+        G[3:6, 3:6] -= np.array([
+            [0.0, -gyro[2], gyro[1]],
+            [gyro[2], 0.0, -gyro[0]],
+            [-gyro[1], gyro[0], 0.0]
+        ], dtype=np.float64) * dt
+
+        R_proc = np.diag([0.0, 0.0, 0.0, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1])
+        cov = G @ cov @ G.T + R_proc
+
+        # 3. Reset step
+        q_delta = np.array([delta[0], delta[1], delta[2], 0.0], dtype=np.float64)
+        q_curr = np.array([qx, qy, qz, qw], dtype=np.float64)
+        qw_d = q_curr[3]*q_delta[3] - q_curr[0]*q_delta[0] - q_curr[1]*q_delta[1] - q_curr[2]*q_delta[2]
+        qx_d = q_curr[0]*q_delta[3] + q_curr[3]*q_delta[0] - q_curr[2]*q_delta[1] + q_curr[1]*q_delta[2]
+        qy_d = q_curr[1]*q_delta[3] + q_curr[2]*q_delta[0] + q_curr[3]*q_delta[1] - q_curr[0]*q_delta[2]
+        qz_d = q_curr[2]*q_delta[3] - q_curr[1]*q_delta[0] + q_curr[0]*q_delta[1] + q_curr[3]*q_delta[2]
+        q_dot = 0.5 * np.array([qx_d, qy_d, qz_d, qw_d], dtype=np.float64)
+        q_new = q_curr + q_dot
+        q_norm = np.linalg.norm(q_new)
+        if q_norm > 1e-12:
+            q_new = q_new / q_norm
+        qx, qy, qz, qw = q_new[0], q_new[1], q_new[2], q_new[3]
+
+        # 4. Measure height (Z-range update)
+        expPointA = 2.5
+        expStdA = 0.0025
+        expPointB = 4.0
+        expStdB = 0.2
+        expCoeff = math.log(expStdB / expStdA) / (expPointB - expPointA)
+        stdDev = expStdA * (1.0 + math.exp(expCoeff * (p[2] - expPointA)))
+        Q_height = stdDev * stdDev
+
+        K_h = cov[:, 2] / (Q_height + cov[2, 2])
+        z_diff = zrange - p[2]
+        p = p + K_h[0:3] * z_diff
+        v_b = v_b + K_h[3:6] * z_diff
+
+        I_minusKH = np.eye(9, dtype=np.float64)
+        for i in range(9):
+            I_minusKH[i, 2] -= K_h[i]
+        cov = I_minusKH @ cov
+
+        res_f64 = np.concatenate([p, v_b, np.array([qx, qy, qz, qw])]).tolist()
+        res_f32 = np.float32(res_f64).tolist()
+        return {"f64": res_f64, "f32": res_f32}
+
+
 TASK_REGISTRY: dict[str, BenchmarkTask] = {
     "MatMul3x3": MatMul3x3Task(),
     "RotateVector": RotateVectorTask(),
@@ -631,4 +794,5 @@ TASK_REGISTRY: dict[str, BenchmarkTask] = {
     "UnitQuatMul": UnitQuatMulTask(),
     "QuatSlerp": QuatSlerpTask(),
     "LeeController": LeeControllerTask(),
+    "EkfStep": EkfStepTask(),
 }
