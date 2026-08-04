@@ -578,7 +578,7 @@ impl RawTaskImplementation<MatMul9x9Task> for MatMul9x9Logic {
         output: Self::RawOutput,
     ) -> Result<<MatMul9x9Task as crate::BenchmarkTask>::Output, BenchmarkError> {
         let mut res = [0.0f32; 81];
-        res.copy_from_slice(output.as_slice());
+        res.copy_from_slice(output.transpose().as_slice());
         Ok(res)
     }
 }
@@ -606,7 +606,7 @@ impl RawTaskImplementation<MatInverse9x9Task> for MatInverse9x9Logic {
         output: Self::RawOutput,
     ) -> Result<<MatInverse9x9Task as crate::BenchmarkTask>::Output, BenchmarkError> {
         let mut res = [0.0f32; 81];
-        res.copy_from_slice(output.as_slice());
+        res.copy_from_slice(output.transpose().as_slice());
         Ok(res)
     }
 }

@@ -834,8 +834,8 @@ class MatMul9x9Task(BenchmarkTask):
         return inputs
 
     def compute_reference(self, input_dict: dict) -> dict:
-        lhs = np.array(input_dict["lhs"], dtype=np.float64)
-        rhs = np.array(input_dict["rhs"], dtype=np.float64)
+        lhs = np.array(input_dict["lhs"], dtype=np.float64).reshape((9, 9))
+        rhs = np.array(input_dict["rhs"], dtype=np.float64).reshape((9, 9))
         out = lhs @ rhs
         res_f64 = out.flatten().tolist()
         res_f32 = np.float32(res_f64).tolist()

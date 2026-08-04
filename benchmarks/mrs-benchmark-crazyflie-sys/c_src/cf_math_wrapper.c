@@ -115,8 +115,12 @@ void cmsis_matmul_9x9(const float a[81], const float b[81], float out[81]) {
 }
 
 int cmsis_matinverse_9x9(const float in[81], float out[81]) {
+    float temp_in[81];
+    for (int i = 0; i < 81; i++) {
+        temp_in[i] = in[i];
+    }
     arm_matrix_instance_f32 min, mout;
-    arm_mat_init_f32(&min, 9, 9, (float *)in);
+    arm_mat_init_f32(&min, 9, 9, temp_in);
     arm_mat_init_f32(&mout, 9, 9, out);
     arm_status status = arm_mat_inverse_f32(&min, &mout);
     return (status == ARM_MATH_SUCCESS) ? 0 : -1;
