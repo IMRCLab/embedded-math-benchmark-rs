@@ -60,11 +60,13 @@ class BenchmarkTask(ABC):
     name: str
     repetitions: int
     libraries: list[str]
+    platforms: list[str] | None
 
-    def __init__(self, name: str, repetitions: int = 100):
+    def __init__(self, name: str, repetitions: int = 100, platforms: list[str] | None = None):
         self.name = name
         self.repetitions = repetitions
         self.libraries = TEST_LIBRARY_MAPPING[name]
+        self.platforms = platforms
 
     @abstractmethod
     def generate_inputs(self, rng: np.random.Generator) -> list[dict]:

@@ -23,12 +23,15 @@ def main():
     cases = []
     for task_name, task in TASK_REGISTRY.items():
         inputs = task.generate_inputs(rng)
-        cases.append({
+        case = {
             "repetitions": task.repetitions,
             "libraries": task.libraries,
             "test": task.name,
             "inputs": inputs
-        })
+        }
+        if task.platforms is not None:
+            case["platforms"] = task.platforms
+        cases.append(case)
 
     config = {"cases": cases}
 
