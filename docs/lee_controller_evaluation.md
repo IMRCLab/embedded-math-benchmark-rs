@@ -1,5 +1,11 @@
 # Lee Controller Runtime Evaluation
 
+> **Output semantics changed 2026-08.** `LeeController` now reports
+> `[thrust (N), torque_x, torque_y, torque_z (N*m)]`, what the controller itself computes,
+> instead of a non-firmware motor-speed model. Numbers below predate that change.
+> `crazyflie-fw` is now a genuine reference alongside glam/nalgebra/micromath; re-collecting
+> (see [running-benchmarks.md](running-benchmarks.md)) would add that row.
+
 Absolute execution time comparison of the Lee Controller across host and embedded platforms running at nominal frequencies:
 *   **Host (native)**
 *   **STM32F405 (Crazyflie MCU)**: 168 MHz

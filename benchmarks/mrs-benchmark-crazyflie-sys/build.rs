@@ -39,10 +39,14 @@ fn main() {
     let manifest_dir = PathBuf::from(env::var("CARGO_MANIFEST_DIR").unwrap());
     let cf_src = manifest_dir.join("../vendor/crazyflie-firmware/src");
     let wrapper_c = manifest_dir.join("c_src/cf_math_wrapper.c");
+    let lee_wrapper_c = manifest_dir.join("c_src/cf_lee_controller.c");
+    let lee_c = cf_src.join("modules/src/controller/controller_lee.c");
     let wrapper_h = manifest_dir.join("c_src/crazyflie_fw.h");
+    let stub_autoconf = manifest_dir.join("c_src/stub_autoconf");
 
     // Tell Cargo to rebuild if the wrapper files or inputs change
     println!("cargo:rerun-if-changed={}", wrapper_c.display());
+    println!("cargo:rerun-if-changed={}", lee_wrapper_c.display());
     println!("cargo:rerun-if-changed={}", wrapper_h.display());
 
     let c_src_dir = manifest_dir.join("c_src");
@@ -63,11 +67,14 @@ fn main() {
             .status();
     }
 
+    let stub_autoconf = c_src_dir.join("stub_autoconf");
     let project_includes = [
         c_src_dir.clone(),
+        stub_autoconf.clone(),
         cf_src.clone(),
         cf_src.join("modules/interface"),
         cf_src.join("modules/interface/kalman_core"),
+        cf_src.join("modules/interface/controller"),
         cf_src.join("hal/interface"),
         cf_src.join("platform/interface"),
         cf_src.join("config"),
@@ -79,6 +86,8 @@ fn main() {
     ];
 
     let kalman_core_c = cf_src.join("modules/src/kalman_core/kalman_core.c");
+    let lee_c = cf_src.join("modules/src/controller/controller_lee.c");
+    let lee_wrapper_c = c_src_dir.join("cf_lee_controller.c");
 
     let cmsis_matrix_src = cmsis_dir.join("DSP/Source/MatrixFunctions");
     let cmsis_fastmath_src = cmsis_dir.join("DSP/Source/FastMathFunctions");
@@ -90,6 +99,8 @@ fn main() {
     // 1. Compile the wrapper C code and CMSIS-DSP routines using the cc crate
     let mut cc_build = cc::Build::new();
     cc_build.file(&wrapper_c);
+    cc_build.file(&lee_wrapper_c);
+    cc_build.file(&lee_c);
     cc_build.file(&kalman_core_c);
     cc_build.file(cmsis_matrix_src.join("arm_mat_init_f32.c"));
     cc_build.file(cmsis_matrix_src.join("arm_mat_mult_f32.c"));

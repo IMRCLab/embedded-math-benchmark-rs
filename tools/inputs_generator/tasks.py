@@ -52,7 +52,7 @@ TEST_LIBRARY_MAPPING = {
     "QuatMul": ["glam", "micromath", "crazyflie-fw"],
     "UnitQuatMul": ["glam", "nalgebra", "micromath", "crazyflie-fw"],
     "QuatSlerp": ["glam", "nalgebra", "micromath", "crazyflie-fw"],
-    "LeeController": ["glam", "nalgebra", "micromath"],
+    "LeeController": ["glam", "nalgebra", "micromath", "crazyflie-fw"],
     "EkfStep": ["nalgebra", "crazyflie-fw", "micromath"],
     "MatMul9x9": ["nalgebra", "cmsis-dsp"],
     "MatInverse9x9": ["nalgebra", "cmsis-dsp"],
@@ -537,7 +537,7 @@ class LeeControllerTask(BenchmarkTask):
         KD = np.array([4.0, 4.0, 4.0], dtype=np.float64)
         K_R = np.array([0.007, 0.007, 0.008], dtype=np.float64)
         K_W = np.array([0.00115, 0.00115, 0.002], dtype=np.float64)
-        GRAVITY = np.array([0.0, 0.0, -9.80665], dtype=np.float64)
+        GRAVITY = np.array([0.0, 0.0, -9.81], dtype=np.float64)  # matches crazyflie-fw's GRAVITY_MAGNITUDE
         INERTIA = np.array([1.657171e-5, 16.655602e-6, 29.261652e-6], dtype=np.float64)
 
         e_p = cmd_pos - pos
@@ -598,31 +598,7 @@ class LeeControllerTask(BenchmarkTask):
         feed_forward = -INERTIA * np.cross(ang_vel, r_mat.T @ r_d @ w_d)
         torque = feedback + gyro + feed_forward
 
-        KAPPA_F = 2.2168775e-10
-        KAPPA_TAU = 1.2096801e-12
-        A = 0.046 / math.sqrt(2)
-
-        inv_k_f = 1.0 / (4.0 * KAPPA_F)
-        inv_k_t_xy = 1.0 / (4.0 * KAPPA_F * A)
-        inv_k_t_z = 1.0 / (4.0 * KAPPA_TAU)
-
-        w = np.array([thrust, torque[0], torque[1], torque[2]], dtype=np.float64)
-        alloc_mat = np.array([
-            [inv_k_f, -inv_k_t_xy, -inv_k_t_xy, -inv_k_t_z],
-            [inv_k_f, -inv_k_t_xy,  inv_k_t_xy,  inv_k_t_z],
-            [inv_k_f,  inv_k_t_xy,  inv_k_t_xy, -inv_k_t_z],
-            [inv_k_f,  inv_k_t_xy, -inv_k_t_xy,  inv_k_t_z]
-        ], dtype=np.float64)
-
-        m1234_sq = alloc_mat @ w
-        motors = np.array([
-            math.sqrt(max(0.0, m1234_sq[0])),
-            math.sqrt(max(0.0, m1234_sq[1])),
-            math.sqrt(max(0.0, m1234_sq[2])),
-            math.sqrt(max(0.0, m1234_sq[3]))
-        ], dtype=np.float64)
-
-        f64_res = motors.tolist()
+        f64_res = [thrust, torque[0], torque[1], torque[2]]
         f32_res = np.float32(f64_res).tolist()
         return {"f64": f64_res, "f32": f32_res}
 

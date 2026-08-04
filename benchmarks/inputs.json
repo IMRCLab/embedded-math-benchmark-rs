@@ -5256,7 +5256,8 @@
       "libraries": [
         "glam",
         "nalgebra",
-        "micromath"
+        "micromath",
+        "crazyflie-fw"
       ],
       "test": "LeeController",
       "inputs": [

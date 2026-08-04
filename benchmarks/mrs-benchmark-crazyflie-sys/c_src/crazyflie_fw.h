@@ -25,3 +25,23 @@ void cf_ekf_step(
 void cmsis_matmul_9x9(const float a[81], const float b[81], float out[81]);
 int cmsis_matinverse_9x9(const float in[81], float out[81]);
 float cmsis_dotprod_64d(const float a[64], const float b[64]);
+
+// Lee position/attitude controller (modules/src/controller/controller_lee.c),
+// wrapped to take flat inputs and stop at thrust+torque.
+struct cf_lee_output {
+    float thrust;
+    struct vec torque;
+};
+
+struct cf_lee_output cf_lee_controller(
+    struct vec position,
+    struct vec velocity,
+    struct quat attitude,
+    struct vec angular_velocity,
+    struct vec setpoint_position,
+    struct vec setpoint_velocity,
+    struct vec setpoint_acceleration,
+    float setpoint_yaw,
+    float setpoint_yaw_dot,
+    float mass
+);

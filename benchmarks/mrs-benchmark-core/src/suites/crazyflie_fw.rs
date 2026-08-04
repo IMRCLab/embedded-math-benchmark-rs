@@ -1,7 +1,8 @@
 use crate::tasks::{
-    Atan2 as Atan2Task, EkfStep as EkfStepTask, MatMul3x3 as MatMul3x3Task, QuatMul as QuatMulTask,
-    QuatSlerp as QuatSlerpTask, RotateVector as RotateVectorTask, SinCos as SinCosTask,
-    Sqrt as SqrtTask, UnitQuatMul as UnitQuatMulTask,
+    Atan2 as Atan2Task, EkfStep as EkfStepTask, LeeController as LeeControllerTask,
+    MatMul3x3 as MatMul3x3Task, QuatMul as QuatMulTask, QuatSlerp as QuatSlerpTask,
+    RotateVector as RotateVectorTask, SinCos as SinCosTask, Sqrt as SqrtTask,
+    UnitQuatMul as UnitQuatMulTask,
 };
 use crate::{export_tasks, BenchmarkError, BenchmarkLibrary, RawTaskImplementation};
 
@@ -324,6 +325,92 @@ impl RawTaskImplementation<EkfStepTask> for EkfStepLogic {
     }
 }
 
+pub struct LeeControllerLogic;
+impl RawTaskImplementation<LeeControllerTask> for LeeControllerLogic {
+    type PreparedInput = (
+        mrs_benchmark_crazyflie_sys::vec,
+        mrs_benchmark_crazyflie_sys::vec,
+        mrs_benchmark_crazyflie_sys::quat,
+        mrs_benchmark_crazyflie_sys::vec,
+        mrs_benchmark_crazyflie_sys::vec,
+        mrs_benchmark_crazyflie_sys::vec,
+        mrs_benchmark_crazyflie_sys::vec,
+        f32,
+        f32,
+        f32,
+    );
+    type RawOutput = mrs_benchmark_crazyflie_sys::cf_lee_output;
+
+    fn prepare(
+        &self,
+        input: &<LeeControllerTask as crate::BenchmarkTask>::Input,
+    ) -> Self::PreparedInput {
+        let v = |a: [f32; 3]| mrs_benchmark_crazyflie_sys::vec {
+            x: a[0],
+            y: a[1],
+            z: a[2],
+        };
+        (
+            v(input.position),
+            v(input.velocity),
+            mrs_benchmark_crazyflie_sys::quat {
+                x: input.attitude[0],
+                y: input.attitude[1],
+                z: input.attitude[2],
+                w: input.attitude[3],
+            },
+            v(input.angular_velocity),
+            v(input.setpoint_position),
+            v(input.setpoint_velocity),
+            v(input.setpoint_acceleration),
+            input.setpoint_yaw,
+            input.setpoint_yaw_dot,
+            input.mass,
+        )
+    }
+
+    fn execute(&self, input: &Self::PreparedInput) -> Result<Self::RawOutput, BenchmarkError> {
+        let (
+            position,
+            velocity,
+            attitude,
+            angular_velocity,
+            setpoint_position,
+            setpoint_velocity,
+            setpoint_acceleration,
+            setpoint_yaw,
+            setpoint_yaw_dot,
+            mass,
+        ) = *input;
+        Ok(unsafe {
+            mrs_benchmark_crazyflie_sys::cf_lee_controller(
+                position,
+                velocity,
+                attitude,
+                angular_velocity,
+                setpoint_position,
+                setpoint_velocity,
+                setpoint_acceleration,
+                setpoint_yaw,
+                setpoint_yaw_dot,
+                mass,
+            )
+        })
+    }
+
+    fn finalize(
+        &self,
+        output: Self::RawOutput,
+    ) -> Result<<LeeControllerTask as crate::BenchmarkTask>::Output, BenchmarkError> {
+        Ok([
+            output.thrust,
+            output.torque.x,
+            output.torque.y,
+            output.torque.z,
+        ])
+    }
+}
+
 export_tasks!(
     CrazyflieFw,
     MatMul3x3 => MatMul3x3Logic,
@@ -335,4 +422,5 @@ export_tasks!(
     UnitQuatMul => UnitQuatMulLogic,
     QuatSlerp => QuatSlerpLogic,
     EkfStep => EkfStepLogic,
+    LeeController => LeeControllerLogic,
 );
