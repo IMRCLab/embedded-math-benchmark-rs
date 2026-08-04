@@ -122,7 +122,7 @@ pub fn benchmark_input(args: TokenStream, input: TokenStream) -> TokenStream {
 // Maps a library id to the Cargo feature gating its suite module, if any (see suites.rs).
 fn suite_feature_gate(lib: &str) -> Option<&'static str> {
     match lib {
-        "crazyflie-fw" => Some("crazyflie"),
+        "crazyflie-fw" | "cmsis-dsp" => Some("crazyflie"),
         _ => None,
     }
 }
