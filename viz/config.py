@@ -3,17 +3,22 @@ order, grid shapes, and the per-platform clock rates used to convert firmware cy
 counts to nanoseconds."""
 
 # Fixed order + validated colorblind-safe palette (dataviz skill, categorical
-# slots 1-5). crazyflie-fw is the only C impl: distinct hue, always rightmost,
-# plus a hatch so it reads as "different" even in grayscale/print.
-LIBRARY_ORDER = ["glam", "libm", "micromath", "nalgebra", "crazyflie-fw"]
+# slots 1-6). crazyflie-fw and cmsis-dsp are the C impls: distinct hues, each
+# with its own hatch so they read as "different" even in grayscale/print.
+# crazyflie-fw stays the rightmost entry always -- it's the full C reference
+# firmware, so every other library (including cmsis-dsp) is ordered before it.
+LIBRARY_ORDER = ["glam", "libm", "micromath", "nalgebra", "cmsis-dsp", "crazyflie-fw"]
 LIBRARY_COLORS = {
     "glam": "#2a78d6",
     "libm": "#eb6834",
     "micromath": "#1baf7a",
     "nalgebra": "#eda100",
     "crazyflie-fw": "#e87ba4",
+    "cmsis-dsp": "#008300",
 }
 CF_HATCH = "///"
+CMSIS_HATCH = "xxx"
+LIBRARY_HATCHES = {"crazyflie-fw": CF_HATCH, "cmsis-dsp": CMSIS_HATCH}
 FALLBACK_COLOR = "#999999"
 
 # Display order mirrors benchmarks/inputs.json case order. Kept by hand (like
@@ -21,18 +26,31 @@ FALLBACK_COLOR = "#999999"
 # reviewed without the Rust tree next to it, and collect's merged CSV rows are
 # already alphabetically sorted so there's no order left to recover from the
 # data itself. A task present in the data but missing here is appended
-# (alphabetically) rather than silently dropped.
+# (alphabetically) rather than silently dropped. Grouped by primitive family
+# (matrices, vectors, scalar transcendentals, quaternions, composite tasks)
+# rather than by insertion order, so e.g. Exp/Ln land next to the other scalar
+# math ops (Atan2/SinCos/Sqrt) instead of trailing at the end.
 TASK_ORDER = [
     "MatMul3x3",
-    "RotateVector",
+    "MatMul9x9",
     "MatInverse3x3",
+    "MatInverse9x9",
+    "MatVecMul3x3",
+    "RotateVector",
+    "CrossProduct",
+    "Vec3Normalize",
+    "DotProduct64D",
     "Atan2",
     "SinCos",
     "Sqrt",
+    "Exp",
+    "Ln",
     "QuatMul",
     "UnitQuatMul",
     "QuatSlerp",
+    "QuatToRotMatrix",
     "LeeController",
+    "EkfStep",
 ]
 
 # MCUs in CLAUDE.md's crate map order, host last: it's not an interesting reference

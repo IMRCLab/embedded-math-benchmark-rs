@@ -16,6 +16,11 @@ variables:
   # uv state lives on /persist too, same reasoning as cargo above
   UV_CACHE_DIR: /persist/uv
   UV_PYTHON_INSTALL_DIR: /persist/uv-python
+  # The venv itself is created in the ephemeral git checkout, a different
+  # filesystem than UV_CACHE_DIR above, so uv can't hardlink cache -> venv and
+  # warns every run about falling back to a full copy. Silence it by asking for
+  # the copy fallback directly instead of chasing the (harmless) warning.
+  UV_LINK_MODE: copy
   WORKSPACE_DIR: benchmarks
   TARGET: x86_64-unknown-linux-gnu
   SELECT_PROBE_SCRIPT: .gitlab/ci/select-probe.sh

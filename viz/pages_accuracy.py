@@ -199,12 +199,17 @@ def plot_pareto_summary_table_page(agg, acc_df, platform, tasks, generated_at):
 
     fig, ax = plt.subplots(figsize=(16, 8))
     ax.axis("off")
+    # Reserve the top of the figure for the title/subtitle text below, and
+    # confine the table to an explicit bbox (axes fraction) rather than letting
+    # it size itself from row count + a fixed .scale() multiplier -- that grew
+    # taller than the axes and overlapped the subtitle once enough tasks (and
+    # so table rows) accumulated.
+    fig.subplots_adjust(top=0.78, bottom=0.04, left=0.03, right=0.97)
 
     headers = ["Task", "Fastest Library", "Most Accurate Library", "Pareto Optimal Set", "Dominated Libraries"]
-    table = ax.table(cellText=table_data, colLabels=headers, cellLoc="center", loc="center")
+    table = ax.table(cellText=table_data, colLabels=headers, cellLoc="center", loc="center", bbox=[0, 0, 1, 1])
     table.auto_set_font_size(False)
     table.set_fontsize(9)
-    table.scale(1.2, 1.8)
 
     for i in range(len(headers)):
         table[(0, i)].set_facecolor("#2a78d6")

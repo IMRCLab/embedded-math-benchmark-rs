@@ -5,7 +5,7 @@ only states what's actually different about its own chart."""
 
 from matplotlib.patches import Patch
 
-from config import CF_HATCH, FALLBACK_COLOR, LIBRARY_COLORS
+from config import FALLBACK_COLOR, LIBRARY_COLORS, LIBRARY_HATCHES
 
 LOG_LABEL_MULTIPLIER = 1.18  # bar_top -> label y on a log axis
 SYMLOG_LABEL_PIXEL_GAP = 10  # bar_top -> label y on a symlog axis, in display pixels
@@ -30,15 +30,16 @@ def bar_colors(libs):
     return [LIBRARY_COLORS.get(lib, FALLBACK_COLOR) for lib in libs]
 
 
-def hatch_crazyflie_bars(bars, libs):
+def hatch_c_impl_bars(bars, libs):
     for bar, lib in zip(bars, libs):
-        if lib == "crazyflie-fw":
-            bar.set_hatch(CF_HATCH)
+        hatch = LIBRARY_HATCHES.get(lib)
+        if hatch:
+            bar.set_hatch(hatch)
 
 
 def draw_bars(ax, x, heights, libs, *, bottom=0, width=0.6, zorder=2):
     bars = ax.bar(x, heights, color=bar_colors(libs), width=width, zorder=zorder, bottom=bottom)
-    hatch_crazyflie_bars(bars, libs)
+    hatch_c_impl_bars(bars, libs)
     return bars
 
 
@@ -94,7 +95,7 @@ def legend_handles(libs):
     return [
         Patch(
             facecolor=LIBRARY_COLORS.get(lib, FALLBACK_COLOR),
-            hatch=CF_HATCH if lib == "crazyflie-fw" else None,
+            hatch=LIBRARY_HATCHES.get(lib),
             label=lib,
         )
         for lib in libs
