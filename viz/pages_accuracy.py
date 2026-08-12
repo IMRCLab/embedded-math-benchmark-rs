@@ -50,7 +50,7 @@ def _format_ulp(u):
     return f"{u:.1e}"
 
 
-def plot_accuracy_platform_page(acc_df, samples_map, platform, libs, tasks, page, n_pages, generated_at):
+def plot_accuracy_platform_page(acc_df, samples_map, platform, libs, tasks, page, n_pages, generated_at, versions=None):
     """Plots per-platform accuracy bar charts (Mean ULP) for each task, matching time bar chart styling."""
     n_rows, n_cols = GRID_SHAPE
     fig, axes = plt.subplots(n_rows, n_cols, figsize=(16, 8))
@@ -146,7 +146,7 @@ def plot_accuracy_platform_page(acc_df, samples_map, platform, libs, tasks, page
         "0 ULP = Bit-exact match, 1-2 ULP = IEEE float noise"
     )
     common.page_header(fig, title, subtitle, generated_at)
-    common.add_legend(fig, libs)
+    common.add_legend(fig, libs, versions)
     return fig
 
 

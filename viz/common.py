@@ -91,19 +91,27 @@ def style_absent_ticks(tick_labels, present):
             label.set_style("italic")
 
 
-def legend_handles(libs):
+def _legend_label(lib, versions):
+    version = versions.get(lib)
+    if not version:
+        return lib
+    return f"{lib} @{version}" if lib == "crazyflie-fw" else f"{lib} {version}"
+
+
+def legend_handles(libs, versions=None):
+    versions = versions or {}
     return [
         Patch(
             facecolor=LIBRARY_COLORS.get(lib, FALLBACK_COLOR),
             hatch=LIBRARY_HATCHES.get(lib),
-            label=lib,
+            label=_legend_label(lib, versions),
         )
         for lib in libs
     ]
 
 
-def add_legend(fig, libs):
-    fig.legend(handles=legend_handles(libs), loc="lower center", ncol=len(libs), frameon=False)
+def add_legend(fig, libs, versions=None):
+    fig.legend(handles=legend_handles(libs, versions), loc="lower center", ncol=len(libs), frameon=False)
 
 
 def page_header(fig, title, subtitle, generated_at):

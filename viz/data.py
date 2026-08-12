@@ -114,6 +114,21 @@ def load_accuracy_df(csv_path):
     return df, samples_map
 
 
+def load_library_versions():
+    """Loads library_versions.json (library -> version string) from the workspace
+    root if present. Written by mrs-benchmark-collect alongside results.csv."""
+    root_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    versions_json = os.path.join(root_dir, "library_versions.json")
+    if not os.path.exists(versions_json):
+        return {}
+    try:
+        with open(versions_json) as f:
+            return json.load(f)
+    except Exception as e:
+        print(f"plot.py: Warning - failed to load {versions_json}: {e}", file=sys.stderr)
+        return {}
+
+
 def compute_pareto_frontier(points):
     """
     Given points = [(lib, runtime, error), ...], returns list of Pareto-optimal points

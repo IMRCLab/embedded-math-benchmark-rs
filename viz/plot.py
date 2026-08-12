@@ -11,7 +11,7 @@ from matplotlib.backends.backend_pdf import PdfPages
 
 import common
 from config import GRID_SHAPE, LIBRARY_ORDER, PLATFORM_ORDER, TASK_GRID_SHAPE, TASK_ORDER
-from data import aggregate, drop_platform, load_accuracy_df, load_and_clean, ordered
+from data import aggregate, drop_platform, load_accuracy_df, load_and_clean, load_library_versions, ordered
 from pages_accuracy import plot_accuracy_platform_page, plot_pareto_summary_table_page
 from pages_time import plot_platform_page, plot_task_page
 
@@ -25,6 +25,7 @@ def main(argv):
     task_pages = common.paginate(tasks, page_size)
     by_task_pages = common.paginate(tasks, TASK_GRID_SHAPE[0] * TASK_GRID_SHAPE[1])
     generated_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    versions = load_library_versions()
 
     all_platforms = ordered(agg["platform"].unique(), PLATFORM_ORDER, "platform(s)")
     all_libs = ordered(df_ok["library"].unique(), LIBRARY_ORDER, "library(ies) globally")
@@ -49,7 +50,7 @@ def main(argv):
                     continue
                 fig = plot_platform_page(
                     agg, df_ok, error_counts, platform, platform_libs, task_page,
-                    page_idx, len(task_pages), generated_at,
+                    page_idx, len(task_pages), generated_at, versions,
                 )
                 pdf.savefig(fig)
                 plt.close(fig)
@@ -61,7 +62,7 @@ def main(argv):
                 continue
             fig = plot_task_page(
                 task_agg, task_df_ok, task_error_counts, task_page, task_platforms, all_libs,
-                page_idx, len(by_task_pages), generated_at,
+                page_idx, len(by_task_pages), generated_at, versions,
             )
             pdf.savefig(fig)
             plt.close(fig)
@@ -81,7 +82,7 @@ def main(argv):
                 for page_idx, task_page in enumerate(task_pages, start=1):
                     fig = plot_accuracy_platform_page(
                         acc_df, samples_map, platform, platform_libs, task_page,
-                        page_idx, len(task_pages), generated_at,
+                        page_idx, len(task_pages), generated_at, versions,
                     )
                     if fig is not None:
                         pdf.savefig(fig)

@@ -74,3 +74,10 @@ _Collecting:_ `mrs-benchmark-collect` greps the `BENCH ` lines from one or more 
 them, and merges every platform into one headed `results.csv`. See
 [Running the Benchmarks](running-benchmarks.md#collecting-results-into-a-csv). C libraries
 slot into the `library` field.
+
+`collect` also writes a best-effort `library_versions.json` sidecar next to `results.csv`
+(library name -> version string), read from `benchmarks/Cargo.lock` and the
+`crazyflie-firmware` git submodule's pinned commit at collect time. `viz/plot.py` picks it up
+automatically if present. A missing/unreadable source just drops that one library's entry
+(with a stderr warning) rather than failing `collect`. Sourced from the main workspace's
+lockfile only -- `mrs-benchmark-esp32s3` resolves independently and isn't tracked separately.

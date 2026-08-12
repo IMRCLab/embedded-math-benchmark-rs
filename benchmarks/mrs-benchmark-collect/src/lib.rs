@@ -3,8 +3,11 @@
 //! benchmark output format can change without touching this crate. The column
 //! names live in exactly one place: [`HEADER`].
 
+use std::collections::BTreeMap;
 use std::fmt;
 use std::io::{BufRead, Write};
+use std::path::Path;
+use std::process::Command;
 
 /// Marker that tags a result row in the logs (note the trailing space). It need
 /// not start the line — a log source may prefix lines with a timestamp — so
@@ -14,6 +17,14 @@ pub const BENCH_PREFIX: &str = "BENCH ";
 /// CSV header prepended to the output. This is the only place the columns are
 /// named; if the benchmark output format changes, edit this line.
 pub const HEADER: &str = mrs_benchmark_core::CSV_HEADER;
+
+/// Rust crates whose resolved version we look up in `Cargo.lock`. Names match
+/// both the Cargo package name and the `library` field these benchmarks report.
+pub const TRACKED_RUST_LIBRARIES: &[&str] = &["glam", "libm", "micromath", "nalgebra"];
+
+/// Path (repo-root-relative) to the `crazyflie-firmware` git submodule, whose
+/// pinned commit stands in for a version number (it tracks `master`, no semver tags).
+pub const CRAZYFLIE_FW_SUBMODULE_PATH: &str = "benchmarks/vendor/crazyflie-firmware";
 
 /// Anything that can go wrong while collecting rows.
 #[derive(Debug)]
@@ -38,6 +49,65 @@ impl From<std::io::Error> for CollectError {
     fn from(e: std::io::Error) -> Self {
         CollectError::Io(e)
     }
+}
+
+/// Extracts the pinned commit SHA (shortened to 7 hex chars) from one line of
+/// `git ls-tree HEAD -- <path>` output, e.g.
+/// `"160000 commit f45ff8fdce4e73e5ce88ec06eee76309d2fa9a39\tbenchmarks/vendor/crazyflie-firmware\n"`.
+fn parse_ls_tree_sha(output: &str) -> Option<String> {
+    let sha = output.split_whitespace().nth(2)?;
+    (sha.len() >= 7).then(|| sha[..7].to_string())
+}
+
+/// Reads a git submodule's pinned commit via `git ls-tree` -- works even when the
+/// submodule itself isn't checked out, since the pin lives in the parent repo's
+/// own tree object.
+fn submodule_commit(repo_root: &Path, submodule_path: &str) -> Option<String> {
+    let output = Command::new("git")
+        .args(["ls-tree", "HEAD", "--", submodule_path])
+        .current_dir(repo_root)
+        .output()
+        .ok()?;
+    if !output.status.success() {
+        return None;
+    }
+    parse_ls_tree_sha(&String::from_utf8(output.stdout).ok()?)
+}
+
+/// Best-effort snapshot of each math library's version: the four Rust crates
+/// (from `benchmarks/Cargo.lock`) plus `crazyflie-fw`'s pinned commit. Never
+/// fails -- a missing/unreadable source just leaves that one library out of the
+/// returned map, with a human-readable line in the returned warnings instead.
+pub fn library_versions(repo_root: &Path) -> (BTreeMap<String, String>, Vec<String>) {
+    let mut warnings = Vec::new();
+    let lockfile_path = repo_root.join("benchmarks/Cargo.lock");
+    let mut versions = match cargo_lock::Lockfile::load(&lockfile_path) {
+        Ok(lockfile) => lockfile
+            .packages
+            .into_iter()
+            .filter(|pkg| TRACKED_RUST_LIBRARIES.contains(&pkg.name.as_str()))
+            .fold(BTreeMap::new(), |mut versions, pkg| {
+                versions
+                    .entry(pkg.name.to_string())
+                    .or_insert_with(|| pkg.version.to_string());
+                versions
+            }),
+        Err(e) => {
+            warnings.push(format!("could not read {}: {e}", lockfile_path.display()));
+            BTreeMap::new()
+        }
+    };
+
+    match submodule_commit(repo_root, CRAZYFLIE_FW_SUBMODULE_PATH) {
+        Some(sha) => {
+            versions.insert("crazyflie-fw".to_string(), sha);
+        }
+        None => warnings.push(format!(
+            "could not resolve the pinned commit for {CRAZYFLIE_FW_SUBMODULE_PATH}"
+        )),
+    }
+
+    (versions, warnings)
 }
 
 /// Read the `BENCH ` rows from each source and return them sorted.
@@ -117,6 +187,40 @@ mod tests {
         assert_eq!(
             String::from_utf8(buf).unwrap(),
             format!("{HEADER}\na,1\nb,2\n")
+        );
+    }
+
+    #[test]
+    fn parse_ls_tree_sha_shortens_to_seven_chars() {
+        let output = "160000 commit f45ff8fdce4e73e5ce88ec06eee76309d2fa9a39\tbenchmarks/vendor/crazyflie-firmware\n";
+        assert_eq!(parse_ls_tree_sha(output), Some("f45ff8f".to_string()));
+    }
+
+    #[test]
+    fn parse_ls_tree_sha_returns_none_for_empty_output() {
+        assert_eq!(parse_ls_tree_sha(""), None);
+    }
+
+    #[test]
+    fn library_versions_reads_lockfile_and_warns_when_not_a_git_repo() {
+        let dir = std::env::temp_dir().join("mrs-benchmark-collect-test-library-versions");
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(dir.join("benchmarks")).unwrap();
+        std::fs::write(
+            dir.join("benchmarks/Cargo.lock"),
+            "[[package]]\nname = \"glam\"\nversion = \"0.28.0\"\n",
+        )
+        .unwrap();
+
+        let (versions, warnings) = library_versions(&dir);
+
+        std::fs::remove_dir_all(&dir).ok();
+
+        assert_eq!(versions.get("glam"), Some(&"0.28.0".to_string()));
+        assert_eq!(versions.get("crazyflie-fw"), None);
+        assert!(
+            !warnings.is_empty(),
+            "expected a warning about the missing git repo"
         );
     }
 }

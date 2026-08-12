@@ -4,5 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+cargo-lock = "11.1.0"
 clap = { version = "4", features = ["derive"] }
 mrs-benchmark-core = { path = "../mrs-benchmark-core" }
+serde_json = "1"

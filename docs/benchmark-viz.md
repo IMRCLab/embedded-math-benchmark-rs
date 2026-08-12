@@ -26,6 +26,9 @@ glab job artifact $(git branch --show-current) report-pdf
   so a sparse page's grid doesn't inflate.
 - Every subplot reserves the platform's full library slot set (`LIBRARY_ORDER`) with a fixed
   library -> color map, so bars align and every page reads as one consistent system.
+- Legend entries append each library's version when known (e.g. `glam 0.28.0`,
+  `crazyflie-fw @f45ff8f`), read from `library_versions.json` (see
+  [docs/io-format.md](io-format.md)). Falls back to the bare name if that file is missing.
 - Bar = median per (platform, task, library), overlaid with jittered raw-sample scatter and a
   compact value label (e.g. `1.25k`).
 - Subplot title shows the input count (e.g. `MatMul3x3 (n=50)`); an errored library doesn't

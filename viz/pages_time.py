@@ -19,7 +19,7 @@ def _task_note(task_errors):
     return ", ".join(parts)
 
 
-def plot_platform_page(agg, df_ok, error_counts, platform, libs, tasks, page, n_pages, generated_at):
+def plot_platform_page(agg, df_ok, error_counts, platform, libs, tasks, page, n_pages, generated_at, versions=None):
     n_rows, n_cols = GRID_SHAPE
     fig, axes = plt.subplots(n_rows, n_cols, figsize=(16, 8))
     axes = axes.flatten()
@@ -97,7 +97,7 @@ def plot_platform_page(agg, df_ok, error_counts, platform, libs, tasks, page, n_
 
     title = platform if n_pages == 1 else f"{platform} (page {page}/{n_pages})"
     common.page_header(fig, title, f"n={total_n} rows", generated_at)
-    common.add_legend(fig, libs)
+    common.add_legend(fig, libs, versions)
     # Fixed margins, not tight_layout: tight_layout sizes cells from the tight
     # bbox of all axes including ones turned off, so a sparse continuation
     # page got extra padding and its one subplot visibly inflated.
@@ -105,7 +105,7 @@ def plot_platform_page(agg, df_ok, error_counts, platform, libs, tasks, page, n_
     return fig
 
 
-def plot_task_page(agg, df_ok, error_counts, tasks, platforms, libs, page, n_pages, generated_at):
+def plot_task_page(agg, df_ok, error_counts, tasks, platforms, libs, page, n_pages, generated_at, versions=None):
     """plot_platform_page transposed: one subplot per task, x-axis grouped by
     platform, bars within each group by library. Every group reserves the
     full `libs` set so all groups on the page are the same width."""
@@ -184,6 +184,6 @@ def plot_task_page(agg, df_ok, error_counts, tasks, platforms, libs, page, n_pag
     title = "All platforms, grouped by task"
     title = title if n_pages == 1 else f"{title} (page {page}/{n_pages})"
     common.page_header(fig, title, f"n={total_n} rows", generated_at)
-    common.add_legend(fig, libs)
+    common.add_legend(fig, libs, versions)
     fig.subplots_adjust(left=0.055, right=0.985, top=0.86, bottom=0.13, hspace=0.7, wspace=0.1)
     return fig
