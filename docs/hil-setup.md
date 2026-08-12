@@ -69,6 +69,19 @@ with "multiple probes found". Each run job calls
 [`select-probe.sh`](../.gitlab/ci/select-probe.sh) `<chip>` first, which greps each probe's
 `probe-rs info` for a per-chip signature and returns the `VID:PID:Serial` of the match.
 
+## Power-cycling a board
+
+When a real power cycle is what's needed: boards have no switched power of their own, but sit behind daisy-chained VIA Labs VL817 USB hubs, which are `uhubctl`-capable. One-time admin setup:
+
+```bash
+sudo apt install -y uhubctl
+echo 'SUBSYSTEM=="usb", ATTR{idVendor}=="2109", ATTR{idProduct}=="2817", MODE="0664", GROUP="plugdev"' \
+  | sudo tee /etc/udev/rules.d/99-uhubctl.rules
+sudo udevadm control --reload && sudo udevadm trigger
+```
+
+After that, `plugdev` members can run `uhubctl` without sudo. Then `uhubctl -l <location> -p <port> -a cycle`.
+
 ## Provisioning
 
 All steps run on the Threadripper and need **root**: the runner is a system-mode install

@@ -1,0 +1,8 @@
+[package]
+name = "rp2350-rescue"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+probe-rs = "0.32"
+anyhow = "1"
