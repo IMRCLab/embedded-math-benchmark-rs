@@ -1,7 +1,8 @@
 use crate::inputs::{
-    Atan2Input, DotProduct64DInput, EkfStepInput, LeeControllerInput, MatInverse3x3Input,
-    MatInverse9x9Input, MatMul3x3Input, MatMul9x9Input, QuatMulInput, QuatSlerpInput,
-    RotateVectorInput, SinCosInput, SqrtInput, UnitQuatMulInput,
+    Atan2Input, CrossProductInput, DotProduct64DInput, EkfStepInput, ExpInput, LeeControllerInput,
+    LnInput, MatInverse3x3Input, MatInverse9x9Input, MatMul3x3Input, MatMul9x9Input,
+    MatVecMul3x3Input, QuatMulInput, QuatSlerpInput, QuatToRotMatrixInput, RotateVectorInput,
+    SinCosInput, SqrtInput, UnitQuatMulInput, Vec3NormalizeInput,
 };
 use crate::BenchmarkTask;
 
@@ -100,5 +101,47 @@ pub struct DotProduct64D;
 impl BenchmarkTask for DotProduct64D {
     const IDENTIFIER: &'static str = "DotProduct64D";
     type Input = DotProduct64DInput;
+    type Output = f32;
+}
+
+pub struct CrossProduct;
+impl BenchmarkTask for CrossProduct {
+    const IDENTIFIER: &'static str = "CrossProduct";
+    type Input = CrossProductInput;
+    type Output = [f32; 3];
+}
+
+pub struct Vec3Normalize;
+impl BenchmarkTask for Vec3Normalize {
+    const IDENTIFIER: &'static str = "Vec3Normalize";
+    type Input = Vec3NormalizeInput;
+    type Output = [f32; 3];
+}
+
+pub struct MatVecMul3x3;
+impl BenchmarkTask for MatVecMul3x3 {
+    const IDENTIFIER: &'static str = "MatVecMul3x3";
+    type Input = MatVecMul3x3Input;
+    type Output = [f32; 3];
+}
+
+pub struct QuatToRotMatrix;
+impl BenchmarkTask for QuatToRotMatrix {
+    const IDENTIFIER: &'static str = "QuatToRotMatrix";
+    type Input = QuatToRotMatrixInput;
+    type Output = [f32; 9];
+}
+
+pub struct Exp;
+impl BenchmarkTask for Exp {
+    const IDENTIFIER: &'static str = "Exp";
+    type Input = ExpInput;
+    type Output = f32;
+}
+
+pub struct Ln;
+impl BenchmarkTask for Ln {
+    const IDENTIFIER: &'static str = "Ln";
+    type Input = LnInput;
     type Output = f32;
 }

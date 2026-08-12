@@ -111,3 +111,41 @@ pub struct DotProduct64DInput {
     pub lhs: [f32; 64],
     pub rhs: [f32; 64],
 }
+
+#[benchmark_input("CrossProduct")]
+#[derive(Clone, Debug)]
+pub struct CrossProductInput {
+    pub lhs: [f32; 3],
+    pub rhs: [f32; 3],
+}
+
+#[benchmark_input("Vec3Normalize")]
+#[derive(Clone, Debug)]
+pub struct Vec3NormalizeInput {
+    pub vector: [f32; 3],
+}
+
+#[benchmark_input("MatVecMul3x3")]
+#[derive(Clone, Debug)]
+pub struct MatVecMul3x3Input {
+    pub matrix: [f32; 9],
+    pub vector: [f32; 3],
+}
+
+#[benchmark_input("QuatToRotMatrix")]
+#[derive(Clone, Debug)]
+pub struct QuatToRotMatrixInput {
+    pub quat: [f32; 4], // [x, y, z, w]
+}
+
+#[benchmark_input("Exp")]
+#[derive(Clone, Debug)]
+pub struct ExpInput {
+    pub value: f32,
+}
+
+#[benchmark_input("Ln")]
+#[derive(Clone, Debug)]
+pub struct LnInput {
+    pub value: f32,
+}

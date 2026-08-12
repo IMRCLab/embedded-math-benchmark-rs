@@ -57,6 +57,12 @@ TEST_LIBRARY_MAPPING = {
     "MatMul9x9": ["nalgebra", "cmsis-dsp"],
     "MatInverse9x9": ["nalgebra", "cmsis-dsp"],
     "DotProduct64D": ["nalgebra", "cmsis-dsp"],
+    "CrossProduct": ["glam", "nalgebra", "crazyflie-fw"],
+    "Vec3Normalize": ["glam", "nalgebra", "crazyflie-fw"],
+    "MatVecMul3x3": ["glam", "nalgebra", "crazyflie-fw"],
+    "QuatToRotMatrix": ["glam", "nalgebra", "crazyflie-fw"],
+    "Exp": ["libm", "micromath", "crazyflie-fw"],
+    "Ln": ["libm", "micromath", "crazyflie-fw"],
 }
 
 class BenchmarkTask(ABC):
@@ -681,16 +687,6 @@ class EkfStepTask(BenchmarkTask):
             })
         return inputs
 
-    def compute_reference(self, input_dict: dict) -> dict[str, Any]:
-        p = np.array(input_dict["position"], dtype=np.float64)
-        v_b = np.array(input_dict["velocity"], dtype=np.float64)
-        att = np.array(input_dict["attitude"], dtype=np.float64)  # [qx, qy, qz, qw]
-        acc = np.array(input_dict["accelerometer"], dtype=np.float64)
-        gyro = np.array(input_dict["gyroscope"], dtype=np.float64)
-        zrange = float(input_dict["range_z"])
-        dt = float(input_dict["dt"])
-        cov = np.array(input_dict["covariance"], dtype=np.float64).reshape((9, 9))
-
     def compute_reference(self, input_dict: dict) -> dict:
         p = np.array(input_dict["position"], dtype=np.float64)
         v_b = np.array(input_dict["velocity"], dtype=np.float64)
@@ -858,6 +854,188 @@ class DotProduct64DTask(BenchmarkTask):
         return {"f64": res_f64, "f32": res_f32}
 
 
+class CrossProductTask(BenchmarkTask):
+    def __init__(self):
+        super().__init__("CrossProduct", 100)
+
+    def generate_inputs(self, rng: np.random.Generator) -> list[dict]:
+        inputs = []
+        for _ in range(20):
+            inputs.append({
+                "lhs": rng.uniform(-10.0, 10.0, 3).tolist(),
+                "rhs": rng.uniform(-10.0, 10.0, 3).tolist()
+            })
+        for _ in range(15):
+            sl = 10 ** rng.uniform(3.0, 12.0)
+            sr = 10 ** rng.uniform(3.0, 12.0)
+            inputs.append({
+                "lhs": rng.uniform(-sl, sl, 3).tolist(),
+                "rhs": rng.uniform(-sr, sr, 3).tolist()
+            })
+        for _ in range(10):
+            sl = 10 ** rng.uniform(-12.0, -3.0)
+            sr = 10 ** rng.uniform(-12.0, -3.0)
+            inputs.append({
+                "lhs": rng.uniform(-sl, sl, 3).tolist(),
+                "rhs": rng.uniform(-sr, sr, 3).tolist()
+            })
+        # near-parallel vectors: cross product magnitude near zero
+        for _ in range(5):
+            base = rng.uniform(-10.0, 10.0, 3)
+            scale = rng.uniform(-5.0, 5.0)
+            inputs.append({"lhs": base.tolist(), "rhs": (base * scale).tolist()})
+        return inputs
+
+    def compute_reference(self, input_dict: dict) -> dict:
+        lhs = np.array(input_dict["lhs"], dtype=np.float64)
+        rhs = np.array(input_dict["rhs"], dtype=np.float64)
+        res_f64 = np.cross(lhs, rhs).tolist()
+        res_f32 = np.float32(res_f64).tolist()
+        return {"f64": res_f64, "f32": res_f32}
+
+
+class Vec3NormalizeTask(BenchmarkTask):
+    def __init__(self):
+        super().__init__("Vec3Normalize", 100)
+
+    def generate_inputs(self, rng: np.random.Generator) -> list[dict]:
+        inputs = []
+        for _ in range(20):
+            inputs.append({"vector": rng.uniform(-10.0, 10.0, 3).tolist()})
+        for _ in range(15):
+            scale = 10 ** rng.uniform(3.0, 12.0)
+            inputs.append({"vector": rng.uniform(-scale, scale, 3).tolist()})
+        for _ in range(10):
+            scale = 10 ** rng.uniform(-12.0, -3.0)
+            inputs.append({"vector": rng.uniform(-scale, scale, 3).tolist()})
+        # below the 1e-6 epsilon: expect a MathError on both sides
+        for _ in range(4):
+            inputs.append({"vector": rng.uniform(-1e-8, 1e-8, 3).tolist()})
+        inputs.append({"vector": [0.0, 0.0, 0.0]})
+        return inputs
+
+    def compute_reference(self, input_dict: dict) -> dict:
+        v = np.array(input_dict["vector"], dtype=np.float64)
+        mag = float(np.linalg.norm(v))
+        if mag < 1e-6:
+            return {"error": "Vector magnitude too small to normalize"}
+        res_f64 = (v / mag).tolist()
+        res_f32 = np.float32(res_f64).tolist()
+        return {"f64": res_f64, "f32": res_f32}
+
+
+class MatVecMul3x3Task(BenchmarkTask):
+    def __init__(self):
+        super().__init__("MatVecMul3x3", 100)
+
+    def generate_inputs(self, rng: np.random.Generator) -> list[dict]:
+        inputs = []
+        for _ in range(20):
+            inputs.append({
+                "matrix": rng.uniform(-10.0, 10.0, 9).tolist(),
+                "vector": rng.uniform(-10.0, 10.0, 3).tolist()
+            })
+        for _ in range(15):
+            sm = 10 ** rng.uniform(3.0, 12.0)
+            sv = 10 ** rng.uniform(3.0, 12.0)
+            inputs.append({
+                "matrix": rng.uniform(-sm, sm, 9).tolist(),
+                "vector": rng.uniform(-sv, sv, 3).tolist()
+            })
+        for _ in range(14):
+            sm = 10 ** rng.uniform(-12.0, -3.0)
+            sv = 10 ** rng.uniform(-12.0, -3.0)
+            inputs.append({
+                "matrix": rng.uniform(-sm, sm, 9).tolist(),
+                "vector": rng.uniform(-sv, sv, 3).tolist()
+            })
+        inputs.append({
+            "matrix": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0],
+            "vector": [3.0, -2.0, 7.0]
+        })
+        return inputs
+
+    def compute_reference(self, input_dict: dict) -> dict:
+        m = np.array(input_dict["matrix"], dtype=np.float64).reshape(3, 3)
+        v = np.array(input_dict["vector"], dtype=np.float64)
+        res_f64 = (m @ v).tolist()
+        res_f32 = np.float32(res_f64).tolist()
+        return {"f64": res_f64, "f32": res_f32}
+
+
+class QuatToRotMatrixTask(BenchmarkTask):
+    def __init__(self):
+        super().__init__("QuatToRotMatrix", 100)
+
+    def generate_inputs(self, rng: np.random.Generator) -> list[dict]:
+        inputs = []
+
+        def gen_unit_quat():
+            q = rng.normal(size=4)
+            return (q / np.linalg.norm(q)).tolist()
+
+        for _ in range(47):
+            inputs.append({"quat": gen_unit_quat()})
+        inputs.append({"quat": [0.0, 0.0, 0.0, 1.0]})  # identity
+        inputs.append({"quat": [1.0, 0.0, 0.0, 0.0]})  # 180 deg about X
+        inputs.append({"quat": [0.0, 1.0, 0.0, 0.0]})  # 180 deg about Y
+        return inputs
+
+    def compute_reference(self, input_dict: dict) -> dict:
+        qx, qy, qz, qw = input_dict["quat"]
+        R = np.array([
+            [1.0 - 2.0*(qy**2 + qz**2), 2.0*(qx*qy - qz*qw),     2.0*(qx*qz + qy*qw)],
+            [2.0*(qx*qy + qz*qw),     1.0 - 2.0*(qx**2 + qz**2), 2.0*(qy*qz - qx*qw)],
+            [2.0*(qx*qz - qy*qw),     2.0*(qy*qz + qx*qw),     1.0 - 2.0*(qx**2 + qy**2)]
+        ], dtype=np.float64)
+        col_major_f64 = R.T.flatten().tolist()
+        col_major_f32 = np.float32(col_major_f64).tolist()
+        return {"f64": col_major_f64, "f32": col_major_f32}
+
+
+class ExpTask(BenchmarkTask):
+    def __init__(self):
+        super().__init__("Exp", 100)
+
+    def generate_inputs(self, rng: np.random.Generator) -> list[dict]:
+        inputs = []
+        for val in np.linspace(-80.0, 80.0, 45):
+            inputs.append({"value": float(val)})
+        inputs.append({"value": 0.0})
+        for _ in range(4):
+            inputs.append({"value": float(rng.uniform(-10.0, 10.0))})
+        return inputs
+
+    def compute_reference(self, input_dict: dict) -> dict:
+        x = float(input_dict["value"])
+        res_f64 = float(np.exp(x))
+        res_f32 = float(np.float32(res_f64))
+        return {"f64": res_f64, "f32": res_f32}
+
+
+class LnTask(BenchmarkTask):
+    def __init__(self):
+        super().__init__("Ln", 100)
+
+    def generate_inputs(self, rng: np.random.Generator) -> list[dict]:
+        inputs = []
+        for val in 10 ** np.linspace(-15.0, 15.0, 45):
+            inputs.append({"value": float(val)})
+        inputs.append({"value": 1.0})
+        # non-positive: expect a MathError on both sides
+        for _ in range(4):
+            inputs.append({"value": float(rng.uniform(-100.0, 0.0))})
+        return inputs
+
+    def compute_reference(self, input_dict: dict) -> dict:
+        val = float(input_dict["value"])
+        if val <= 0.0:
+            return {"error": "Natural log of non-positive number"}
+        res_f64 = float(np.log(val))
+        res_f32 = float(np.float32(res_f64))
+        return {"f64": res_f64, "f32": res_f32}
+
+
 TASK_REGISTRY: dict[str, BenchmarkTask] = {
     "MatMul3x3": MatMul3x3Task(),
     "RotateVector": RotateVectorTask(),
@@ -873,4 +1051,10 @@ TASK_REGISTRY: dict[str, BenchmarkTask] = {
     "MatMul9x9": MatMul9x9Task(),
     "MatInverse9x9": MatInverse9x9Task(),
     "DotProduct64D": DotProduct64DTask(),
+    "CrossProduct": CrossProductTask(),
+    "Vec3Normalize": Vec3NormalizeTask(),
+    "MatVecMul3x3": MatVecMul3x3Task(),
+    "QuatToRotMatrix": QuatToRotMatrixTask(),
+    "Exp": ExpTask(),
+    "Ln": LnTask(),
 }
