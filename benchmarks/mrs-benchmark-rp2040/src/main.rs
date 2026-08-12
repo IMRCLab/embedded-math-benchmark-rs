@@ -34,7 +34,10 @@ fn SysTick() {
     // load/store here, not fetch_add. A plain load-increment-store is fine: this
     // body can't be reentered (SysTick can't preempt itself), and every other
     // reader goes through read_ticks()'s interrupt-masked critical section.
-    WRAPS.store(WRAPS.load(Ordering::Relaxed).wrapping_add(1), Ordering::Relaxed);
+    WRAPS.store(
+        WRAPS.load(Ordering::Relaxed).wrapping_add(1),
+        Ordering::Relaxed,
+    );
 }
 
 pub struct Rp2040Platform {
@@ -67,7 +70,9 @@ impl BenchmarkPlatform for Rp2040Platform {
     }
 
     fn setup(&mut self) {
-        rprintln!("[Platform] RP2040 SysTick cycle counter enabled (24-bit, core clock, wrap-extended).");
+        rprintln!(
+            "[Platform] RP2040 SysTick cycle counter enabled (24-bit, core clock, wrap-extended)."
+        );
     }
 
     fn now(&self) -> Self::Instant {
