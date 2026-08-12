@@ -14,6 +14,12 @@
       - $SELECT_PROBE_SCRIPT
     expire_in: 1 year
 
+build-stm32:
+  extends: .cargo-build
+  variables:
+    BIN: mrs-benchmark-stm32
+    TARGET: thumbv7em-none-eabihf
+
 build-rp2040:
   extends: .cargo-build
   variables:
@@ -31,12 +37,6 @@ build-host:
   variables:
     BIN: mrs-benchmark-host
     TARGET: x86_64-unknown-linux-gnu
-
-build-stm32:
-  extends: .cargo-build
-  variables:
-    BIN: mrs-benchmark-stm32
-    TARGET: thumbv7em-none-eabihf
 
 build-esp32s3:
   extends: .cargo-build

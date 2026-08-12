@@ -23,6 +23,15 @@
     expire_in: 1 year
   allow_failure: true
 
+run-stm32:
+  extends: .firmware-flash
+  needs:
+    - build-stm32
+  variables:
+    CHIP: STM32F405RGTx
+    ELF: mrs-benchmark-stm32
+    LOG: stm32.log
+
 run-rp2040:
   extends: .firmware-flash
   needs:
@@ -40,15 +49,6 @@ run-rp2350:
     CHIP: RP235x
     ELF: mrs-benchmark-rp2350
     LOG: rp2350.log
-
-run-stm32:
-  extends: .firmware-flash
-  needs:
-    - build-stm32
-  variables:
-    CHIP: STM32F405RGTx
-    ELF: mrs-benchmark-stm32
-    LOG: stm32.log
 
 run-esp32s3:
   extends: .firmware-flash
