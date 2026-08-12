@@ -1,4 +1,6 @@
-use crate::tasks::{Atan2 as Atan2Task, SinCos as SinCosTask, Sqrt as SqrtTask};
+use crate::tasks::{
+    Atan2 as Atan2Task, Exp as ExpTask, Ln as LnTask, SinCos as SinCosTask, Sqrt as SqrtTask,
+};
 use crate::{export_tasks, BenchmarkError, BenchmarkLibrary, RawTaskImplementation};
 
 pub struct Libm;
@@ -73,9 +75,59 @@ impl RawTaskImplementation<SqrtTask> for SqrtLogic {
     }
 }
 
+pub struct ExpLogic;
+impl RawTaskImplementation<ExpTask> for ExpLogic {
+    type PreparedInput = f32;
+    type RawOutput = f32;
+
+    fn prepare(&self, input: &<ExpTask as crate::BenchmarkTask>::Input) -> Self::PreparedInput {
+        input.value
+    }
+
+    fn execute(&self, input: &Self::PreparedInput) -> Result<Self::RawOutput, BenchmarkError> {
+        Ok(libm::expf(*input))
+    }
+
+    fn finalize(
+        &self,
+        output: Self::RawOutput,
+    ) -> Result<<ExpTask as crate::BenchmarkTask>::Output, BenchmarkError> {
+        Ok(output)
+    }
+}
+
+pub struct LnLogic;
+impl RawTaskImplementation<LnTask> for LnLogic {
+    type PreparedInput = f32;
+    type RawOutput = f32;
+
+    fn prepare(&self, input: &<LnTask as crate::BenchmarkTask>::Input) -> Self::PreparedInput {
+        input.value
+    }
+
+    fn execute(&self, input: &Self::PreparedInput) -> Result<Self::RawOutput, BenchmarkError> {
+        if *input <= 0.0 {
+            Err(BenchmarkError::MathError(
+                "Natural log of non-positive number",
+            ))
+        } else {
+            Ok(libm::logf(*input))
+        }
+    }
+
+    fn finalize(
+        &self,
+        output: Self::RawOutput,
+    ) -> Result<<LnTask as crate::BenchmarkTask>::Output, BenchmarkError> {
+        Ok(output)
+    }
+}
+
 export_tasks!(
     Libm,
     Atan2 => Atan2Logic,
     SinCos => SinCosLogic,
     Sqrt => SqrtLogic,
+    Exp => ExpLogic,
+    Ln => LnLogic,
 );

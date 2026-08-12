@@ -1,7 +1,8 @@
 use crate::tasks::{
-    Atan2 as Atan2Task, EkfStep as EkfStepTask, LeeController as LeeControllerTask,
-    QuatMul as QuatMulTask, QuatSlerp as QuatSlerpTask, RotateVector as RotateVectorTask,
-    SinCos as SinCosTask, Sqrt as SqrtTask, UnitQuatMul as UnitQuatMulTask,
+    Atan2 as Atan2Task, EkfStep as EkfStepTask, Exp as ExpTask, LeeController as LeeControllerTask,
+    Ln as LnTask, QuatMul as QuatMulTask, QuatSlerp as QuatSlerpTask,
+    RotateVector as RotateVectorTask, SinCos as SinCosTask, Sqrt as SqrtTask,
+    UnitQuatMul as UnitQuatMulTask,
 };
 use crate::{export_tasks, BenchmarkError, BenchmarkLibrary, RawTaskImplementation};
 #[allow(unused_imports)]
@@ -818,6 +819,54 @@ impl RawTaskImplementation<EkfStepTask> for EkfStepLogic {
     }
 }
 
+pub struct ExpLogic;
+impl RawTaskImplementation<ExpTask> for ExpLogic {
+    type PreparedInput = f32;
+    type RawOutput = f32;
+
+    fn prepare(&self, input: &<ExpTask as crate::BenchmarkTask>::Input) -> Self::PreparedInput {
+        input.value
+    }
+
+    fn execute(&self, input: &Self::PreparedInput) -> Result<Self::RawOutput, BenchmarkError> {
+        Ok(input.exp())
+    }
+
+    fn finalize(
+        &self,
+        output: Self::RawOutput,
+    ) -> Result<<ExpTask as crate::BenchmarkTask>::Output, BenchmarkError> {
+        Ok(output)
+    }
+}
+
+pub struct LnLogic;
+impl RawTaskImplementation<LnTask> for LnLogic {
+    type PreparedInput = f32;
+    type RawOutput = f32;
+
+    fn prepare(&self, input: &<LnTask as crate::BenchmarkTask>::Input) -> Self::PreparedInput {
+        input.value
+    }
+
+    fn execute(&self, input: &Self::PreparedInput) -> Result<Self::RawOutput, BenchmarkError> {
+        if *input <= 0.0 {
+            Err(BenchmarkError::MathError(
+                "Natural log of non-positive number",
+            ))
+        } else {
+            Ok(input.ln())
+        }
+    }
+
+    fn finalize(
+        &self,
+        output: Self::RawOutput,
+    ) -> Result<<LnTask as crate::BenchmarkTask>::Output, BenchmarkError> {
+        Ok(output)
+    }
+}
+
 export_tasks!(
     Micromath,
     RotateVector => RotateVectorLogic,
@@ -829,4 +878,6 @@ export_tasks!(
     QuatSlerp => QuatSlerpLogic,
     LeeController => LeeControllerLogic,
     EkfStep => EkfStepLogic,
+    Exp => ExpLogic,
+    Ln => LnLogic,
 );

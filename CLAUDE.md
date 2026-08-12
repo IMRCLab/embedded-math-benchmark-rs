@@ -47,7 +47,7 @@ hardware, and status facts go in `docs/`, not memory.
 - [docs/adding_a_benchmark.md](docs/adding_a_benchmark.md) — full recipe for a new task
 - [docs/adding_a_platform.md](docs/adding_a_platform.md) — checklist for a new hardware target
 - [docs/accuracy_evaluation.md](docs/accuracy_evaluation.md) — scientific methodology & ULP evaluation
-- [docs/io-format.md](docs/io-format.md) / [docs/inputs_configuration.md](docs/inputs_configuration.md) — `inputs.json` in, `BENCH ` CSV out
+- [docs/io-format.md](docs/io-format.md) — `inputs.json` in, `BENCH ` CSV out
 - [docs/running-benchmarks.md](docs/running-benchmarks.md) — build/flash/run per platform
 - [docs/platforms.md](docs/platforms.md) — chips, target triples, timing sources, status
 - [docs/hil-setup.md](docs/hil-setup.md) — probe + GitLab HIL CI provisioning
@@ -63,7 +63,8 @@ A benchmark = **Task** (identifier + input/output shape) × **Library** implemen
 (`glam`, `nalgebra`, `micromath`, …). Each library impl has three phases; **only `execute`
 is timed** — `prepare` (convert to lib types) and `finalize` (convert back) are not.
 
-Adding a task touches four coordinated places — the identifier string must match in all:
+Adding a task touches five coordinated places — the identifier string must match in all:
+
 1. Input struct + `#[benchmark_input("Name")]` in `mrs-benchmark-core/src/inputs.rs`
 2. `BenchmarkTask` impl in `mrs-benchmark-core/src/tasks.rs`
 3. `RawTaskImplementation` + `export_tasks!` in `mrs-benchmark-core/src/suites/<lib>.rs`
