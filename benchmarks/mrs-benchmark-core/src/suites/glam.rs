@@ -82,12 +82,15 @@ impl RawTaskImplementation<MatInverse3x3Task> for MatInverse3x3Logic {
     }
 
     fn execute(&self, input: &Self::PreparedInput) -> Result<Self::RawOutput, BenchmarkError> {
-        let det = input.determinant();
-        let abs_det = if det < 0.0 { -det } else { det };
-        if abs_det < 1e-6 {
-            Err(BenchmarkError::MathError("Matrix not invertible"))
+        // glam has no checked/try_inverse, and glam_assert is off in this project (see
+        // Cargo.toml), so inverse() silently returns Inf/NaN on a singular matrix rather
+        // than panicking. Check the result instead of precomputing determinant() ourselves,
+        // which would just duplicate work inverse() already does internally.
+        let result = input.inverse();
+        if result.is_finite() {
+            Ok(result)
         } else {
-            Ok(input.inverse())
+            Err(BenchmarkError::MathError("Matrix not invertible"))
         }
     }
 

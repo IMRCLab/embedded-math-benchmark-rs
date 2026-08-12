@@ -220,23 +220,25 @@ impl RawTaskImplementation<UnitQuatMulTask> for UnitQuatMulLogic {
         &self,
         input: &<UnitQuatMulTask as crate::BenchmarkTask>::Input,
     ) -> Self::PreparedInput {
-        let norm = |x: f32, y: f32, z: f32, w: f32| {
-            let m = unsafe { mrs_benchmark_crazyflie_sys::sqrtf(x * x + y * y + z * z + w * w) };
-            if m > 1e-12 {
-                mrs_benchmark_crazyflie_sys::quat {
-                    x: x / m,
-                    y: y / m,
-                    z: z / m,
-                    w: w / m,
-                }
-            } else {
-                mrs_benchmark_crazyflie_sys::quat { x, y, z, w }
-            }
-        };
-        (
-            norm(input.lhs[0], input.lhs[1], input.lhs[2], input.lhs[3]),
-            norm(input.rhs[0], input.rhs[1], input.rhs[2], input.rhs[3]),
-        )
+        let q = |x: f32, y: f32, z: f32, w: f32| mrs_benchmark_crazyflie_sys::quat { x, y, z, w };
+        // UnitQuatMulTask.generate_inputs always produces unit-norm quaternions, so
+        // qnormalize's lack of a zero-magnitude guard is not a concern here.
+        unsafe {
+            (
+                mrs_benchmark_crazyflie_sys::cf_qnormalize(q(
+                    input.lhs[0],
+                    input.lhs[1],
+                    input.lhs[2],
+                    input.lhs[3],
+                )),
+                mrs_benchmark_crazyflie_sys::cf_qnormalize(q(
+                    input.rhs[0],
+                    input.rhs[1],
+                    input.rhs[2],
+                    input.rhs[3],
+                )),
+            )
+        }
     }
 
     fn execute(&self, input: &Self::PreparedInput) -> Result<Self::RawOutput, BenchmarkError> {
