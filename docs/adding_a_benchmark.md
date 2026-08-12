@@ -8,6 +8,10 @@ First, you need to define what the inputs to your benchmark look like. **Note th
 
 All input structures live in `benchmarks/mrs-benchmark-core/src/inputs.rs`.
 
+**Build-order gotcha:** `#[benchmark_input(...)]` reads `benchmarks/inputs.json` at compile
+time and panics if no case exists yet for that identifier. Do step 4 (or at least a
+placeholder case) before your crate will build.
+
 Create a standard Rust `struct`. Annotate your struct with the `#[benchmark_input("MyTestName")]` macro. The name in quotes is the unique **Task Identifier** you will use later.
 
 ```rust
@@ -44,6 +48,14 @@ impl crate::BenchmarkTask for MyNewTask {
 ## 3. Implement the Task for a Library
 
 Now you need to actually write the math operations. Go to the suite file of the library you want to benchmark (e.g., `benchmarks/mrs-benchmark-core/src/suites/glam.rs`).
+
+**Call the library's own function, not your own math.** The point of this project is
+comparing libraries, so `execute` (and any domain-error guard it needs, e.g. "don't
+normalize a near-zero vector") should call that library's real primitive — including its
+`try_*`/checked variant if one exists — rather than hand-rolled equivalent math. Besides
+missing the point of the comparison, a hand-rolled check that duplicates work the library's
+own call already does internally (e.g. computing a magnitude by hand *and* then calling the
+library's normalize, which recomputes it) silently inflates every timed measurement.
 
 Create a "Logic" struct and implement `RawTaskImplementation`:
 
@@ -87,7 +99,15 @@ export_tasks!(
 
 ## 4. Add the Configuration to `inputs.json`
 
-The final step is to tell the runner to execute your benchmark by adding it to `benchmarks/inputs.json`. 
+The final step is to tell the runner to execute your benchmark by adding it to `benchmarks/inputs.json`.
+
+**In this repo, don't hand-edit `inputs.json` directly** — it's generated from
+`tools/inputs_generator/tasks.py`'s `TASK_REGISTRY` (a `BenchmarkTask` subclass with
+`generate_inputs`/`compute_reference`, appended at the *end* of `TEST_LIBRARY_MAPPING` and
+`TASK_REGISTRY` — inserting earlier reshuffles every existing task's random inputs, since
+generation shares one seeded RNG across all tasks in registry order). Run `cargo make
+inputs` (then `cargo make generate-ref`) to regenerate it. The shape below is illustrative
+of what ends up in the file, not something you write by hand.
 
 Add a new object to the `cases` array. Ensure `"test"` matches your identifier, and the keys inside `"inputs"` exactly match the fields of your `MyNewTaskInput` struct.
 

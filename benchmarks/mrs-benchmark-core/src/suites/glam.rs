@@ -319,13 +319,7 @@ impl RawTaskImplementation<Vec3NormalizeTask> for Vec3NormalizeLogic {
     }
 
     fn execute(&self, input: &Self::PreparedInput) -> Result<Self::RawOutput, BenchmarkError> {
-        if input.length() < 1e-6 {
-            Err(BenchmarkError::MathError(
-                "Vector magnitude too small to normalize",
-            ))
-        } else {
-            Ok(input.normalize())
-        }
+        Ok(input.normalize())
     }
 
     fn finalize(

@@ -41,6 +41,10 @@ struct mat33 cf_quat2rotmat(struct quat q) {
     return quat2rotmat(q);
 }
 
+struct quat cf_qnormalize(struct quat q) {
+    return qnormalize(q);
+}
+
 void cf_ekf_step(
     float pos[3],
     float vel_b[3],

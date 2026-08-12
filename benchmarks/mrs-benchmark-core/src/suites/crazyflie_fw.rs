@@ -461,18 +461,7 @@ impl RawTaskImplementation<Vec3NormalizeTask> for Vec3NormalizeLogic {
     }
 
     fn execute(&self, input: &Self::PreparedInput) -> Result<Self::RawOutput, BenchmarkError> {
-        let mag = unsafe {
-            mrs_benchmark_crazyflie_sys::sqrtf(
-                input.x * input.x + input.y * input.y + input.z * input.z,
-            )
-        };
-        if mag < 1e-6 {
-            Err(BenchmarkError::MathError(
-                "Vector magnitude too small to normalize",
-            ))
-        } else {
-            Ok(unsafe { mrs_benchmark_crazyflie_sys::cf_vnormalize(*input) })
-        }
+        Ok(unsafe { mrs_benchmark_crazyflie_sys::cf_vnormalize(*input) })
     }
 
     fn finalize(
@@ -531,20 +520,15 @@ impl RawTaskImplementation<QuatToRotMatrixTask> for QuatToRotMatrixLogic {
         &self,
         input: &<QuatToRotMatrixTask as crate::BenchmarkTask>::Input,
     ) -> Self::PreparedInput {
-        let norm = |x: f32, y: f32, z: f32, w: f32| {
-            let m = unsafe { mrs_benchmark_crazyflie_sys::sqrtf(x * x + y * y + z * z + w * w) };
-            if m > 1e-12 {
-                mrs_benchmark_crazyflie_sys::quat {
-                    x: x / m,
-                    y: y / m,
-                    z: z / m,
-                    w: w / m,
-                }
-            } else {
-                mrs_benchmark_crazyflie_sys::quat { x, y, z, w }
-            }
+        let q = mrs_benchmark_crazyflie_sys::quat {
+            x: input.quat[0],
+            y: input.quat[1],
+            z: input.quat[2],
+            w: input.quat[3],
         };
-        norm(input.quat[0], input.quat[1], input.quat[2], input.quat[3])
+        // Inputs are always near-unit quaternions (see QuatToRotMatrixTask.generate_inputs),
+        // so qnormalize's lack of a zero-magnitude guard is not a concern here.
+        unsafe { mrs_benchmark_crazyflie_sys::cf_qnormalize(q) }
     }
 
     fn execute(&self, input: &Self::PreparedInput) -> Result<Self::RawOutput, BenchmarkError> {
