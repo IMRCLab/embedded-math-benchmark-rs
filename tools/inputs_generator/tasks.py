@@ -884,6 +884,10 @@ class CrossProductTask(BenchmarkTask):
             base = rng.uniform(-10.0, 10.0, 3)
             scale = rng.uniform(-5.0, 5.0)
             inputs.append({"lhs": base.tolist(), "rhs": (base * scale).tolist()})
+        # a vector crossed with itself: exactly zero regardless of magnitude
+        inputs.append({"lhs": [3.0, -2.0, 7.0], "rhs": [3.0, -2.0, 7.0]})
+        # extreme magnitude mismatch: stresses precision in the multiply-subtract formula
+        inputs.append({"lhs": [1e-10, 2e-10, -1e-10], "rhs": [5e10, -3e10, 4e10]})
         return inputs
 
     def compute_reference(self, input_dict: dict) -> dict:
@@ -908,7 +912,9 @@ class Vec3NormalizeTask(BenchmarkTask):
         for _ in range(10):
             scale = 10 ** rng.uniform(-12.0, -3.0)
             inputs.append({"vector": rng.uniform(-scale, scale, 3).tolist()})
-        # below the 1e-6 epsilon: expect a MathError on both sides
+        # near-zero and exact-zero magnitude: none of glam/nalgebra/crazyflie-fw guard
+        # against this in their plain normalize(), so it's not a domain error here -
+        # the honest answer is whatever raw division actually produces (NaN at zero).
         for _ in range(4):
             inputs.append({"vector": rng.uniform(-1e-8, 1e-8, 3).tolist()})
         inputs.append({"vector": [0.0, 0.0, 0.0]})
@@ -917,9 +923,8 @@ class Vec3NormalizeTask(BenchmarkTask):
     def compute_reference(self, input_dict: dict) -> dict:
         v = np.array(input_dict["vector"], dtype=np.float64)
         mag = float(np.linalg.norm(v))
-        if mag < 1e-6:
-            return {"error": "Vector magnitude too small to normalize"}
-        res_f64 = (v / mag).tolist()
+        with np.errstate(divide="ignore", invalid="ignore"):
+            res_f64 = (v / mag).tolist()
         res_f32 = np.float32(res_f64).tolist()
         return {"f64": res_f64, "f32": res_f32}
 
@@ -953,6 +958,10 @@ class MatVecMul3x3Task(BenchmarkTask):
             "matrix": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0],
             "vector": [3.0, -2.0, 7.0]
         })
+        # all-zero matrix: exact zero output regardless of vector
+        inputs.append({"matrix": [0.0] * 9, "vector": [3.0, -2.0, 7.0]})
+        # extreme magnitude mismatch between matrix and vector entries
+        inputs.append({"matrix": [1e12] * 9, "vector": [1e-12, -1e-12, 1e-12]})
         return inputs
 
     def compute_reference(self, input_dict: dict) -> dict:
@@ -974,15 +983,21 @@ class QuatToRotMatrixTask(BenchmarkTask):
             q = rng.normal(size=4)
             return (q / np.linalg.norm(q)).tolist()
 
-        for _ in range(47):
+        for _ in range(45):
             inputs.append({"quat": gen_unit_quat()})
         inputs.append({"quat": [0.0, 0.0, 0.0, 1.0]})  # identity
         inputs.append({"quat": [1.0, 0.0, 0.0, 0.0]})  # 180 deg about X
         inputs.append({"quat": [0.0, 1.0, 0.0, 0.0]})  # 180 deg about Y
+        # non-unit magnitude (drifted, as a real EKF attitude quaternion can be after
+        # repeated updates): same rotation direction, exercises the normalize step itself
+        drifted = gen_unit_quat()
+        inputs.append({"quat": [c * 1000.0 for c in drifted]})
+        inputs.append({"quat": [c * 0.001 for c in drifted]})
         return inputs
 
     def compute_reference(self, input_dict: dict) -> dict:
-        qx, qy, qz, qw = input_dict["quat"]
+        raw = np.array(input_dict["quat"], dtype=np.float64)
+        qx, qy, qz, qw = (raw / np.linalg.norm(raw)).tolist()
         R = np.array([
             [1.0 - 2.0*(qy**2 + qz**2), 2.0*(qx*qy - qz*qw),     2.0*(qx*qz + qy*qw)],
             [2.0*(qx*qy + qz*qw),     1.0 - 2.0*(qx**2 + qz**2), 2.0*(qy*qz - qx*qw)],
@@ -1004,6 +1019,10 @@ class ExpTask(BenchmarkTask):
         inputs.append({"value": 0.0})
         for _ in range(4):
             inputs.append({"value": float(rng.uniform(-10.0, 10.0))})
+        # near f32 overflow (expf(x) overflows around x=88.7) and deep underflow to 0.0
+        inputs.append({"value": 87.0})
+        inputs.append({"value": 89.0})
+        inputs.append({"value": -200.0})
         return inputs
 
     def compute_reference(self, input_dict: dict) -> dict:
@@ -1025,6 +1044,9 @@ class LnTask(BenchmarkTask):
         # non-positive: expect a MathError on both sides
         for _ in range(4):
             inputs.append({"value": float(rng.uniform(-100.0, 0.0))})
+        # near f32 limits: smallest positive normal (~1.18e-38) and near f32::MAX (~3.4e38)
+        inputs.append({"value": 1.2e-38})
+        inputs.append({"value": 3.0e38})
         return inputs
 
     def compute_reference(self, input_dict: dict) -> dict:
