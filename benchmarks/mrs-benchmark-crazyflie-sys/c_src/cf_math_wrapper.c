@@ -25,6 +25,22 @@ struct quat cf_qslerp(struct quat a, struct quat b, float t) {
     return qslerp(a, b, t);
 }
 
+struct vec cf_vcross(struct vec a, struct vec b) {
+    return vcross(a, b);
+}
+
+struct vec cf_vnormalize(struct vec v) {
+    return vnormalize(v);
+}
+
+struct vec cf_mvmul(struct mat33 a, struct vec v) {
+    return mvmul(a, v);
+}
+
+struct mat33 cf_quat2rotmat(struct quat q) {
+    return quat2rotmat(q);
+}
+
 void cf_ekf_step(
     float pos[3],
     float vel_b[3],

@@ -9,6 +9,10 @@ struct mat33 cf_mmul(struct mat33 a, struct mat33 b);
 struct vec cf_qrot(struct quat q, struct vec v);
 struct quat cf_qqmul(struct quat q, struct quat p);
 struct quat cf_qslerp(struct quat a, struct quat b, float t);
+struct vec cf_vcross(struct vec a, struct vec b);
+struct vec cf_vnormalize(struct vec v);
+struct vec cf_mvmul(struct mat33 a, struct vec v);
+struct mat33 cf_quat2rotmat(struct quat q);
 
 void cf_ekf_step(
     float pos[3],
