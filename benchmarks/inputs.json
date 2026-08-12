@@ -1,7 +1,7 @@
 {
   "cases": [
     {
-      "repetitions": 100,
+      "repetitions": 25,
       "libraries": [
         "glam",
         "nalgebra",
@@ -1212,7 +1212,7 @@
       ]
     },
     {
-      "repetitions": 100,
+      "repetitions": 25,
       "libraries": [
         "glam",
         "nalgebra",
@@ -1874,7 +1874,7 @@
       ]
     },
     {
-      "repetitions": 100,
+      "repetitions": 25,
       "libraries": [
         "glam",
         "nalgebra"
@@ -2534,7 +2534,7 @@
       ]
     },
     {
-      "repetitions": 100,
+      "repetitions": 25,
       "libraries": [
         "libm",
         "micromath",
@@ -2745,7 +2745,7 @@
       ]
     },
     {
-      "repetitions": 100,
+      "repetitions": 25,
       "libraries": [
         "libm",
         "micromath",
@@ -2906,7 +2906,7 @@
       ]
     },
     {
-      "repetitions": 100,
+      "repetitions": 25,
       "libraries": [
         "libm",
         "micromath",
@@ -3067,7 +3067,7 @@
       ]
     },
     {
-      "repetitions": 100,
+      "repetitions": 25,
       "libraries": [
         "glam",
         "micromath",
@@ -3778,7 +3778,7 @@
       ]
     },
     {
-      "repetitions": 100,
+      "repetitions": 25,
       "libraries": [
         "glam",
         "nalgebra",
@@ -4490,7 +4490,7 @@
       ]
     },
     {
-      "repetitions": 100,
+      "repetitions": 25,
       "libraries": [
         "glam",
         "nalgebra",
@@ -5252,7 +5252,7 @@
       ]
     },
     {
-      "repetitions": 100,
+      "repetitions": 25,
       "libraries": [
         "glam",
         "nalgebra",
@@ -13175,7 +13175,7 @@
       ]
     },
     {
-      "repetitions": 100,
+      "repetitions": 25,
       "libraries": [
         "nalgebra",
         "cmsis-dsp"
@@ -21585,7 +21585,7 @@
       ]
     },
     {
-      "repetitions": 100,
+      "repetitions": 25,
       "libraries": [
         "nalgebra",
         "cmsis-dsp"
@@ -25845,7 +25845,7 @@
       ]
     },
     {
-      "repetitions": 100,
+      "repetitions": 25,
       "libraries": [
         "nalgebra",
         "cmsis-dsp"
@@ -32555,7 +32555,7 @@
       ]
     },
     {
-      "repetitions": 100,
+      "repetitions": 25,
       "libraries": [
         "glam",
         "nalgebra",
@@ -33190,7 +33190,7 @@
       ]
     },
     {
-      "repetitions": 100,
+      "repetitions": 25,
       "libraries": [
         "glam",
         "nalgebra",
@@ -33551,7 +33551,7 @@
       ]
     },
     {
-      "repetitions": 100,
+      "repetitions": 25,
       "libraries": [
         "glam",
         "nalgebra",
@@ -34498,7 +34498,7 @@
       ]
     },
     {
-      "repetitions": 100,
+      "repetitions": 25,
       "libraries": [
         "glam",
         "nalgebra",
@@ -34909,7 +34909,7 @@
       ]
     },
     {
-      "repetitions": 100,
+      "repetitions": 25,
       "libraries": [
         "libm",
         "micromath",
@@ -35079,7 +35079,7 @@
       ]
     },
     {
-      "repetitions": 100,
+      "repetitions": 25,
       "libraries": [
         "libm",
         "micromath",

@@ -71,7 +71,7 @@ class BenchmarkTask(ABC):
     libraries: list[str]
     platforms: list[str] | None
 
-    def __init__(self, name: str, repetitions: int = 100, platforms: list[str] | None = None):
+    def __init__(self, name: str, repetitions: int = 25, platforms: list[str] | None = None):
         self.name = name
         self.repetitions = repetitions
         self.libraries = TEST_LIBRARY_MAPPING[name]
@@ -147,7 +147,7 @@ class BenchmarkTask(ABC):
 
 class MatMul3x3Task(BenchmarkTask):
     def __init__(self):
-        super().__init__("MatMul3x3", 100)
+        super().__init__("MatMul3x3")
 
     def generate_inputs(self, rng: np.random.Generator) -> list[dict]:
         inputs = []
@@ -183,7 +183,7 @@ class MatMul3x3Task(BenchmarkTask):
 
 class RotateVectorTask(BenchmarkTask):
     def __init__(self):
-        super().__init__("RotateVector", 100)
+        super().__init__("RotateVector")
 
     def generate_inputs(self, rng: np.random.Generator) -> list[dict]:
         inputs = []
@@ -218,7 +218,7 @@ class RotateVectorTask(BenchmarkTask):
 
 class MatInverse3x3Task(BenchmarkTask):
     def __init__(self):
-        super().__init__("MatInverse3x3", 100)
+        super().__init__("MatInverse3x3")
 
     def generate_inputs(self, rng: np.random.Generator) -> list[dict]:
         inputs = []
@@ -270,7 +270,7 @@ class MatInverse3x3Task(BenchmarkTask):
 
 class Atan2Task(BenchmarkTask):
     def __init__(self):
-        super().__init__("Atan2", 100)
+        super().__init__("Atan2")
 
     def generate_inputs(self, rng: np.random.Generator) -> list[dict]:
         inputs = []
@@ -290,7 +290,7 @@ class Atan2Task(BenchmarkTask):
 
 class SinCosTask(BenchmarkTask):
     def __init__(self):
-        super().__init__("SinCos", 100)
+        super().__init__("SinCos")
 
     def generate_inputs(self, rng: np.random.Generator) -> list[dict]:
         inputs = []
@@ -309,7 +309,7 @@ class SinCosTask(BenchmarkTask):
 
 class SqrtTask(BenchmarkTask):
     def __init__(self):
-        super().__init__("Sqrt", 100)
+        super().__init__("Sqrt")
 
     def generate_inputs(self, rng: np.random.Generator) -> list[dict]:
         inputs = []
@@ -331,7 +331,7 @@ class SqrtTask(BenchmarkTask):
 
 class QuatMulTask(BenchmarkTask):
     def __init__(self):
-        super().__init__("QuatMul", 100)
+        super().__init__("QuatMul")
 
     def generate_inputs(self, rng: np.random.Generator) -> list[dict]:
         inputs = []
@@ -375,7 +375,7 @@ class QuatMulTask(BenchmarkTask):
 
 class UnitQuatMulTask(BenchmarkTask):
     def __init__(self):
-        super().__init__("UnitQuatMul", 100)
+        super().__init__("UnitQuatMul")
 
     def generate_inputs(self, rng: np.random.Generator) -> list[dict]:
         inputs = []
@@ -421,7 +421,7 @@ class UnitQuatMulTask(BenchmarkTask):
 
 class QuatSlerpTask(BenchmarkTask):
     def __init__(self):
-        super().__init__("QuatSlerp", 100)
+        super().__init__("QuatSlerp")
 
     def generate_inputs(self, rng: np.random.Generator) -> list[dict]:
         inputs = []
@@ -488,7 +488,7 @@ class QuatSlerpTask(BenchmarkTask):
 
 class LeeControllerTask(BenchmarkTask):
     def __init__(self):
-        super().__init__("LeeController", 100)
+        super().__init__("LeeController")
 
     def generate_inputs(self, rng: np.random.Generator) -> list[dict]:
         import csv, os
@@ -795,7 +795,7 @@ class EkfStepTask(BenchmarkTask):
 
 class MatMul9x9Task(BenchmarkTask):
     def __init__(self):
-        super().__init__("MatMul9x9", repetitions=100)
+        super().__init__("MatMul9x9")
 
     def generate_inputs(self, rng: np.random.Generator) -> list[dict]:
         inputs = []
@@ -816,7 +816,7 @@ class MatMul9x9Task(BenchmarkTask):
 
 class MatInverse9x9Task(BenchmarkTask):
     def __init__(self):
-        super().__init__("MatInverse9x9", repetitions=100)
+        super().__init__("MatInverse9x9")
 
     def generate_inputs(self, rng: np.random.Generator) -> list[dict]:
         inputs = []
@@ -836,7 +836,7 @@ class MatInverse9x9Task(BenchmarkTask):
 
 class DotProduct64DTask(BenchmarkTask):
     def __init__(self):
-        super().__init__("DotProduct64D", repetitions=100)
+        super().__init__("DotProduct64D")
 
     def generate_inputs(self, rng: np.random.Generator) -> list[dict]:
         inputs = []
@@ -856,7 +856,7 @@ class DotProduct64DTask(BenchmarkTask):
 
 class CrossProductTask(BenchmarkTask):
     def __init__(self):
-        super().__init__("CrossProduct", 100)
+        super().__init__("CrossProduct")
 
     def generate_inputs(self, rng: np.random.Generator) -> list[dict]:
         inputs = []
@@ -900,7 +900,7 @@ class CrossProductTask(BenchmarkTask):
 
 class Vec3NormalizeTask(BenchmarkTask):
     def __init__(self):
-        super().__init__("Vec3Normalize", 100)
+        super().__init__("Vec3Normalize")
 
     def generate_inputs(self, rng: np.random.Generator) -> list[dict]:
         inputs = []
@@ -931,7 +931,7 @@ class Vec3NormalizeTask(BenchmarkTask):
 
 class MatVecMul3x3Task(BenchmarkTask):
     def __init__(self):
-        super().__init__("MatVecMul3x3", 100)
+        super().__init__("MatVecMul3x3")
 
     def generate_inputs(self, rng: np.random.Generator) -> list[dict]:
         inputs = []
@@ -974,7 +974,7 @@ class MatVecMul3x3Task(BenchmarkTask):
 
 class QuatToRotMatrixTask(BenchmarkTask):
     def __init__(self):
-        super().__init__("QuatToRotMatrix", 100)
+        super().__init__("QuatToRotMatrix")
 
     def generate_inputs(self, rng: np.random.Generator) -> list[dict]:
         inputs = []
@@ -1010,7 +1010,7 @@ class QuatToRotMatrixTask(BenchmarkTask):
 
 class ExpTask(BenchmarkTask):
     def __init__(self):
-        super().__init__("Exp", 100)
+        super().__init__("Exp")
 
     def generate_inputs(self, rng: np.random.Generator) -> list[dict]:
         inputs = []
@@ -1034,7 +1034,7 @@ class ExpTask(BenchmarkTask):
 
 class LnTask(BenchmarkTask):
     def __init__(self):
-        super().__init__("Ln", 100)
+        super().__init__("Ln")
 
     def generate_inputs(self, rng: np.random.Generator) -> list[dict]:
         inputs = []
