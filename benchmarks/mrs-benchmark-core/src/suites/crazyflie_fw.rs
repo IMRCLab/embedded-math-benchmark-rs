@@ -1,8 +1,9 @@
 use crate::tasks::{
-    Atan2 as Atan2Task, EkfStep as EkfStepTask, LeeController as LeeControllerTask,
-    MatMul3x3 as MatMul3x3Task, QuatMul as QuatMulTask, QuatSlerp as QuatSlerpTask,
-    RotateVector as RotateVectorTask, SinCos as SinCosTask, Sqrt as SqrtTask,
-    UnitQuatMul as UnitQuatMulTask,
+    Atan2 as Atan2Task, CrossProduct as CrossProductTask, EkfStep as EkfStepTask, Exp as ExpTask,
+    LeeController as LeeControllerTask, Ln as LnTask, MatMul3x3 as MatMul3x3Task,
+    MatVecMul3x3 as MatVecMul3x3Task, QuatMul as QuatMulTask, QuatSlerp as QuatSlerpTask,
+    QuatToRotMatrix as QuatToRotMatrixTask, RotateVector as RotateVectorTask, SinCos as SinCosTask,
+    Sqrt as SqrtTask, UnitQuatMul as UnitQuatMulTask, Vec3Normalize as Vec3NormalizeTask,
 };
 use crate::{export_tasks, BenchmarkError, BenchmarkLibrary, RawTaskImplementation};
 
@@ -411,6 +412,211 @@ impl RawTaskImplementation<LeeControllerTask> for LeeControllerLogic {
     }
 }
 
+pub struct CrossProductLogic;
+impl RawTaskImplementation<CrossProductTask> for CrossProductLogic {
+    type PreparedInput = (
+        mrs_benchmark_crazyflie_sys::vec,
+        mrs_benchmark_crazyflie_sys::vec,
+    );
+    type RawOutput = mrs_benchmark_crazyflie_sys::vec;
+
+    fn prepare(
+        &self,
+        input: &<CrossProductTask as crate::BenchmarkTask>::Input,
+    ) -> Self::PreparedInput {
+        let v = |a: [f32; 3]| mrs_benchmark_crazyflie_sys::vec {
+            x: a[0],
+            y: a[1],
+            z: a[2],
+        };
+        (v(input.lhs), v(input.rhs))
+    }
+
+    fn execute(&self, input: &Self::PreparedInput) -> Result<Self::RawOutput, BenchmarkError> {
+        Ok(unsafe { mrs_benchmark_crazyflie_sys::cf_vcross(input.0, input.1) })
+    }
+
+    fn finalize(
+        &self,
+        output: Self::RawOutput,
+    ) -> Result<<CrossProductTask as crate::BenchmarkTask>::Output, BenchmarkError> {
+        Ok([output.x, output.y, output.z])
+    }
+}
+
+pub struct Vec3NormalizeLogic;
+impl RawTaskImplementation<Vec3NormalizeTask> for Vec3NormalizeLogic {
+    type PreparedInput = mrs_benchmark_crazyflie_sys::vec;
+    type RawOutput = mrs_benchmark_crazyflie_sys::vec;
+
+    fn prepare(
+        &self,
+        input: &<Vec3NormalizeTask as crate::BenchmarkTask>::Input,
+    ) -> Self::PreparedInput {
+        mrs_benchmark_crazyflie_sys::vec {
+            x: input.vector[0],
+            y: input.vector[1],
+            z: input.vector[2],
+        }
+    }
+
+    fn execute(&self, input: &Self::PreparedInput) -> Result<Self::RawOutput, BenchmarkError> {
+        let mag = unsafe {
+            mrs_benchmark_crazyflie_sys::sqrtf(
+                input.x * input.x + input.y * input.y + input.z * input.z,
+            )
+        };
+        if mag < 1e-6 {
+            Err(BenchmarkError::MathError(
+                "Vector magnitude too small to normalize",
+            ))
+        } else {
+            Ok(unsafe { mrs_benchmark_crazyflie_sys::cf_vnormalize(*input) })
+        }
+    }
+
+    fn finalize(
+        &self,
+        output: Self::RawOutput,
+    ) -> Result<<Vec3NormalizeTask as crate::BenchmarkTask>::Output, BenchmarkError> {
+        Ok([output.x, output.y, output.z])
+    }
+}
+
+pub struct MatVecMul3x3Logic;
+impl RawTaskImplementation<MatVecMul3x3Task> for MatVecMul3x3Logic {
+    type PreparedInput = (
+        mrs_benchmark_crazyflie_sys::mat33,
+        mrs_benchmark_crazyflie_sys::vec,
+    );
+    type RawOutput = mrs_benchmark_crazyflie_sys::vec;
+
+    fn prepare(
+        &self,
+        input: &<MatVecMul3x3Task as crate::BenchmarkTask>::Input,
+    ) -> Self::PreparedInput {
+        let m = mrs_benchmark_crazyflie_sys::mat33 {
+            m: [
+                [input.matrix[0], input.matrix[1], input.matrix[2]],
+                [input.matrix[3], input.matrix[4], input.matrix[5]],
+                [input.matrix[6], input.matrix[7], input.matrix[8]],
+            ],
+        };
+        let v = mrs_benchmark_crazyflie_sys::vec {
+            x: input.vector[0],
+            y: input.vector[1],
+            z: input.vector[2],
+        };
+        (m, v)
+    }
+
+    fn execute(&self, input: &Self::PreparedInput) -> Result<Self::RawOutput, BenchmarkError> {
+        Ok(unsafe { mrs_benchmark_crazyflie_sys::cf_mvmul(input.0, input.1) })
+    }
+
+    fn finalize(
+        &self,
+        output: Self::RawOutput,
+    ) -> Result<<MatVecMul3x3Task as crate::BenchmarkTask>::Output, BenchmarkError> {
+        Ok([output.x, output.y, output.z])
+    }
+}
+
+pub struct QuatToRotMatrixLogic;
+impl RawTaskImplementation<QuatToRotMatrixTask> for QuatToRotMatrixLogic {
+    type PreparedInput = mrs_benchmark_crazyflie_sys::quat;
+    type RawOutput = mrs_benchmark_crazyflie_sys::mat33;
+
+    fn prepare(
+        &self,
+        input: &<QuatToRotMatrixTask as crate::BenchmarkTask>::Input,
+    ) -> Self::PreparedInput {
+        let norm = |x: f32, y: f32, z: f32, w: f32| {
+            let m = unsafe { mrs_benchmark_crazyflie_sys::sqrtf(x * x + y * y + z * z + w * w) };
+            if m > 1e-12 {
+                mrs_benchmark_crazyflie_sys::quat {
+                    x: x / m,
+                    y: y / m,
+                    z: z / m,
+                    w: w / m,
+                }
+            } else {
+                mrs_benchmark_crazyflie_sys::quat { x, y, z, w }
+            }
+        };
+        norm(input.quat[0], input.quat[1], input.quat[2], input.quat[3])
+    }
+
+    fn execute(&self, input: &Self::PreparedInput) -> Result<Self::RawOutput, BenchmarkError> {
+        Ok(unsafe { mrs_benchmark_crazyflie_sys::cf_quat2rotmat(*input) })
+    }
+
+    fn finalize(
+        &self,
+        output: Self::RawOutput,
+    ) -> Result<<QuatToRotMatrixTask as crate::BenchmarkTask>::Output, BenchmarkError> {
+        Ok([
+            output.m[0][0],
+            output.m[1][0],
+            output.m[2][0],
+            output.m[0][1],
+            output.m[1][1],
+            output.m[2][1],
+            output.m[0][2],
+            output.m[1][2],
+            output.m[2][2],
+        ])
+    }
+}
+
+pub struct ExpLogic;
+impl RawTaskImplementation<ExpTask> for ExpLogic {
+    type PreparedInput = f32;
+    type RawOutput = f32;
+
+    fn prepare(&self, input: &<ExpTask as crate::BenchmarkTask>::Input) -> Self::PreparedInput {
+        input.value
+    }
+
+    fn execute(&self, input: &Self::PreparedInput) -> Result<Self::RawOutput, BenchmarkError> {
+        Ok(unsafe { mrs_benchmark_crazyflie_sys::expf(*input) })
+    }
+
+    fn finalize(
+        &self,
+        output: Self::RawOutput,
+    ) -> Result<<ExpTask as crate::BenchmarkTask>::Output, BenchmarkError> {
+        Ok(output)
+    }
+}
+
+pub struct LnLogic;
+impl RawTaskImplementation<LnTask> for LnLogic {
+    type PreparedInput = f32;
+    type RawOutput = f32;
+
+    fn prepare(&self, input: &<LnTask as crate::BenchmarkTask>::Input) -> Self::PreparedInput {
+        input.value
+    }
+
+    fn execute(&self, input: &Self::PreparedInput) -> Result<Self::RawOutput, BenchmarkError> {
+        if *input <= 0.0 {
+            Err(BenchmarkError::MathError(
+                "Natural log of non-positive number",
+            ))
+        } else {
+            Ok(unsafe { mrs_benchmark_crazyflie_sys::logf(*input) })
+        }
+    }
+
+    fn finalize(
+        &self,
+        output: Self::RawOutput,
+    ) -> Result<<LnTask as crate::BenchmarkTask>::Output, BenchmarkError> {
+        Ok(output)
+    }
+}
+
 export_tasks!(
     CrazyflieFw,
     MatMul3x3 => MatMul3x3Logic,
@@ -423,4 +629,10 @@ export_tasks!(
     QuatSlerp => QuatSlerpLogic,
     EkfStep => EkfStepLogic,
     LeeController => LeeControllerLogic,
+    CrossProduct => CrossProductLogic,
+    Vec3Normalize => Vec3NormalizeLogic,
+    MatVecMul3x3 => MatVecMul3x3Logic,
+    QuatToRotMatrix => QuatToRotMatrixLogic,
+    Exp => ExpLogic,
+    Ln => LnLogic,
 );

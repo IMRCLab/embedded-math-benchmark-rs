@@ -1,12 +1,14 @@
 use crate::tasks::{
-    DotProduct64D as DotProduct64DTask, EkfStep as EkfStepTask, LeeController as LeeControllerTask,
-    MatInverse3x3 as MatInverse3x3Task, MatInverse9x9 as MatInverse9x9Task,
-    MatMul3x3 as MatMul3x3Task, MatMul9x9 as MatMul9x9Task, QuatSlerp as QuatSlerpTask,
-    RotateVector as RotateVectorTask, UnitQuatMul as UnitQuatMulTask,
+    CrossProduct as CrossProductTask, DotProduct64D as DotProduct64DTask, EkfStep as EkfStepTask,
+    LeeController as LeeControllerTask, MatInverse3x3 as MatInverse3x3Task,
+    MatInverse9x9 as MatInverse9x9Task, MatMul3x3 as MatMul3x3Task, MatMul9x9 as MatMul9x9Task,
+    MatVecMul3x3 as MatVecMul3x3Task, QuatSlerp as QuatSlerpTask,
+    QuatToRotMatrix as QuatToRotMatrixTask, RotateVector as RotateVectorTask,
+    UnitQuatMul as UnitQuatMulTask, Vec3Normalize as Vec3NormalizeTask,
 };
 use crate::{export_tasks, BenchmarkError, BenchmarkLibrary, RawTaskImplementation};
 
-use nalgebra::Matrix3;
+use nalgebra::{Matrix3, Vector3};
 type SMatrix9 = nalgebra::SMatrix<f32, 9, 9>;
 type SVector64 = nalgebra::SVector<f32, 64>;
 
@@ -599,6 +601,118 @@ impl RawTaskImplementation<DotProduct64DTask> for DotProduct64DLogic {
     }
 }
 
+pub struct CrossProductLogic;
+impl RawTaskImplementation<CrossProductTask> for CrossProductLogic {
+    type PreparedInput = (Vector3<f32>, Vector3<f32>);
+    type RawOutput = Vector3<f32>;
+
+    fn prepare(
+        &self,
+        input: &<CrossProductTask as crate::BenchmarkTask>::Input,
+    ) -> Self::PreparedInput {
+        (
+            Vector3::from_row_slice(&input.lhs),
+            Vector3::from_row_slice(&input.rhs),
+        )
+    }
+
+    fn execute(&self, input: &Self::PreparedInput) -> Result<Self::RawOutput, BenchmarkError> {
+        Ok(input.0.cross(&input.1))
+    }
+
+    fn finalize(
+        &self,
+        output: Self::RawOutput,
+    ) -> Result<<CrossProductTask as crate::BenchmarkTask>::Output, BenchmarkError> {
+        Ok([output.x, output.y, output.z])
+    }
+}
+
+pub struct Vec3NormalizeLogic;
+impl RawTaskImplementation<Vec3NormalizeTask> for Vec3NormalizeLogic {
+    type PreparedInput = Vector3<f32>;
+    type RawOutput = Vector3<f32>;
+
+    fn prepare(
+        &self,
+        input: &<Vec3NormalizeTask as crate::BenchmarkTask>::Input,
+    ) -> Self::PreparedInput {
+        Vector3::from_row_slice(&input.vector)
+    }
+
+    fn execute(&self, input: &Self::PreparedInput) -> Result<Self::RawOutput, BenchmarkError> {
+        if input.norm() < 1e-6 {
+            Err(BenchmarkError::MathError(
+                "Vector magnitude too small to normalize",
+            ))
+        } else {
+            Ok(input.normalize())
+        }
+    }
+
+    fn finalize(
+        &self,
+        output: Self::RawOutput,
+    ) -> Result<<Vec3NormalizeTask as crate::BenchmarkTask>::Output, BenchmarkError> {
+        Ok([output.x, output.y, output.z])
+    }
+}
+
+pub struct MatVecMul3x3Logic;
+impl RawTaskImplementation<MatVecMul3x3Task> for MatVecMul3x3Logic {
+    type PreparedInput = (Matrix3<f32>, Vector3<f32>);
+    type RawOutput = Vector3<f32>;
+
+    fn prepare(
+        &self,
+        input: &<MatVecMul3x3Task as crate::BenchmarkTask>::Input,
+    ) -> Self::PreparedInput {
+        (
+            Matrix3::from_row_slice(&input.matrix),
+            Vector3::from_row_slice(&input.vector),
+        )
+    }
+
+    fn execute(&self, input: &Self::PreparedInput) -> Result<Self::RawOutput, BenchmarkError> {
+        Ok(input.0 * input.1)
+    }
+
+    fn finalize(
+        &self,
+        output: Self::RawOutput,
+    ) -> Result<<MatVecMul3x3Task as crate::BenchmarkTask>::Output, BenchmarkError> {
+        Ok([output.x, output.y, output.z])
+    }
+}
+
+pub struct QuatToRotMatrixLogic;
+impl RawTaskImplementation<QuatToRotMatrixTask> for QuatToRotMatrixLogic {
+    type PreparedInput = nalgebra::UnitQuaternion<f32>;
+    type RawOutput = Matrix3<f32>;
+
+    fn prepare(
+        &self,
+        input: &<QuatToRotMatrixTask as crate::BenchmarkTask>::Input,
+    ) -> Self::PreparedInput {
+        let q =
+            nalgebra::Quaternion::new(input.quat[3], input.quat[0], input.quat[1], input.quat[2]);
+        nalgebra::UnitQuaternion::from_quaternion(q)
+    }
+
+    fn execute(&self, input: &Self::PreparedInput) -> Result<Self::RawOutput, BenchmarkError> {
+        Ok(input.to_rotation_matrix().into_inner())
+    }
+
+    fn finalize(
+        &self,
+        output: Self::RawOutput,
+    ) -> Result<<QuatToRotMatrixTask as crate::BenchmarkTask>::Output, BenchmarkError> {
+        let mut arr = [0.0; 9];
+        arr.copy_from_slice(output.as_slice());
+        Ok(arr)
+    }
+}
+
 export_tasks!(
     Nalgebra,
     MatMul3x3 => MatMul3x3Logic,
@@ -611,4 +725,8 @@ export_tasks!(
     MatMul9x9 => MatMul9x9Logic,
     MatInverse9x9 => MatInverse9x9Logic,
     DotProduct64D => DotProduct64DLogic,
+    CrossProduct => CrossProductLogic,
+    Vec3Normalize => Vec3NormalizeLogic,
+    MatVecMul3x3 => MatVecMul3x3Logic,
+    QuatToRotMatrix => QuatToRotMatrixLogic,
 );
