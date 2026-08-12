@@ -15,8 +15,9 @@ Where the benchmarks run, how each is timed, and their current status.
 ## RP2040 (Pico 1)
 
 No DWT, unlike every other Cortex-M target here. Times via SysTick's 24-bit down-counter
-(core cycles, caps a single measurement at ~16.7M cycles), falling back to the 64-bit
-`TIMER` peripheral for longer spans.
+(core cycles, wraps every ~16.7M cycles / ~134ms at 125MHz). TICKINT counts wraps via
+interrupt, extending the range to 56 bits. Verified on real hardware 2026-08-12: 100 reps
+of `MatMul9x9`/`cmsis-dsp` (~17.3-17.4M cycles) read back correctly past the wrap.
 
 ## RP2350 (Pico 2)
 
