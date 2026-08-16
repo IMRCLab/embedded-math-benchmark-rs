@@ -14,7 +14,8 @@
     - set -o pipefail
     # Probes share a VID:PID on the HIL host, so probe-rs can't pick one on its own.
     - PROBE=$(bash "$SELECT_PROBE_SCRIPT" "$CHIP")
-    - timeout ${CAPTURE_SECS}s probe-rs run --chip "$CHIP" --probe "$PROBE" "$ELF" | tee "$LOG"
+    # PROBE_SPEED = SWD clock in kHz; gates flashing and RTT reads alike, see docs/hil-setup.md.
+    - timeout ${CAPTURE_SECS}s probe-rs run --chip "$CHIP" --probe "$PROBE" ${PROBE_SPEED:+--speed "$PROBE_SPEED"} "$ELF" | tee "$LOG"
   artifacts:
     name: "bench-$CI_COMMIT_SHORT_SHA"
     paths:
@@ -31,6 +32,7 @@ run-stm32:
     CHIP: STM32F405RGTx
     ELF: mrs-benchmark-stm32
     LOG: stm32.log
+    PROBE_SPEED: "4000" # fastest step this J-Link accepts
 
 run-rp2040:
   extends: .firmware-flash
@@ -40,6 +42,7 @@ run-rp2040:
     CHIP: RP2040
     ELF: mrs-benchmark-rp2040
     LOG: rp2040.log
+    PROBE_SPEED: "10000"
 
 run-rp2350:
   extends: .firmware-flash
@@ -49,6 +52,7 @@ run-rp2350:
     CHIP: RP235x
     ELF: mrs-benchmark-rp2350
     LOG: rp2350.log
+    PROBE_SPEED: "10000"
 
 run-esp32s3:
   extends: .firmware-flash
