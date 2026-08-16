@@ -7314,7 +7314,7 @@
       ]
     },
     {
-      "repetitions": 100,
+      "repetitions": 10,
       "libraries": [
         "nalgebra",
         "crazyflie-fw",

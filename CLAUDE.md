@@ -119,6 +119,10 @@ CLI end-to-end test in `tests/cli.rs`) — core/host/macros have none yet.
 
 ## Conventions & gotchas
 
+- **Code comments: rare and one line.** Only comment what the code can't say itself — a
+  non-obvious *why*, a hidden invariant, a workaround. One line each, plain ASCII, no
+  multi-line blocks or banners. Background, measurements, and rationale go in the commit
+  message or `docs/`, not above the code.
 - **Build firmware from its own crate dir** (`cd benchmarks/mrs-benchmark-stm32`) so the
   crate-local `.cargo/config.toml` selects the right thumb target and linker script.
   Building from the workspace root gets the wrong target.

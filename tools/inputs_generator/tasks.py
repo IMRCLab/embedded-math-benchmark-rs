@@ -611,7 +611,7 @@ class LeeControllerTask(BenchmarkTask):
 
 class EkfStepTask(BenchmarkTask):
     def __init__(self):
-        super().__init__("EkfStep", 100)
+        super().__init__("EkfStep", 10)
 
     def generate_inputs(self, rng: np.random.Generator) -> list[dict]:
         import csv, os

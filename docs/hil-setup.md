@@ -66,8 +66,47 @@ sudo cp /tmp/dp.uf2 /mnt/rp2/
 
 Probes share the Debug Probe VID:PID (`2e8a:000c`), so `probe-rs run --chip <chip>` fails
 with "multiple probes found". Each run job calls
-[`select-probe.sh`](../.gitlab/ci/select-probe.sh) `<chip>` first, which greps each probe's
-`probe-rs info` for a per-chip signature and returns the `VID:PID:Serial` of the match.
+[`select-probe.sh`](../.gitlab/ci/select-probe.sh) `<chip>` first, which returns the
+`VID:PID:Serial` of the matching probe. It resolves in two steps:
+
+1. Filter `probe-rs list` by probe type. J-Link → STM32, ESP JTAG → ESP32-S3; those are
+   one-to-one on this host and resolve in ~0.1s with no attach.
+2. Only if the type is ambiguous (both Picos are behind CMSIS-DAP probes), grep each
+   candidate's `probe-rs info` for a per-chip signature.
+
+Step 2 halts the target, which is why step 1 exists: scanning all four probes was 11-13s of
+every run job.
+
+**probe-rs 0.31 vs 0.32.** 0.32 changed `probe-rs info` to autodetect and print a chip name,
+moving the detailed debug-port dump that step 2 greps behind `--verbose`. Autodetect doesn't
+cover RP chips, so plain `info` there just fails. 0.31 has no such flag, so the script probes
+`info --help` once and passes `--verbose` only if it's offered. Verified on hardware against
+0.32: all four chips resolve, and `probe-rs list` output is unchanged.
+
+Step 2 costs 0.4s on the RP2040 probe but **10.4s on the RP2350 probe** (both versions), and
+both Pico jobs pay it — `run-rp2040` scans the RP2350 probe first and only then matches. That
+is ~21s per pipeline, the largest remaining fixed overhead in the run stage.
+
+### Probe speed
+
+`probe-rs` picks a conservative SWD clock. It gates flashing *and* RTT reads, so raising it
+where the probe allows shortens the whole run job. Set per target via `PROBE_SPEED` (kHz) in
+[`run.yml`](../.gitlab/ci/run.yml).
+
+| target | probe | speed | flash | stream | job |
+|---|---|---|---|---|---|
+| STM32F405 | J-Link | default | 30.8s | 20.6s | 51.4s |
+| STM32F405 | J-Link | `4000` | 17.3s | 7.6s | 24.9s |
+| RP2040 | Debug Probe | default | 9.6s | 44.0s | 53.6s |
+| RP2040 | Debug Probe | `10000` | 6.4s | 41.9s | 48.3s |
+| RP2350 | Debug Probe | default | 10.2s | 10.8s | 33.1s |
+| RP2350 | Debug Probe | `10000` | 5.1s | 4.9s | 22.3s |
+
+4 MHz is the fastest step the J-Link accepts; 6/8/10/12 MHz are rejected outright. The
+Debug Probe takes 10 MHz.
+
+ESP32-S3 is the exception: `--speed` does nothing there (16.7s vs 17.9s, i.e. noise). Its
+USB JTAG is a bridge, not an SWD link with a settable clock, so leave `PROBE_SPEED` unset.
 
 ## Power-cycling a board
 
