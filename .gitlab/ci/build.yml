@@ -1,15 +1,22 @@
-# Builds crate $BIN for $TARGET from its own crate dir (picks up crate-local
-# .cargo/config.toml) and flattens the binary to the project root.
+# Builds crate $BIN for $TARGET across release, lto, and size profiles from
+# its own crate dir (picks up crate-local .cargo/config.toml) and flattens the
+# binaries to the project root.
 .cargo-build:
   stage: build
   needs: []
   script:
     - (cd "$WORKSPACE_DIR/$BIN" && cargo build --release --target "$TARGET")
-    - install -Dm755 "$CARGO_TARGET_DIR/$TARGET/release/$BIN" "$BIN"
+    - (cd "$WORKSPACE_DIR/$BIN" && cargo build --profile lto --target "$TARGET")
+    - (cd "$WORKSPACE_DIR/$BIN" && cargo build --profile size --target "$TARGET")
+    - install -Dm755 "$CARGO_TARGET_DIR/$TARGET/release/$BIN" "$BIN-release"
+    - install -Dm755 "$CARGO_TARGET_DIR/$TARGET/lto/$BIN" "$BIN-lto"
+    - install -Dm755 "$CARGO_TARGET_DIR/$TARGET/size/$BIN" "$BIN-size"
   artifacts:
     name: "$BIN-$CI_COMMIT_SHORT_SHA"
     paths:
-      - $BIN
+      - "$BIN-release"
+      - "$BIN-lto"
+      - "$BIN-size"
     expire_in: 1 year
 
 build-stm32:

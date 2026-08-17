@@ -1,5 +1,6 @@
-# Flashes a firmware ELF on the HIL host and captures RTT output. Per-target jobs
-# set CHIP/ELF and `needs:` their build job.
+# Flashes a firmware ELF on the HIL host and captures RTT output across
+# release, lto, and size profiles. Per-target jobs set CHIP/BIN/TARGET_NAME
+# and `needs:` their build job.
 .firmware-flash:
   stage: run
   tags:
@@ -9,17 +10,22 @@
   variables:
     GIT_STRATEGY: none
     CAPTURE_SECS: "240"
-    LOG: results.log
   script:
     - set -o pipefail
     # PROBE comes from a HIL_PROBE_* project variable; several probes are attached, so
     # probe-rs needs one named. PROBE_SPEED = SWD clock in kHz; gates flashing and RTT
     # reads alike. Both in docs/hil-setup.md.
-    - timeout ${CAPTURE_SECS}s probe-rs run --chip "$CHIP" ${PROBE:+--probe "$PROBE"} ${PROBE_SPEED:+--speed "$PROBE_SPEED"} "$ELF" | tee "$LOG"
+    - |
+      for PROF in release lto size; do
+        ELF="${BIN}-${PROF}"
+        LOG="${TARGET_NAME}-${PROF}.log"
+        echo "=== Flashing ${ELF} on ${CHIP} ==="
+        timeout ${CAPTURE_SECS}s probe-rs run --chip "$CHIP" ${PROBE:+--probe "$PROBE"} ${PROBE_SPEED:+--speed "$PROBE_SPEED"} "$ELF" | tee "$LOG"
+      done
   artifacts:
     name: "bench-$CI_COMMIT_SHORT_SHA"
     paths:
-      - $LOG
+      - "*.log"
     when: always
     expire_in: 1 year
   allow_failure: true
@@ -30,8 +36,8 @@ run-stm32:
     - build-stm32
   variables:
     CHIP: STM32F405RGTx
-    ELF: mrs-benchmark-stm32
-    LOG: stm32.log
+    BIN: mrs-benchmark-stm32
+    TARGET_NAME: stm32
     PROBE: $HIL_PROBE_STM32
     PROBE_SPEED: "4000" # fastest step this J-Link accepts
 
@@ -41,8 +47,8 @@ run-rp2040:
     - build-rp2040
   variables:
     CHIP: RP2040
-    ELF: mrs-benchmark-rp2040
-    LOG: rp2040.log
+    BIN: mrs-benchmark-rp2040
+    TARGET_NAME: rp2040
     PROBE: $HIL_PROBE_RP2040
     PROBE_SPEED: "10000"
 
@@ -52,8 +58,8 @@ run-rp2350:
     - build-rp2350
   variables:
     CHIP: RP235x
-    ELF: mrs-benchmark-rp2350
-    LOG: rp2350.log
+    BIN: mrs-benchmark-rp2350
+    TARGET_NAME: rp2350
     PROBE: $HIL_PROBE_RP2350
     PROBE_SPEED: "10000"
 
@@ -63,8 +69,8 @@ run-esp32s3:
     - build-esp32s3
   variables:
     CHIP: esp32s3
-    ELF: mrs-benchmark-esp32s3
-    LOG: esp32s3.log
+    BIN: mrs-benchmark-esp32s3
+    TARGET_NAME: esp32s3
     PROBE: $HIL_PROBE_ESP32S3
 
 run-host:
@@ -74,9 +80,11 @@ run-host:
   variables:
     GIT_STRATEGY: none
   script:
-    - ./mrs-benchmark-host | tee host.log
+    - ./mrs-benchmark-host-release | tee host-release.log
+    - ./mrs-benchmark-host-lto | tee host-lto.log
+    - ./mrs-benchmark-host-size | tee host-size.log
   artifacts:
     name: "host-bench-$CI_COMMIT_SHORT_SHA"
     paths:
-      - host.log
+      - host-*.log
     expire_in: 1 year
