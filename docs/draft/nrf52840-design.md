@@ -31,7 +31,7 @@ arrives.
   thumbv7em-none-eabihf`. No `Dockerfile.ci` change needed.
 - `run.yml`: `run-nrf52840`, `CHIP: <probe-rs chip id, TBD>`.
 - `collect.yml`: add `run-nrf52840` to `collect-results`' `needs` (`optional: true`).
-- `select-probe.sh`: new case arm once the actual probe's signature is known.
+- `HIL_PROBE_NRF52840` project variable + `PROBE:` on the run job, once the probe is attached.
 - `viz/config.py`: `PLATFORM_CLOCK_HZ["nrf52840"] = 64e6` (confirm), `PLATFORM_ORDER` entry
   (before `"host"`, which always sorts last).
 - `docs/platforms.md`: flip to `running`, fill in the real chip id.

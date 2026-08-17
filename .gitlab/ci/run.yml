@@ -12,10 +12,10 @@
     LOG: results.log
   script:
     - set -o pipefail
-    # Probes share a VID:PID on the HIL host, so probe-rs can't pick one on its own.
-    - PROBE=$(bash "$SELECT_PROBE_SCRIPT" "$CHIP")
-    # PROBE_SPEED = SWD clock in kHz; gates flashing and RTT reads alike, see docs/hil-setup.md.
-    - timeout ${CAPTURE_SECS}s probe-rs run --chip "$CHIP" --probe "$PROBE" ${PROBE_SPEED:+--speed "$PROBE_SPEED"} "$ELF" | tee "$LOG"
+    # PROBE comes from a HIL_PROBE_* project variable; several probes are attached, so
+    # probe-rs needs one named. PROBE_SPEED = SWD clock in kHz; gates flashing and RTT
+    # reads alike. Both in docs/hil-setup.md.
+    - timeout ${CAPTURE_SECS}s probe-rs run --chip "$CHIP" ${PROBE:+--probe "$PROBE"} ${PROBE_SPEED:+--speed "$PROBE_SPEED"} "$ELF" | tee "$LOG"
   artifacts:
     name: "bench-$CI_COMMIT_SHORT_SHA"
     paths:
@@ -32,6 +32,7 @@ run-stm32:
     CHIP: STM32F405RGTx
     ELF: mrs-benchmark-stm32
     LOG: stm32.log
+    PROBE: $HIL_PROBE_STM32
     PROBE_SPEED: "4000" # fastest step this J-Link accepts
 
 run-rp2040:
@@ -42,6 +43,7 @@ run-rp2040:
     CHIP: RP2040
     ELF: mrs-benchmark-rp2040
     LOG: rp2040.log
+    PROBE: $HIL_PROBE_RP2040
     PROBE_SPEED: "10000"
 
 run-rp2350:
@@ -52,6 +54,7 @@ run-rp2350:
     CHIP: RP235x
     ELF: mrs-benchmark-rp2350
     LOG: rp2350.log
+    PROBE: $HIL_PROBE_RP2350
     PROBE_SPEED: "10000"
 
 run-esp32s3:
@@ -62,6 +65,7 @@ run-esp32s3:
     CHIP: esp32s3
     ELF: mrs-benchmark-esp32s3
     LOG: esp32s3.log
+    PROBE: $HIL_PROBE_ESP32S3
 
 run-host:
   stage: run

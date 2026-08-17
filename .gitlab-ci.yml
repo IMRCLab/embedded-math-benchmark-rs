@@ -23,7 +23,6 @@ variables:
   UV_LINK_MODE: copy
   WORKSPACE_DIR: benchmarks
   TARGET: x86_64-unknown-linux-gnu
-  SELECT_PROBE_SCRIPT: .gitlab/ci/select-probe.sh
   GIT_SUBMODULE_STRATEGY: normal
   GIT_SUBMODULE_DEPTH: 1
 

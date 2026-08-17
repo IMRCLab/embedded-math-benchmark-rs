@@ -23,8 +23,8 @@ The boards connect to the lab Threadripper over SWD through debug probes. One
   `/persist`, so builds stay warm between jobs.
 - **hil** (`hil` tag, shell executor): pulls a firmware binary, flashes and runs it with
   `probe-rs`, uploads the captured RTT log. One hil runner flashes every board
-  (`run-rp2040`, `run-stm32`, ...); it picks the right probe by chip with
-  [`select-probe.sh`](#multiple-probes). The shell executor avoids fragile Docker USB
+  (`run-rp2040`, `run-stm32`, ...); each job names its probe
+  through a `HIL_PROBE_*` variable, see [Probe selection](#probe-selection). The shell executor avoids fragile Docker USB
   passthrough.
 
 Output comes back over RTT with `probe-rs`.
@@ -62,45 +62,37 @@ sudo mkdir -p /mnt/rp2 && sudo mount "$DEV" /mnt/rp2
 sudo cp /tmp/dp.uf2 /mnt/rp2/
 ```
 
-### Multiple probes
+### Probe selection
 
-Probes share the Debug Probe VID:PID (`2e8a:000c`), so `probe-rs run --chip <chip>` fails
-with "multiple probes found". Each run job calls
-[`select-probe.sh`](../.gitlab/ci/select-probe.sh) `<chip>` first, which returns the
-`VID:PID:Serial` of the matching probe. It resolves in two steps:
+Four probes are attached, and the two Pico ones share a VID:PID (`2e8a:000c`), so
+`probe-rs run --chip <chip>` fails with "multiple probes found" unless the job names one.
+Each run job passes `--probe` from a `HIL_PROBE_*` GitLab **project variable**
+(Settings → CI/CD → Variables), wired to `PROBE` per job in
+[`run.yml`](../.gitlab/ci/run.yml).
 
-1. Filter `probe-rs list` by probe type. J-Link → STM32, ESP JTAG → ESP32-S3; those are
-   one-to-one on this host and resolve in ~0.1s with no attach.
-2. Only if the type is ambiguous (both Picos are behind CMSIS-DAP probes), grep each
-   candidate's `probe-rs info` for a per-chip signature.
+After a probe swap, run `probe-rs list` on the HIL host and paste the new selectors into the
+project variables. The two Debug Probes differ only by serial, so tell them apart with
+`probe-rs info --verbose --probe <selector>`: the RP2350 reports `PARTNO: Cortex-M33` and an
+`RP235x CoreSight ROM`, the RP2040 reports `Part: 0x1002` with no CPUID.
 
-Step 2 halts the target, which is why step 1 exists: scanning all four probes was 11-13s of
-every run job.
-
-**probe-rs 0.31 vs 0.32.** 0.32 changed `probe-rs info` to autodetect and print a chip name,
-moving the detailed debug-port dump that step 2 greps behind `--verbose`. Autodetect doesn't
-cover RP chips, so plain `info` there just fails. 0.31 has no such flag, so the script probes
-`info --help` once and passes `--verbose` only if it's offered. Verified on hardware against
-0.32: all four chips resolve, and `probe-rs list` output is unchanged.
-
-Step 2 costs 0.4s on the RP2040 probe but **10.4s on the RP2350 probe** (both versions), and
-both Pico jobs pay it — `run-rp2040` scans the RP2350 probe first and only then matches. That
-is ~21s per pipeline, the largest remaining fixed overhead in the run stage.
+Resolving the probe dynamically instead (grep each candidate's `probe-rs info` for a chip
+signature) costs an attach per candidate: 10.4s on the RP2350 probe, paid by both Pico jobs,
+about 21s per pipeline. Not worth it for a mapping that only changes when the hardware does.
 
 ### Probe speed
 
-`probe-rs` picks a conservative SWD clock. It gates flashing *and* RTT reads, so raising it
+`probe-rs` picks a conservative SWD clock. It gates flashing _and_ RTT reads, so raising it
 where the probe allows shortens the whole run job. Set per target via `PROBE_SPEED` (kHz) in
 [`run.yml`](../.gitlab/ci/run.yml).
 
-| target | probe | speed | flash | stream | job |
-|---|---|---|---|---|---|
-| STM32F405 | J-Link | default | 30.8s | 20.6s | 51.4s |
-| STM32F405 | J-Link | `4000` | 17.3s | 7.6s | 24.9s |
-| RP2040 | Debug Probe | default | 9.6s | 44.0s | 53.6s |
-| RP2040 | Debug Probe | `10000` | 6.4s | 41.9s | 48.3s |
-| RP2350 | Debug Probe | default | 10.2s | 10.8s | 33.1s |
-| RP2350 | Debug Probe | `10000` | 5.1s | 4.9s | 22.3s |
+| target    | probe       | speed   | flash | stream | job   |
+| --------- | ----------- | ------- | ----- | ------ | ----- |
+| STM32F405 | J-Link      | default | 30.8s | 20.6s  | 51.4s |
+| STM32F405 | J-Link      | `4000`  | 17.3s | 7.6s   | 24.9s |
+| RP2040    | Debug Probe | default | 9.6s  | 44.0s  | 53.6s |
+| RP2040    | Debug Probe | `10000` | 6.4s  | 41.9s  | 48.3s |
+| RP2350    | Debug Probe | default | 10.2s | 10.8s  | 33.1s |
+| RP2350    | Debug Probe | `10000` | 5.1s  | 4.9s   | 22.3s |
 
 4 MHz is the fastest step the J-Link accepts; 6/8/10/12 MHz are rejected outright. The
 Debug Probe takes 10 MHz.
@@ -166,6 +158,9 @@ sudo gitlab-runner restart
 # 6) Verify (probe must be physically connected over USB/SWD).
 sudo -u gitlab-runner bash -c 'source $HOME/.cargo/env && probe-rs list'
 ```
+
+Then paste each selector from step 6 into its `HIL_PROBE_*` project variable, unprotected
+(see [Probe selection](#probe-selection)). This is the only step that needs no lab admin.
 
 The hil runner only flashes pre-built ELFs with `probe-rs`, so it never needs the
 `espup` Xtensa toolchain (that's a build-image concern, see [CI image](#ci-image)).
