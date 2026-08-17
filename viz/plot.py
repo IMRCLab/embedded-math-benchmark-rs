@@ -5,6 +5,7 @@ Usage: uv run --project viz viz/plot.py results.csv report.pdf
 
 import sys
 from datetime import datetime
+from zoneinfo import ZoneInfo
 
 import matplotlib
 
@@ -31,7 +32,7 @@ def main(argv):
     page_size = GRID_SHAPE[0] * GRID_SHAPE[1]
     task_pages = common.paginate(tasks, page_size)
     by_task_pages = common.paginate(tasks, TASK_GRID_SHAPE[0] * TASK_GRID_SHAPE[1])
-    generated_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    generated_at = datetime.now(ZoneInfo("Europe/Berlin")).strftime("%Y-%m-%d %H:%M:%S %Z")
     versions = load_library_versions()
 
     all_platforms = ordered(agg["platform"].unique(), PLATFORM_ORDER, "platform(s)")
