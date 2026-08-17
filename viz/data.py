@@ -49,9 +49,23 @@ def load_and_clean(csv_path):
     df = pd.read_csv(csv_path)
     if "profile" not in df.columns:
         df["profile"] = "release"
-    is_error = df["result"].astype(str).str.startswith("ERROR")
+
+    res_str = df["result"].astype(str)
+    duration_numeric = pd.to_numeric(df["duration"], errors="coerce")
+    rep_numeric = pd.to_numeric(df["repetitions"], errors="coerce")
+
+    is_error = (
+        res_str.str.startswith("ERROR")
+        | res_str.str.startswith("Err")
+        | res_str.str.startswith("MathError")
+        | duration_numeric.isna()
+        | rep_numeric.isna()
+        | (rep_numeric <= 0)
+    )
 
     df_ok = df[~is_error].copy()
+    df_ok["duration"] = duration_numeric[~is_error]
+    df_ok["repetitions"] = rep_numeric[~is_error]
     df_ok["per"] = df_ok["duration"] / df_ok["repetitions"]
     df_ok["per_ns"] = to_nanoseconds(df_ok)
 
