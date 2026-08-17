@@ -14,8 +14,12 @@ import sys
 
 from tasks import TASK_REGISTRY
 
-def parse_result_field(raw_val: str):
+def parse_result_field(raw_val):
     """Parses result string from CSV into float, list of floats, or error string."""
+    if raw_val is None:
+        return ""
+    if not isinstance(raw_val, str):
+        raw_val = str(raw_val)
     raw_val = raw_val.strip()
     if not raw_val or raw_val.startswith("Err") or raw_val.startswith("MathError"):
         return raw_val
@@ -84,12 +88,16 @@ def main():
     with open(results_path, "r") as f:
         reader = csv.DictReader(f)
         for row in reader:
-            platform = row.get("platform", "unknown")
-            profile = row.get("profile", "unknown")
-            library = row.get("library", "unknown")
-            task_name = row.get("task", "unknown")
-            input_idx = int(row.get("input_index", 0))
-            raw_res = row.get("result", "")
+            platform = row.get("platform") or "unknown"
+            profile = row.get("profile") or "release"
+            library = row.get("library") or "unknown"
+            task_name = row.get("task") or "unknown"
+            raw_input_idx = row.get("input_index")
+            try:
+                input_idx = int(raw_input_idx) if raw_input_idx is not None else 0
+            except ValueError:
+                input_idx = 0
+            raw_res = row.get("result") or ""
 
             lib_output = parse_result_field(raw_res)
 
