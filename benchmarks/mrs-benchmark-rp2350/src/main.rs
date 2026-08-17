@@ -75,8 +75,9 @@ impl BenchmarkPlatform for Rp2350Platform {
         if let Some(res) = output {
             match res {
                 Ok(val) => rprintln!(
-                    "BENCH {},{},{},{},{},{},{},\"{:?}\"",
+                    "BENCH {},{},{},{},{},{},{},{},\"{:?}\"",
                     self.id(),
+                    mrs_benchmark_core::PROFILE,
                     library,
                     bench,
                     input_index,
@@ -86,8 +87,9 @@ impl BenchmarkPlatform for Rp2350Platform {
                     val
                 ),
                 Err(e) => rprintln!(
-                    "BENCH {},{},{},{},{},{},{},\"ERROR: {:?}\"",
+                    "BENCH {},{},{},{},{},{},{},{},\"ERROR: {:?}\"",
                     self.id(),
+                    mrs_benchmark_core::PROFILE,
                     library,
                     bench,
                     input_index,
@@ -99,8 +101,9 @@ impl BenchmarkPlatform for Rp2350Platform {
             }
         } else {
             rprintln!(
-                "BENCH {},{},{},{},{},{},{},\"\"",
+                "BENCH {},{},{},{},{},{},{},{},\"\"",
                 self.id(),
+                mrs_benchmark_core::PROFILE,
                 library,
                 bench,
                 input_index,

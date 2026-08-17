@@ -34,8 +34,9 @@ impl BenchmarkPlatform for HostPlatform {
         if let Some(res) = output {
             match res {
                 Ok(val) => println!(
-                    "BENCH {},{},{},{},{},{},{},\"{:?}\"",
+                    "BENCH {},{},{},{},{},{},{},{},\"{:?}\"",
                     self.id(),
+                    mrs_benchmark_core::PROFILE,
                     library,
                     bench,
                     input_index,
@@ -45,8 +46,9 @@ impl BenchmarkPlatform for HostPlatform {
                     val
                 ),
                 Err(e) => println!(
-                    "BENCH {},{},{},{},{},{},{},\"ERROR: {:?}\"",
+                    "BENCH {},{},{},{},{},{},{},{},\"ERROR: {:?}\"",
                     self.id(),
+                    mrs_benchmark_core::PROFILE,
                     library,
                     bench,
                     input_index,
@@ -58,8 +60,9 @@ impl BenchmarkPlatform for HostPlatform {
             }
         } else {
             println!(
-                "BENCH {},{},{},{},{},{},{},\"\"",
+                "BENCH {},{},{},{},{},{},{},{},\"\"",
                 self.id(),
+                mrs_benchmark_core::PROFILE,
                 library,
                 bench,
                 input_index,

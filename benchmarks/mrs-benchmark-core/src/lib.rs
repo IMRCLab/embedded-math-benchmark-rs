@@ -9,7 +9,10 @@ pub mod inputs;
 pub mod suites;
 pub mod tasks;
 
-pub const CSV_HEADER: &str = "platform,library,task,input_index,repetitions,duration,unit,result";
+pub const CSV_HEADER: &str =
+    "platform,profile,library,task,input_index,repetitions,duration,unit,result";
+
+pub const PROFILE: &str = env!("BENCH_PROFILE");
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum BenchmarkError {
