@@ -9,4 +9,6 @@ __pycache__/
 .venv/
 accuracy_results.json
 library_versions.json
+.agents/
+.project/
 
