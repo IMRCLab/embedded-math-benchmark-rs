@@ -78,13 +78,14 @@ def main():
         ref_data = json.load(f).get("tasks", {})
 
     # Read results.csv
-    # Row: platform,library,task,input_index,repetitions,duration,unit,result
+    # Row: platform,profile,library,task,input_index,repetitions,duration,unit,result
     grouped = {}
 
     with open(results_path, "r") as f:
         reader = csv.DictReader(f)
         for row in reader:
             platform = row.get("platform", "unknown")
+            profile = row.get("profile", "unknown")
             library = row.get("library", "unknown")
             task_name = row.get("task", "unknown")
             input_idx = int(row.get("input_index", 0))
@@ -92,14 +93,14 @@ def main():
 
             lib_output = parse_result_field(raw_res)
 
-            key = (platform, library, task_name)
+            key = (platform, profile, library, task_name)
             if key not in grouped:
                 grouped[key] = []
             grouped[key].append((input_idx, lib_output))
 
     summary_rows = []
 
-    for (platform, library, task_name), run_list in grouped.items():
+    for (platform, profile, library, task_name), run_list in grouped.items():
         if task_name not in TASK_REGISTRY:
             continue
 
@@ -153,6 +154,7 @@ def main():
 
         summary_rows.append({
             "platform": platform,
+            "profile": profile,
             "library": library,
             "task": task_name,
             "total_runs": total_eval,
@@ -166,8 +168,8 @@ def main():
             "ulp_samples": ulp_list,
         })
 
-    # Sort summary rows by task, platform, library
-    summary_rows.sort(key=lambda x: (x["task"], x["platform"], x["library"]))
+    # Sort summary rows by task, platform, profile, library
+    summary_rows.sort(key=lambda x: (x["task"], x["platform"], x["profile"], x["library"]))
 
     # Write CSV (exclude ulp_samples array for clean table formatting)
     if summary_rows:
@@ -184,8 +186,8 @@ def main():
     # Print Markdown Summary
     print("\n# Microbenchmark Accuracy Evaluation Summary\n")
     print("> **Note on ULP (Unit in the Last Place)**: ULP measures numerical distance in terms of the smallest representable float32 step (~1.19e-7 at magnitude 1.0). 0 ULP = bit-exact single-precision match; 1-2 ULP = standard float noise; >10 ULP = approximation drift.\n")
-    print("| Task | Platform | Library | Max ULP | Mean ULP | Max Rel Error | Mean Rel Error | Bit-Exact (0 ULP) % | Errors |")
-    print("| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |")
+    print("| Task | Platform | Profile | Library | Max ULP | Mean ULP | Max Rel Error | Mean Rel Error | Bit-Exact (0 ULP) % | Errors |")
+    print("| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |")
 
     for r in summary_rows:
         max_u = f"{r['max_ulp']:.1f}" if not math.isnan(r['max_ulp']) else "N/A"
@@ -194,7 +196,7 @@ def main():
         mean_r = f"{r['mean_rel_error']:.2e}" if not math.isnan(r['mean_rel_error']) else "N/A"
         exact_p = f"{r['exact_bit_pct']:.1f}%"
 
-        print(f"| {r['task']} | {r['platform']} | {r['library']} | {max_u} | {mean_u} | {max_r} | {mean_r} | {exact_p} | {r['errors']} |")
+        print(f"| {r['task']} | {r['platform']} | {r['profile']} | {r['library']} | {max_u} | {mean_u} | {max_r} | {mean_r} | {exact_p} | {r['errors']} |")
 
     print(f"\nReport written to {out_csv_path} and {out_json_path}")
 
