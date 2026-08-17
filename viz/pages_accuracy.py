@@ -50,7 +50,7 @@ def _format_ulp(u):
     return f"{u:.1e}"
 
 
-def plot_accuracy_platform_page(acc_df, samples_map, platform, libs, tasks, page, n_pages, generated_at, versions=None):
+def plot_accuracy_platform_page(acc_df, samples_map, platform, profile, libs, tasks, page, n_pages, generated_at, versions=None):
     """Plots per-platform accuracy bar charts (Mean ULP) for each task, matching time bar chart styling."""
     n_rows, n_cols = GRID_SHAPE
     fig, axes = plt.subplots(n_rows, n_cols, figsize=(16, 8))
@@ -61,7 +61,11 @@ def plot_accuracy_platform_page(acc_df, samples_map, platform, libs, tasks, page
     # a gap sized for a different subplot size than what actually renders.
     fig.subplots_adjust(left=0.055, right=0.985, top=0.86, bottom=0.13, hspace=0.7, wspace=0.35)
 
-    plat_acc = acc_df[acc_df["platform"] == platform] if acc_df is not None else None
+    plat_acc = (
+        acc_df[(acc_df["platform"] == platform) & (acc_df["profile"] == profile)]
+        if acc_df is not None
+        else None
+    )
 
     has_any_plot = False
     x = list(range(len(libs)))
@@ -114,7 +118,7 @@ def plot_accuracy_platform_page(acc_df, samples_map, platform, libs, tasks, page
 
         # Jittered raw ULP samples over each bar: matches execution time bar chart styling
         for xi, lib in zip(x_present, libs_present):
-            sample_list = samples_map.get((platform, task, lib), [])
+            sample_list = samples_map.get((platform, profile, task, lib), [])
             if sample_list:
                 vals = [u for u in sample_list if u is not None and not math.isnan(u) and not math.isinf(u)]
                 if vals:
@@ -139,7 +143,7 @@ def plot_accuracy_platform_page(acc_df, samples_map, platform, libs, tasks, page
     for ax in axes[len(tasks):]:
         ax.axis("off")
 
-    title = f"{platform} Accuracy (Mean ULP Error)"
+    title = f"{platform} [{profile}] Accuracy (Mean ULP Error)"
     title = title if n_pages == 1 else f"{title} (page {page}/{n_pages})"
     subtitle = (
         "ULP (Unit in the Last Place): Float32 LSB bit distance. "
@@ -150,10 +154,14 @@ def plot_accuracy_platform_page(acc_df, samples_map, platform, libs, tasks, page
     return fig
 
 
-def plot_pareto_summary_table_page(agg, acc_df, platform, tasks, generated_at):
+def plot_pareto_summary_table_page(agg, acc_df, platform, profile, tasks, generated_at):
     """Renders a clean Pareto Classification Summary Table for a platform at the end of the report."""
-    plat_agg = agg[agg["platform"] == platform]
-    plat_acc = acc_df[acc_df["platform"] == platform] if acc_df is not None else None
+    plat_agg = agg[(agg["platform"] == platform) & (agg["profile"] == profile)]
+    plat_acc = (
+        acc_df[(acc_df["platform"] == platform) & (acc_df["profile"] == profile)]
+        if acc_df is not None
+        else None
+    )
     if plat_agg.empty or plat_acc is None:
         return None
 
@@ -161,7 +169,7 @@ def plot_pareto_summary_table_page(agg, acc_df, platform, tasks, generated_at):
     for task in tasks:
         sub_agg = plat_agg[plat_agg["task"] == task]
         sub_acc = plat_acc[plat_acc["task"] == task]
-        merged = pd.merge(sub_agg, sub_acc, on=["platform", "library", "task"], how="inner")
+        merged = pd.merge(sub_agg, sub_acc, on=["platform", "profile", "library", "task"], how="inner")
         if merged.empty:
             continue
 
@@ -224,7 +232,7 @@ def plot_pareto_summary_table_page(agg, acc_df, platform, tasks, generated_at):
         if row[dominated_col] != "None":
             table[(row_idx, dominated_col)].get_text().set_color(DOMINATED_COLOR)
 
-    fig.suptitle(f"{platform} - Speed & Accuracy Trade-off Summary", fontsize=16, fontweight="bold", y=0.96)
+    fig.suptitle(f"{platform} [{profile}] - Speed & Accuracy Trade-off Summary", fontsize=16, fontweight="bold", y=0.96)
     fig.text(
         0.5, 0.90,
         "ULP (Unit in the Last Place): Measures float32 LSB bit distance (~1.19e-7 step at magnitude 1.0).\n"

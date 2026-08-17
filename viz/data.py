@@ -44,23 +44,25 @@ def load_and_clean(csv_path):
     """Split ok/error rows, add per-iteration duration (ns) to the ok rows.
 
     Returns (df_ok, error_counts) where error_counts maps
-    (platform, task, library) -> number of ERROR rows.
+    (platform, profile, task, library) -> number of ERROR rows.
     """
     df = pd.read_csv(csv_path)
+    if "profile" not in df.columns:
+        df["profile"] = "release"
     is_error = df["result"].astype(str).str.startswith("ERROR")
 
     df_ok = df[~is_error].copy()
     df_ok["per"] = df_ok["duration"] / df_ok["repetitions"]
     df_ok["per_ns"] = to_nanoseconds(df_ok)
 
-    error_counts = df[is_error].groupby(["platform", "task", "library"]).size().to_dict()
+    error_counts = df[is_error].groupby(["platform", "profile", "task", "library"]).size().to_dict()
     return df_ok, error_counts
 
 
 def aggregate(df_ok):
-    """Per (platform, task, library): median/count of `per_ns`."""
+    """Per (platform, profile, task, library): median/count of `per_ns`."""
     return (
-        df_ok.groupby(["platform", "task", "library"])["per_ns"]
+        df_ok.groupby(["platform", "profile", "task", "library"])["per_ns"]
         .agg(median="median", count="count")
         .reset_index()
     )
@@ -87,16 +89,26 @@ def drop_platform(agg, df_ok, error_counts, platform):
 
 
 def load_accuracy_df(csv_path):
-    """Loads accuracy_results.csv and accuracy_results.json if present in the workspace root."""
+    """Loads accuracy_results.csv and accuracy_results.json if present alongside csv_path or in root."""
+    csv_dir = os.path.dirname(os.path.abspath(csv_path))
     root_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    acc_csv = os.path.join(root_dir, "accuracy_results.csv")
-    acc_json = os.path.join(root_dir, "accuracy_results.json")
+
+    acc_csv = os.path.join(csv_dir, "accuracy_results.csv")
+    if not os.path.exists(acc_csv):
+        acc_csv = os.path.join(root_dir, "accuracy_results.csv")
+
+    acc_json = os.path.join(csv_dir, "accuracy_results.json")
+    if not os.path.exists(acc_json):
+        acc_json = os.path.join(root_dir, "accuracy_results.json")
+
     df = None
     samples_map = {}
 
     if os.path.exists(acc_csv):
         try:
             df = pd.read_csv(acc_csv)
+            if "profile" not in df.columns:
+                df["profile"] = "release"
         except Exception as e:
             print(f"plot.py: Warning - failed to load {acc_csv}: {e}", file=sys.stderr)
 
@@ -105,7 +117,12 @@ def load_accuracy_df(csv_path):
             with open(acc_json) as f:
                 data = json.load(f)
                 for entry in data:
-                    key = (entry.get("platform"), entry.get("task"), entry.get("library"))
+                    key = (
+                        entry.get("platform"),
+                        entry.get("profile", "release"),
+                        entry.get("task"),
+                        entry.get("library"),
+                    )
                     if "ulp_samples" in entry:
                         samples_map[key] = entry["ulp_samples"]
         except Exception as e:
@@ -114,19 +131,22 @@ def load_accuracy_df(csv_path):
     return df, samples_map
 
 
-def load_library_versions():
-    """Loads library_versions.json (library -> version string) from the workspace
-    root if present. Written by mrs-benchmark-collect alongside results.csv."""
+def load_library_versions(csv_path=None):
+    """Loads library_versions.json (library -> version string) from csv_dir or workspace root."""
+    paths_to_try = []
+    if csv_path:
+        paths_to_try.append(os.path.join(os.path.dirname(os.path.abspath(csv_path)), "library_versions.json"))
     root_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    versions_json = os.path.join(root_dir, "library_versions.json")
-    if not os.path.exists(versions_json):
-        return {}
-    try:
-        with open(versions_json) as f:
-            return json.load(f)
-    except Exception as e:
-        print(f"plot.py: Warning - failed to load {versions_json}: {e}", file=sys.stderr)
-        return {}
+    paths_to_try.append(os.path.join(root_dir, "library_versions.json"))
+
+    for path in paths_to_try:
+        if os.path.exists(path):
+            try:
+                with open(path) as f:
+                    return json.load(f)
+            except Exception as e:
+                print(f"plot.py: Warning - failed to load {path}: {e}", file=sys.stderr)
+    return {}
 
 
 def compute_pareto_frontier(points):

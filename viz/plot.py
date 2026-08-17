@@ -18,7 +18,7 @@ import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
 
 import common
-from config import GRID_SHAPE, LIBRARY_ORDER, PLATFORM_ORDER, TASK_GRID_SHAPE, TASK_ORDER
+from config import GRID_SHAPE, LIBRARY_ORDER, PLATFORM_ORDER, PROFILE_ORDER, TASK_GRID_SHAPE, TASK_ORDER
 from data import aggregate, drop_platform, load_accuracy_df, load_and_clean, load_library_versions, ordered
 from pages_accuracy import plot_accuracy_platform_page, plot_pareto_summary_table_page
 from pages_time import plot_platform_page, plot_task_page
@@ -33,31 +33,44 @@ def main(argv):
     task_pages = common.paginate(tasks, page_size)
     by_task_pages = common.paginate(tasks, TASK_GRID_SHAPE[0] * TASK_GRID_SHAPE[1])
     generated_at = datetime.now(ZoneInfo("Europe/Berlin")).strftime("%Y-%m-%d %H:%M:%S %Z")
-    versions = load_library_versions()
+    versions = load_library_versions(csv_path)
 
     all_platforms = ordered(agg["platform"].unique(), PLATFORM_ORDER, "platform(s)")
+    all_profiles = ordered(agg["profile"].unique(), PROFILE_ORDER, "profile(s)")
     all_libs = ordered(df_ok["library"].unique(), LIBRARY_ORDER, "library(ies) globally")
+
+    # Present (platform, profile) pairs
+    platform_profiles = [
+        (p, prof)
+        for p in all_platforms
+        for prof in all_profiles
+        if not agg[(agg["platform"] == p) & (agg["profile"] == prof)].empty
+    ]
 
     # host is not a useful reference point for the by-task comparison -- drop it
     # from the x-axis grouping *and* its row/error counts, not just hide it.
     task_agg, task_df_ok, task_error_counts = drop_platform(agg, df_ok, error_counts, "host")
-    task_platforms = [p for p in all_platforms if p != "host"]
+    task_platform_profiles = [(p, prof) for (p, prof) in platform_profiles if p != "host"]
 
     with PdfPages(out_pdf) as pdf:
-        for platform in all_platforms:
+        for platform, profile in platform_profiles:
             platform_libs = ordered(
-                df_ok.loc[df_ok["platform"] == platform, "library"].unique(),
+                df_ok.loc[
+                    (df_ok["platform"] == platform) & (df_ok["profile"] == profile), "library"
+                ].unique(),
                 LIBRARY_ORDER,
-                f"library(ies) on {platform}",
+                f"library(ies) on {platform} [{profile}]",
             )
             for page_idx, task_page in enumerate(task_pages, start=1):
                 page_rows = agg[
-                    (agg["platform"] == platform) & (agg["task"].isin(task_page))
+                    (agg["platform"] == platform)
+                    & (agg["profile"] == profile)
+                    & (agg["task"].isin(task_page))
                 ]
                 if page_rows.empty:
                     continue
                 fig = plot_platform_page(
-                    agg, df_ok, error_counts, platform, platform_libs, task_page,
+                    agg, df_ok, error_counts, platform, profile, platform_libs, task_page,
                     page_idx, len(task_pages), generated_at, versions,
                 )
                 pdf.savefig(fig)
@@ -69,7 +82,7 @@ def main(argv):
             if page_rows.empty:
                 continue
             fig = plot_task_page(
-                task_agg, task_df_ok, task_error_counts, task_page, task_platforms, all_libs,
+                task_agg, task_df_ok, task_error_counts, task_page, task_platform_profiles, all_libs,
                 page_idx, len(by_task_pages), generated_at, versions,
             )
             pdf.savefig(fig)
@@ -81,22 +94,26 @@ def main(argv):
         # from a platform's charts to find that platform's own verdict table.
         acc_df, samples_map = load_accuracy_df(csv_path)
         if acc_df is not None:
-            for platform in all_platforms:
+            for platform, profile in platform_profiles:
                 platform_libs = ordered(
-                    df_ok.loc[df_ok["platform"] == platform, "library"].unique(),
+                    df_ok.loc[
+                        (df_ok["platform"] == platform) & (df_ok["profile"] == profile), "library"
+                    ].unique(),
                     LIBRARY_ORDER,
-                    f"library(ies) on {platform}",
+                    f"library(ies) on {platform} [{profile}]",
                 )
                 for page_idx, task_page in enumerate(task_pages, start=1):
                     fig = plot_accuracy_platform_page(
-                        acc_df, samples_map, platform, platform_libs, task_page,
+                        acc_df, samples_map, platform, profile, platform_libs, task_page,
                         page_idx, len(task_pages), generated_at, versions,
                     )
                     if fig is not None:
                         pdf.savefig(fig)
                         plt.close(fig)
 
-                summary_fig = plot_pareto_summary_table_page(agg, acc_df, platform, tasks, generated_at)
+                summary_fig = plot_pareto_summary_table_page(
+                    agg, acc_df, platform, profile, tasks, generated_at
+                )
                 if summary_fig is not None:
                     pdf.savefig(summary_fig)
                     plt.close(summary_fig)

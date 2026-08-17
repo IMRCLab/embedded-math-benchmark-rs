@@ -57,6 +57,9 @@ TASK_ORDER = [
 # point next to real hardware, so it trails instead of leading every page/table.
 PLATFORM_ORDER = ["stm32", "rp2040", "rp2350-arm", "esp32s3", "host"]
 
+# Compilation profiles in standard display order
+PROFILE_ORDER = ["release", "lto", "size"]
+
 LOG_THRESHOLD = 10.0
 LOG_COLOR = "#c62828"
 GRID_SHAPE = (2, 4)  # rows, cols per page; extra tasks spill onto page 2, 3, ...

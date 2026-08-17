@@ -19,14 +19,14 @@ def _task_note(task_errors):
     return ", ".join(parts)
 
 
-def plot_platform_page(agg, df_ok, error_counts, platform, libs, tasks, page, n_pages, generated_at, versions=None):
+def plot_platform_page(agg, df_ok, error_counts, platform, profile, libs, tasks, page, n_pages, generated_at, versions=None):
     n_rows, n_cols = GRID_SHAPE
     fig, axes = plt.subplots(n_rows, n_cols, figsize=(16, 8))
     axes = axes.flatten()
 
-    platform_rows = agg[agg["platform"] == platform]
+    platform_rows = agg[(agg["platform"] == platform) & (agg["profile"] == profile)]
     total_n = int(platform_rows["count"].sum())
-    platform_samples = df_ok[df_ok["platform"] == platform]
+    platform_samples = df_ok[(df_ok["platform"] == platform) & (df_ok["profile"] == profile)]
     rng = random.Random(0)
 
     for ax, task in zip(axes, tasks):
@@ -44,8 +44,8 @@ def plot_platform_page(agg, df_ok, error_counts, platform, libs, tasks, page, n_
         scale = choose_scale([m for m, p in zip(medians, present) if p])
 
         task_errors = {
-            lib: n for (p, t, lib), n in error_counts.items()
-            if p == platform and t == task
+            lib: n for (p, prof, t, lib), n in error_counts.items()
+            if p == platform and prof == profile and t == task
         }
         # pad=14 leaves room for the error note below the title; max (not
         # equality) since an errored-out library has a lower count.
@@ -95,7 +95,7 @@ def plot_platform_page(agg, df_ok, error_counts, platform, libs, tasks, page, n_
     for ax in axes[len(tasks):]:
         ax.axis("off")
 
-    title = platform if n_pages == 1 else f"{platform} (page {page}/{n_pages})"
+    title = f"{platform} [{profile}]" if n_pages == 1 else f"{platform} [{profile}] (page {page}/{n_pages})"
     common.page_header(fig, title, f"n={total_n} rows", generated_at)
     common.add_legend(fig, libs, versions)
     # Fixed margins, not tight_layout: tight_layout sizes cells from the tight
@@ -105,9 +105,9 @@ def plot_platform_page(agg, df_ok, error_counts, platform, libs, tasks, page, n_
     return fig
 
 
-def plot_task_page(agg, df_ok, error_counts, tasks, platforms, libs, page, n_pages, generated_at, versions=None):
+def plot_task_page(agg, df_ok, error_counts, tasks, platform_profiles, libs, page, n_pages, generated_at, versions=None):
     """plot_platform_page transposed: one subplot per task, x-axis grouped by
-    platform, bars within each group by library. Every group reserves the
+    (platform, profile), bars within each group by library. Every group reserves the
     full `libs` set so all groups on the page are the same width."""
     n_rows, n_cols = TASK_GRID_SHAPE
     fig, axes = plt.subplots(n_rows, n_cols, figsize=(16, 8))
@@ -123,7 +123,10 @@ def plot_task_page(agg, df_ok, error_counts, tasks, platforms, libs, page, n_pag
         if task_rows.empty:
             ax.axis("off")
             continue
-        task_platforms = [p for p in platforms if p in set(task_rows["platform"])]
+        task_pp = [
+            (p, prof) for (p, prof) in platform_profiles
+            if not task_rows[(task_rows["platform"] == p) & (task_rows["profile"] == prof)].empty
+        ]
         task_samples = df_ok[df_ok["task"] == task]
 
         task_n = int(task_rows["count"].max())
@@ -132,7 +135,7 @@ def plot_task_page(agg, df_ok, error_counts, tasks, platforms, libs, page, n_pag
         # A per-(platform, library) breakdown (like plot_platform_page's note)
         # would run off the subplot at this bar count; total is enough here,
         # the per-platform pages already carry the itemized breakdown.
-        task_error_total = sum(n for (p, t, lib), n in error_counts.items() if t == task)
+        task_error_total = sum(n for (p, prof, t, lib), n in error_counts.items() if t == task)
         if task_error_total:
             ax.text(
                 0.5, 1.0, f"{task_error_total} errored input(s) across platforms",
@@ -144,13 +147,19 @@ def plot_task_page(agg, df_ok, error_counts, tasks, platforms, libs, page, n_pag
         tick_labels_text = []
         bar_x, bar_h, bar_libs = [], [], []
 
-        for gi, platform in enumerate(task_platforms):
+        for gi, (platform, profile) in enumerate(task_pp):
             base = gi * group_span
             tick_positions.append(base + (n_libs - 1) / 2)
-            tick_labels_text.append(platform)
+            tick_labels_text.append(f"{platform}\n({profile})")
 
-            plat_rows = task_rows[task_rows["platform"] == platform].set_index("library").reindex(libs)
-            plat_samples = task_samples[task_samples["platform"] == platform]
+            plat_rows = (
+                task_rows[(task_rows["platform"] == platform) & (task_rows["profile"] == profile)]
+                .set_index("library")
+                .reindex(libs)
+            )
+            plat_samples = task_samples[
+                (task_samples["platform"] == platform) & (task_samples["profile"] == profile)
+            ]
 
             for li, lib in enumerate(libs):
                 x = base + li
@@ -172,7 +181,7 @@ def plot_task_page(agg, df_ok, error_counts, tasks, platforms, libs, page, n_pag
             ax.set_ylabel(UNIT, fontsize=8)
         ax.margins(y=0.1)
 
-        n_groups = max(len(task_platforms), 1)
+        n_groups = max(len(task_pp), 1)
         ax.set_xlim(-0.5, (n_groups - 1) * group_span + (n_libs - 1) + 0.5)
         ax.set_xticks(tick_positions)
         ax.set_xticklabels(tick_labels_text, rotation=30, ha="right", fontsize=8)
@@ -181,7 +190,7 @@ def plot_task_page(agg, df_ok, error_counts, tasks, platforms, libs, page, n_pag
     for ax in axes[len(tasks):]:
         ax.axis("off")
 
-    title = "All platforms, grouped by task"
+    title = "All platforms & profiles, grouped by task"
     title = title if n_pages == 1 else f"{title} (page {page}/{n_pages})"
     common.page_header(fig, title, f"n={total_n} rows", generated_at)
     common.add_legend(fig, libs, versions)
