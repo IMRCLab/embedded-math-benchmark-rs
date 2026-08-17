@@ -1,22 +1,19 @@
-# Builds crate $BIN for $TARGET across release, lto, and size profiles from
-# its own crate dir (picks up crate-local .cargo/config.toml) and flattens the
-# binaries to the project root.
+# Builds crate $BIN for $TARGET with $PROFILE from its own crate dir
+# (picks up crate-local .cargo/config.toml) and flattens the binary to the project root.
 .cargo-build:
   stage: build
   needs: []
+  parallel:
+    matrix:
+      - PROFILE: [release, lto, size]
   script:
-    - (cd "$WORKSPACE_DIR/$BIN" && cargo build --release --target "$TARGET")
-    - (cd "$WORKSPACE_DIR/$BIN" && cargo build --profile lto --target "$TARGET")
-    - (cd "$WORKSPACE_DIR/$BIN" && cargo build --profile size --target "$TARGET")
-    - install -Dm755 "$CARGO_TARGET_DIR/$TARGET/release/$BIN" "$BIN-release"
-    - install -Dm755 "$CARGO_TARGET_DIR/$TARGET/lto/$BIN" "$BIN-lto"
-    - install -Dm755 "$CARGO_TARGET_DIR/$TARGET/size/$BIN" "$BIN-size"
+    - CARGO_FLAG=$([ "$PROFILE" = "release" ] && echo "--release" || echo "--profile $PROFILE")
+    - (cd "$WORKSPACE_DIR/$BIN" && cargo build $CARGO_FLAG --target "$TARGET")
+    - install -Dm755 "$CARGO_TARGET_DIR/$TARGET/$PROFILE/$BIN" "$BIN-$PROFILE"
   artifacts:
-    name: "$BIN-$CI_COMMIT_SHORT_SHA"
+    name: "$BIN-$PROFILE-$CI_COMMIT_SHORT_SHA"
     paths:
-      - "$BIN-release"
-      - "$BIN-lto"
-      - "$BIN-size"
+      - "$BIN-$PROFILE"
     expire_in: 1 year
 
 build-stm32:
