@@ -10,8 +10,6 @@
     name: "$BIN-$CI_COMMIT_SHORT_SHA"
     paths:
       - $BIN
-      # GIT_STRATEGY: none run jobs have no checkout; ship them the probe selector too.
-      - $SELECT_PROBE_SCRIPT
     expire_in: 1 year
 
 build-stm32:

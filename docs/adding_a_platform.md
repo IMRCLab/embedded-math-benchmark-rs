@@ -33,11 +33,12 @@ Checklist for bringing up a new hardware target (or new architecture on existing
    - `Dockerfile.ci`: `rustup target add`, or a separate toolchain if not upstream Rust.
    - `build.yml`: `build-<platform>` extending `.cargo-build` (`BIN`, `TARGET`).
    - `check.yml`: `clippy-<platform>`, mirroring the build job.
-   - `run.yml`: `run-<platform>` extending `.firmware-flash` (`CHIP`, `ELF`, `LOG`), once
-     flashing works over `probe-rs`.
+   - `run.yml`: `run-<platform>` extending `.firmware-flash` (`CHIP`, `ELF`, `LOG`,
+     `PROBE`), once flashing works over `probe-rs`.
    - `collect.yml`: add `- job: run-<platform>` / `optional: true` to `collect-results`.
-   - `select-probe.sh`: a `case` arm mapping chip name to a `probe-rs info` signature, only
-     if the default (`signature="$chip"`) fallback can't disambiguate it from other probes.
+   - A `HIL_PROBE_<PLATFORM>` project variable holding the probe's selector from
+     `probe-rs list`, referenced as `PROBE` by the run job. See
+     [hil-setup.md](hil-setup.md#probe-selection).
 
 5. **Local dev** (`Makefile.toml`): `build-<alias>` and `bench-<alias>` tasks mirroring the
    CI jobs.

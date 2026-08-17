@@ -19,11 +19,9 @@ platform (own `.cargo/config.toml`, own `main.rs`, own CI jobs).
   same as ESP32-S3, since the Dockerfile only ships an ARM C cross-compiler.
 - **CI**: `build-rp2350-riscv` and `clippy-rp2350-riscv` only, no `run-rp2350-riscv` (HIL)
   job until the recovery procedure is scripted into CI (see
-  [HIL Setup](../hil-setup.md#power-cycling-a-board)). When it lands, `select-probe.sh`
-  needs one new case: `probe-rs info`'s ROM-table scan always prints `RP235x CoreSight ROM`
-  regardless of chip variant, so the default `signature="$chip"` fallback won't match
-  `CHIP=RP235x_riscv` — add `RP235x_riscv) signature='RP235x' ;;`, reusing the ARM job's
-  signature.
+  [HIL Setup](../hil-setup.md#power-cycling-a-board)). When it lands, the run job reuses
+  `HIL_PROBE_RP2350` as its `PROBE`: same physical probe, only `CHIP` differs
+  (`RP235x_riscv`).
 - **Reporting**: `viz/config.py` needs `PLATFORM_CLOCK_HZ["rp2350-riscv"]` (both cores share
   `clk_sys`, likely 150 MHz like `rp2350-arm` — confirm once `main.rs` sets it explicitly)
   and a `PLATFORM_ORDER` entry (before `"host"`, which always sorts last).
