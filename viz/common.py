@@ -19,7 +19,9 @@ def scatter_jitter(ax, x_center, values, rng):
     """Jittered raw samples over a bar: shows the real spread/density instead of a
     single min/max whisker that one freak sample can stretch."""
     xs = [x_center + rng.uniform(-0.18, 0.18) for _ in range(len(values))]
-    ax.scatter(xs, values, s=6, color="#0b0b0b", alpha=0.35, zorder=3, linewidths=0)
+    # Rasterized: thousands of vector points per report otherwise dominate PDF
+    # serialization time (each point becomes its own PDF object).
+    ax.scatter(xs, values, s=6, color="#0b0b0b", alpha=0.35, zorder=3, linewidths=0, rasterized=True)
 
 
 def format_compact(value):

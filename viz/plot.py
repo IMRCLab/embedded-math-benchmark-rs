@@ -6,6 +6,13 @@ Usage: uv run --project viz viz/plot.py results.csv report.pdf
 import sys
 from datetime import datetime
 
+import matplotlib
+
+# Must be set before pyplot import: pins the backend instead of relying on
+# auto-detection, which picks a GUI backend (slower, display-dependent) when
+# a display happens to be available.
+matplotlib.use("Agg")
+
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
 
