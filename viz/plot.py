@@ -3,8 +3,11 @@
 Usage: uv run --project viz viz/plot.py results.csv report.pdf
 """
 
+import io
 import sys
+from concurrent.futures import ProcessPoolExecutor
 from datetime import datetime
+from multiprocessing import get_context
 from zoneinfo import ZoneInfo
 
 import matplotlib
@@ -15,7 +18,7 @@ import matplotlib
 matplotlib.use("Agg")
 
 import matplotlib.pyplot as plt
-from matplotlib.backends.backend_pdf import PdfPages
+from pypdf import PdfWriter
 
 import common
 import toc
@@ -24,16 +27,59 @@ from data import aggregate, drop_platform, load_accuracy_df, load_and_clean, loa
 from pages_accuracy import plot_accuracy_platform_page, plot_pareto_summary_table_page
 from pages_time import plot_platform_page, plot_task_page
 
+# Set in main() before the fork pool starts. Forked workers inherit these via
+# copy-on-write memory instead of having them re-pickled through the pool for
+# every job -- treat as read-only for the pool's lifetime.
+_agg = _df_ok = _error_counts = None
+_task_agg = _task_df_ok = _task_error_counts = _task_platform_profiles = None
+_acc_df = _samples_map = None
+_versions = _generated_at = _all_libs = _tasks = None
 
-def _save(pdf, entries, fig, section, platform=None, profile=None):
-    """Writes fig as the next page and records its page number for toc.py's
-    later TOC-page + bookmark-outline pass."""
-    pdf.savefig(fig)
+
+def _render_job(job):
+    """Runs in a worker process. Builds one page exactly as the old serial
+    loop did, then serializes it to PDF bytes (Figure objects don't pickle)
+    to cross the process boundary. None means the page builder decided there
+    was nothing to draw for this combo."""
+    kind, args = job
+    if kind == "time":
+        platform, profile, platform_libs, task_page, page_idx, n_pages = args
+        fig = plot_platform_page(
+            _agg, _df_ok, _error_counts, platform, profile, platform_libs, task_page,
+            page_idx, n_pages, _generated_at, _versions,
+        )
+        tag = ("time", platform, profile)
+    elif kind == "by_task":
+        task_page, page_idx, n_pages = args
+        fig = plot_task_page(
+            _task_agg, _task_df_ok, _task_error_counts, task_page, _task_platform_profiles,
+            _all_libs, page_idx, n_pages, _generated_at, _versions,
+        )
+        tag = ("by_task", None, None)
+    elif kind == "accuracy":
+        platform, profile, platform_libs, task_page, page_idx, n_pages = args
+        fig = plot_accuracy_platform_page(
+            _acc_df, _samples_map, platform, profile, platform_libs, task_page,
+            page_idx, n_pages, _generated_at, _versions,
+        )
+        tag = ("accuracy", platform, profile)
+    else:
+        platform, profile = args
+        fig = plot_pareto_summary_table_page(_agg, _acc_df, platform, profile, _tasks, _generated_at)
+        tag = ("pareto", platform, profile)
+
+    if fig is None:
+        return None
+    buf = io.BytesIO()
+    fig.savefig(buf, format="pdf")
     plt.close(fig)
-    entries.append({"page": pdf.get_pagecount(), "section": section, "platform": platform, "profile": profile})
+    return (*tag, buf.getvalue())
 
 
 def main(argv):
+    global _agg, _df_ok, _error_counts, _task_agg, _task_df_ok, _task_error_counts
+    global _task_platform_profiles, _acc_df, _samples_map, _versions, _generated_at, _all_libs, _tasks
+
     csv_path, out_pdf = argv[1], argv[2]
     df_ok, error_counts = load_and_clean(csv_path)
     agg = aggregate(df_ok)
@@ -61,68 +107,69 @@ def main(argv):
     task_agg, task_df_ok, task_error_counts = drop_platform(agg, df_ok, error_counts, "host")
     task_platform_profiles = [(p, prof) for (p, prof) in platform_profiles if p != "host"]
 
-    entries = []
-    with PdfPages(out_pdf) as pdf:
+    acc_df, samples_map = load_accuracy_df(csv_path)
+
+    # Published as module globals before the fork pool starts -- see _render_job.
+    _agg, _df_ok, _error_counts = agg, df_ok, error_counts
+    _task_agg, _task_df_ok, _task_error_counts = task_agg, task_df_ok, task_error_counts
+    _task_platform_profiles = task_platform_profiles
+    _acc_df, _samples_map = acc_df, samples_map
+    _versions, _generated_at, _all_libs, _tasks = versions, generated_at, all_libs, tasks
+
+    jobs = []
+    for platform, profile in platform_profiles:
+        platform_libs = ordered(
+            df_ok.loc[(df_ok["platform"] == platform) & (df_ok["profile"] == profile), "library"].unique(),
+            LIBRARY_ORDER,
+            f"library(ies) on {platform} [{profile}]",
+        )
+        for page_idx, task_page in enumerate(task_pages, start=1):
+            page_rows = agg[
+                (agg["platform"] == platform) & (agg["profile"] == profile) & (agg["task"].isin(task_page))
+            ]
+            if page_rows.empty:
+                continue
+            jobs.append(("time", (platform, profile, platform_libs, task_page, page_idx, len(task_pages))))
+
+    # Section 2: Execution Time (by task, host excluded -- see task_agg/task_df_ok above)
+    for page_idx, task_page in enumerate(by_task_pages, start=1):
+        page_rows = task_agg[task_agg["task"].isin(task_page)]
+        if page_rows.empty:
+            continue
+        jobs.append(("by_task", (task_page, page_idx, len(by_task_pages))))
+
+    # Section 3: Accuracy Bar Charts, each platform immediately followed by its
+    # own Section 4 Pareto speed/accuracy summary table (rather than batching
+    # all summary tables at the very end) so a reader never has to flip far
+    # from a platform's charts to find that platform's own verdict table.
+    #
+    # Every combo is dispatched and the worker decides whether there's
+    # anything to draw -- its emptiness check is more than a plain
+    # DataFrame.empty test (see has_any_plot in pages_accuracy.py), so it
+    # can't be replicated cheaply here the way Section 1/2's pre-filter can.
+    if acc_df is not None:
         for platform, profile in platform_profiles:
             platform_libs = ordered(
-                df_ok.loc[
-                    (df_ok["platform"] == platform) & (df_ok["profile"] == profile), "library"
-                ].unique(),
+                df_ok.loc[(df_ok["platform"] == platform) & (df_ok["profile"] == profile), "library"].unique(),
                 LIBRARY_ORDER,
                 f"library(ies) on {platform} [{profile}]",
             )
             for page_idx, task_page in enumerate(task_pages, start=1):
-                page_rows = agg[
-                    (agg["platform"] == platform)
-                    & (agg["profile"] == profile)
-                    & (agg["task"].isin(task_page))
-                ]
-                if page_rows.empty:
-                    continue
-                fig = plot_platform_page(
-                    agg, df_ok, error_counts, platform, profile, platform_libs, task_page,
-                    page_idx, len(task_pages), generated_at, versions,
-                )
-                _save(pdf, entries, fig, "time", platform, profile)
+                jobs.append(("accuracy", (platform, profile, platform_libs, task_page, page_idx, len(task_pages))))
+            jobs.append(("pareto", (platform, profile)))
 
-        # Section 2: Execution Time (by task, host excluded -- see task_agg/task_df_ok above)
-        for page_idx, task_page in enumerate(by_task_pages, start=1):
-            page_rows = task_agg[task_agg["task"].isin(task_page)]
-            if page_rows.empty:
+    entries = []
+    writer = PdfWriter()
+    with ProcessPoolExecutor(mp_context=get_context("fork")) as executor:
+        for result in executor.map(_render_job, jobs):
+            if result is None:
                 continue
-            fig = plot_task_page(
-                task_agg, task_df_ok, task_error_counts, task_page, task_platform_profiles, all_libs,
-                page_idx, len(by_task_pages), generated_at, versions,
-            )
-            _save(pdf, entries, fig, "by_task")
+            section, platform, profile, pdf_bytes = result
+            writer.append(io.BytesIO(pdf_bytes))
+            entries.append({"page": len(writer.pages), "section": section, "platform": platform, "profile": profile})
 
-        # Section 3: Accuracy Bar Charts, each platform immediately followed by its
-        # own Section 4 Pareto speed/accuracy summary table (rather than batching
-        # all summary tables at the very end) so a reader never has to flip far
-        # from a platform's charts to find that platform's own verdict table.
-        acc_df, samples_map = load_accuracy_df(csv_path)
-        if acc_df is not None:
-            for platform, profile in platform_profiles:
-                platform_libs = ordered(
-                    df_ok.loc[
-                        (df_ok["platform"] == platform) & (df_ok["profile"] == profile), "library"
-                    ].unique(),
-                    LIBRARY_ORDER,
-                    f"library(ies) on {platform} [{profile}]",
-                )
-                for page_idx, task_page in enumerate(task_pages, start=1):
-                    fig = plot_accuracy_platform_page(
-                        acc_df, samples_map, platform, profile, platform_libs, task_page,
-                        page_idx, len(task_pages), generated_at, versions,
-                    )
-                    if fig is not None:
-                        _save(pdf, entries, fig, "accuracy", platform, profile)
-
-                summary_fig = plot_pareto_summary_table_page(
-                    agg, acc_df, platform, profile, tasks, generated_at
-                )
-                if summary_fig is not None:
-                    _save(pdf, entries, summary_fig, "pareto", platform, profile)
+    with open(out_pdf, "wb") as f:
+        writer.write(f)
 
     toc.finalize(out_pdf, entries, all_platforms, all_profiles, generated_at)
 

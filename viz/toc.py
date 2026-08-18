@@ -1,8 +1,8 @@
 """Front matter added after the report is fully rendered: a table-of-contents
 page plus a nested PDF bookmark outline, built from the page number plot.py
-recorded for every page it wrote. Kept separate so plot.py's render loop
-doesn't need to know about pypdf -- it only records (page, section, platform,
-profile) tuples as it goes."""
+recorded for every page it wrote. Kept separate so plot.py's render loop only
+needs to record (page, section, platform, profile) tuples as it goes -- the
+outline/link-annotation logic lives entirely here."""
 
 import os
 
@@ -21,8 +21,8 @@ SECTION_TITLES = {
 
 def _first_page(entries, **match):
     """Lowest recorded page number among entries matching all given fields, or
-    None. Page numbers are 1-based counts from PdfPages.get_pagecount(),
-    taken right after the matching page was written."""
+    None. Page numbers are 1-based counts of pages appended to the PdfWriter
+    so far, taken right after the matching page was appended."""
     matches = [e["page"] for e in entries if all(e.get(k) == v for k, v in match.items())]
     return min(matches) if matches else None
 
@@ -158,7 +158,7 @@ def finalize(out_pdf, entries, all_platforms, all_profiles, generated_at):
     os.remove(toc_path)
 
     # TOC lands at index 0, so an old 1-based page number `p` (recorded via
-    # PdfPages.get_pagecount() right after writing that page) is exactly the
+    # len(writer.pages) right after that page was appended) is exactly the
     # new 0-based index both the outline and these link annotations want.
     for rect, target_page in toc_links:
         link = writer.add_annotation(page_number=0, annotation=Link(rect=rect, target_page_index=target_page))

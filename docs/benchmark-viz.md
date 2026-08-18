@@ -65,9 +65,9 @@ code for exact behavior.
 
 ## Tool choice: matplotlib + pandas, run via uv
 
-Chosen over plotnine/R-ggplot2/gnuplot for native multipage PDF support (`PdfPages`) and
-because explicit code is easier to maintain here than a declarative API for an AI-written,
-human-maintained script.
+Chosen over plotnine/R-ggplot2/gnuplot for native multipage PDF support and because explicit
+code is easier to maintain here than a declarative API for an AI-written, human-maintained
+script.
 
 `viz/` is a uv project (`pyproject.toml`/`uv.lock`): `config.py` (constants), `data.py`
 (load/transform), `common.py` (shared chart chrome), `pages_time.py` / `pages_accuracy.py`
@@ -78,6 +78,16 @@ environment without changing cwd, so the CSV/PDF paths stay repo-root-relative).
 
 **Verification:** no automated test suite: a plotting script's correctness is fundamentally
 visual. Verify by running against a real `results.csv` and reviewing `report.pdf` by eye.
+
+### Rendering is parallelized (process pool)
+
+`plot.py` renders each page in a `ProcessPoolExecutor` (`fork` context, module-level globals
+for zero-copy data sharing) instead of a serial loop -- pages are independent, and matplotlib
+rendering is the runtime cost (pure Python/Cython, GIL-bound, so threads wouldn't help). Cut a
+real ~110-page report from ~35s to ~9s locally (12 cores); CI's 64-core runner should do better.
+
+Not tried, possible follow-up if more speed is needed: swap the Agg backend for `mplcairo`
+(faster raster pipeline, drop-in `matplotlib.use()` replacement).
 
 ## CI
 
