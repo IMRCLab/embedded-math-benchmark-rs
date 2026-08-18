@@ -20,7 +20,7 @@
         ELF="${BIN}-${PROF}"
         LOG="${TARGET_NAME}-${PROF}.log"
         echo "=== Flashing ${ELF} on ${CHIP} ==="
-        timeout ${CAPTURE_SECS}s probe-rs run --chip "$CHIP" ${PROBE:+--probe "$PROBE"} ${PROBE_SPEED:+--speed "$PROBE_SPEED"} "$ELF" | tee "$LOG"
+        timeout ${CAPTURE_SECS}s probe-rs run --chip "$CHIP" ${PROBE:+--probe "$PROBE"} ${PROBE_SPEED:+--speed "$PROBE_SPEED"} "$ELF" | tee "$LOG" || exit 1
       done
   artifacts:
     name: "bench-$CI_COMMIT_SHORT_SHA"

@@ -54,16 +54,17 @@ grep them out.
 
 ```
 [some normal log line]
-BENCH platform,library,task,input_index,repetitions,duration,unit,result
-BENCH stm32,glam,MatMul3x3,0,1000,3003284,cycles,"[30.0, 84.0, 138.0, 24.0, 69.0, 114.0, 18.0, 54.0, 90.0]"
+BENCH platform,profile,library,task,input_index,repetitions,duration,unit,result
+BENCH stm32,release,glam,MatMul3x3,0,1000,3003284,cycles,"[30.0, 84.0, 138.0, 24.0, 69.0, 114.0, 18.0, 54.0, 90.0]"
 [more logs]
-BENCH platform,library,task,input_index,repetitions,duration,unit,result
-BENCH host,glam,MatMul3x3,0,1000,104523,ns,"[30.0, 84.0, 138.0, 24.0, 69.0, 114.0, 18.0, 54.0, 90.0]"
+BENCH platform,profile,library,task,input_index,repetitions,duration,unit,result
+BENCH host,release,glam,MatMul3x3,0,1000,104523,ns,"[30.0, 84.0, 138.0, 24.0, 69.0, 114.0, 18.0, 54.0, 90.0]"
 ```
 
 - Each platform automatically prints the common header row.
-- One data row per (platform, library, task, input). Columns, in order:
-  `platform,library,task,input_index,repetitions,duration,unit,result`.
+- One data row per (platform, profile, library, task, input). Columns, in order:
+  `platform,profile,library,task,input_index,repetitions,duration,unit,result`.
+- `profile` is the compile profile (`release`, `lto`, `size`, or `dev`), baked in at build time.
 - `result` is the computed output (e.g. array of floats) formatted as `Debug` so Python can
   parse it with `ast.literal_eval`; it's quoted to protect its internal commas. A failed
   math op emits `ERROR: <reason>` instead.

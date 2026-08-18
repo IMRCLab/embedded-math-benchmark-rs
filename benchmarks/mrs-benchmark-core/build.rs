@@ -1,4 +1,5 @@
 fn main() {
+    println!("cargo:rerun-if-changed=../inputs.json");
     println!("cargo:rerun-if-env-changed=OUT_DIR");
     println!("cargo:rerun-if-env-changed=PROFILE");
     println!("cargo:rerun-if-env-changed=OPT_LEVEL");
@@ -19,5 +20,3 @@ fn main() {
 
     println!("cargo:rustc-env=BENCH_PROFILE={profile_tag}");
 }
-
-
