@@ -12,7 +12,8 @@ Checklist for bringing up a new hardware target (or new architecture on existing
    - Linker script plus a `build.rs` copying it into `OUT_DIR`, if needed beyond what the
      runtime crate ships.
    - `src/main.rs`: implement `BenchmarkPlatform` (`id()`, `setup()`, `now()`/`elapsed()`,
-     `unit()`, `log_result()`); pick a timing source, see [platforms.md](platforms.md). Add
+     `unit()`, `log_result()`); pass `mrs_benchmark_core::PROFILE` as the profile field in
+     `log_result()`. Pick a timing source, see [platforms.md](platforms.md). Add
      boot metadata the chip's boot ROM needs, if any. Set the CPU clock explicitly if the
      HAL default isn't nominal: a raw cycle count is meaningless without the Hz. Use
      `rtt_target`'s `ChannelMode::BlockIfFull` with an explicit buffer size; the default can
@@ -31,10 +32,11 @@ Checklist for bringing up a new hardware target (or new architecture on existing
 
 4. **CI** (`.gitlab/ci/`):
    - `Dockerfile.ci`: `rustup target add`, or a separate toolchain if not upstream Rust.
-   - `build.yml`: `build-<platform>` extending `.cargo-build` (`BIN`, `TARGET`).
+   - `build.yml`: `build-<platform>` extending `.cargo-build` (`BIN`, `TARGET`). Automatically
+     builds `release`, `lto`, and `size` profiles via parallel matrix.
    - `check.yml`: `clippy-<platform>`, mirroring the build job.
-   - `run.yml`: `run-<platform>` extending `.firmware-flash` (`CHIP`, `ELF`, `LOG`,
-     `PROBE`), once flashing works over `probe-rs`.
+   - `run.yml`: `run-<platform>` extending `.firmware-flash` (`CHIP`, `BIN`, `TARGET_NAME`,
+     `PROBE`), once flashing works over `probe-rs`. Runs all 3 profiles sequentially.
    - `collect.yml`: add `- job: run-<platform>` / `optional: true` to `collect-results`.
    - A `HIL_PROBE_<PLATFORM>` project variable holding the probe's selector from
      `probe-rs list`, referenced as `PROBE` by the run job. See
