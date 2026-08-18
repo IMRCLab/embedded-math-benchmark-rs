@@ -18,10 +18,19 @@ import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
 
 import common
+import toc
 from config import GRID_SHAPE, LIBRARY_ORDER, PLATFORM_ORDER, PROFILE_ORDER, TASK_GRID_SHAPE, TASK_ORDER
 from data import aggregate, drop_platform, load_accuracy_df, load_and_clean, load_library_versions, ordered
 from pages_accuracy import plot_accuracy_platform_page, plot_pareto_summary_table_page
 from pages_time import plot_platform_page, plot_task_page
+
+
+def _save(pdf, entries, fig, section, platform=None, profile=None):
+    """Writes fig as the next page and records its page number for toc.py's
+    later TOC-page + bookmark-outline pass."""
+    pdf.savefig(fig)
+    plt.close(fig)
+    entries.append({"page": pdf.get_pagecount(), "section": section, "platform": platform, "profile": profile})
 
 
 def main(argv):
@@ -52,6 +61,7 @@ def main(argv):
     task_agg, task_df_ok, task_error_counts = drop_platform(agg, df_ok, error_counts, "host")
     task_platform_profiles = [(p, prof) for (p, prof) in platform_profiles if p != "host"]
 
+    entries = []
     with PdfPages(out_pdf) as pdf:
         for platform, profile in platform_profiles:
             platform_libs = ordered(
@@ -73,8 +83,7 @@ def main(argv):
                     agg, df_ok, error_counts, platform, profile, platform_libs, task_page,
                     page_idx, len(task_pages), generated_at, versions,
                 )
-                pdf.savefig(fig)
-                plt.close(fig)
+                _save(pdf, entries, fig, "time", platform, profile)
 
         # Section 2: Execution Time (by task, host excluded -- see task_agg/task_df_ok above)
         for page_idx, task_page in enumerate(by_task_pages, start=1):
@@ -85,8 +94,7 @@ def main(argv):
                 task_agg, task_df_ok, task_error_counts, task_page, task_platform_profiles, all_libs,
                 page_idx, len(by_task_pages), generated_at, versions,
             )
-            pdf.savefig(fig)
-            plt.close(fig)
+            _save(pdf, entries, fig, "by_task")
 
         # Section 3: Accuracy Bar Charts, each platform immediately followed by its
         # own Section 4 Pareto speed/accuracy summary table (rather than batching
@@ -108,15 +116,15 @@ def main(argv):
                         page_idx, len(task_pages), generated_at, versions,
                     )
                     if fig is not None:
-                        pdf.savefig(fig)
-                        plt.close(fig)
+                        _save(pdf, entries, fig, "accuracy", platform, profile)
 
                 summary_fig = plot_pareto_summary_table_page(
                     agg, acc_df, platform, profile, tasks, generated_at
                 )
                 if summary_fig is not None:
-                    pdf.savefig(summary_fig)
-                    plt.close(summary_fig)
+                    _save(pdf, entries, summary_fig, "pareto", platform, profile)
+
+    toc.finalize(out_pdf, entries, all_platforms, all_profiles, generated_at)
 
 
 if __name__ == "__main__":

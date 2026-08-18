@@ -101,7 +101,7 @@ def plot_platform_page(agg, df_ok, error_counts, platform, profile, libs, tasks,
     # Fixed margins, not tight_layout: tight_layout sizes cells from the tight
     # bbox of all axes including ones turned off, so a sparse continuation
     # page got extra padding and its one subplot visibly inflated.
-    fig.subplots_adjust(left=0.055, right=0.985, top=0.86, bottom=0.13, hspace=0.7, wspace=0.35)
+    fig.subplots_adjust(left=0.055, right=0.985, top=0.89, bottom=0.13, hspace=0.7, wspace=0.35)
     return fig
 
 
@@ -194,5 +194,5 @@ def plot_task_page(agg, df_ok, error_counts, tasks, platform_profiles, libs, pag
     title = title if n_pages == 1 else f"{title} (page {page}/{n_pages})"
     common.page_header(fig, title, f"n={total_n} rows", generated_at)
     common.add_legend(fig, libs, versions)
-    fig.subplots_adjust(left=0.055, right=0.985, top=0.86, bottom=0.13, hspace=0.7, wspace=0.1)
+    fig.subplots_adjust(left=0.055, right=0.985, top=0.89, bottom=0.13, hspace=0.7, wspace=0.1)
     return fig

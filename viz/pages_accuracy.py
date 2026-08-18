@@ -59,7 +59,7 @@ def plot_accuracy_platform_page(acc_df, samples_map, platform, profile, libs, ta
     # the symlog value-label placement below reads each axes' pixel geometry via
     # ax.transData -- computing that against the default pre-adjustment layout gave
     # a gap sized for a different subplot size than what actually renders.
-    fig.subplots_adjust(left=0.055, right=0.985, top=0.86, bottom=0.13, hspace=0.7, wspace=0.35)
+    fig.subplots_adjust(left=0.055, right=0.985, top=0.89, bottom=0.13, hspace=0.7, wspace=0.35)
 
     plat_acc = (
         acc_df[(acc_df["platform"] == platform) & (acc_df["profile"] == profile)]
@@ -212,7 +212,7 @@ def plot_pareto_summary_table_page(agg, acc_df, platform, profile, tasks, genera
     # it size itself from row count + a fixed .scale() multiplier -- that grew
     # taller than the axes and overlapped the subtitle once enough tasks (and
     # so table rows) accumulated.
-    fig.subplots_adjust(top=0.78, bottom=0.04, left=0.03, right=0.97)
+    fig.subplots_adjust(top=0.83, bottom=0.04, left=0.03, right=0.97)
 
     headers = ["Task", "Fastest Library", "Most Accurate Library", "Pareto Optimal Set", "Dominated Libraries"]
     table = ax.table(cellText=table_data, colLabels=headers, cellLoc="center", loc="center", bbox=[0, 0, 1, 1])

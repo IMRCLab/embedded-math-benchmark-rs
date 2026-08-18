@@ -18,9 +18,16 @@ glab job artifact $(git branch --show-current) report-pdf
 
 ## Chart design
 
-- Multipage PDF: Section 1 = one page-set per platform, Section 2 = by-task (below),
-  Section 3 = accuracy per platform, Section 4 = Pareto summary table per platform.
+- Multipage PDF: page 1 = table of contents, Section 1 = one page-set per platform x
+  compile profile, Section 2 = by-task (below), Section 3 = accuracy per platform x
+  profile, Section 4 = Pareto summary table per platform x profile.
   Firmware cycle counts convert to ns via `PLATFORM_CLOCK_HZ` (`viz/config.py`).
+- **Navigation**: `viz/toc.py` runs after the report is fully rendered. It inserts the
+  TOC page (platform x profile table of starting page numbers) and a nested PDF
+  bookmark/outline tree (`Execution Time by Platform > platform > profile`,
+  `Execution Time by Task`, `Accuracy & Pareto > platform > profile`) via `pypdf`,
+  built from the page number `plot.py` records after every `pdf.savefig()`. Content
+  pages themselves are untouched -- this is a pure post-process navigation layer.
 - Fixed task grid per page (`TASK_ORDER`, `GRID_SHAPE` in `viz/config.py`); overflow spills
   onto a numbered continuation page. Layout uses `subplots_adjust()` (not `tight_layout()`)
   so a sparse page's grid doesn't inflate.
@@ -64,7 +71,8 @@ human-maintained script.
 
 `viz/` is a uv project (`pyproject.toml`/`uv.lock`): `config.py` (constants), `data.py`
 (load/transform), `common.py` (shared chart chrome), `pages_time.py` / `pages_accuracy.py`
-(page builders), `plot.py` (CLI entry). Same command locally and in CI:
+(page builders), `toc.py` (TOC page + bookmark outline, post-process via `pypdf`),
+`plot.py` (CLI entry). Same command locally and in CI:
 `uv run --project viz viz/plot.py results.csv report.pdf` (`--project` resolves the
 environment without changing cwd, so the CSV/PDF paths stay repo-root-relative).
 
