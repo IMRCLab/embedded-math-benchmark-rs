@@ -16,10 +16,14 @@ Build and run on the host or a microcontroller. Inputs come from `benchmarks/inp
 | `cargo make bench-pico`  | build + flash RP2040 (Pico 1) over probe-rs                                   |
 | `cargo make bench-pico2` | build + flash RP2350 (Pico 2) over probe-rs                                   |
 | `cargo make bench-esp32` | build + flash ESP32-S3 over its native USB JTAG                               |
+| `cargo make bench-stm-xlto` | STM32F405 with cross-language LTO ([task-categories.md](task-categories.md)) |
+| `cargo make bench-pico2-xlto` | RP2350 with cross-language LTO                                          |
 | `cargo make report`      | render `results.csv` into `report.pdf` ([benchmark-viz.md](benchmark-viz.md)) |
 
 Firmware tasks need `probe-rs` and a connected probe, see [HIL Setup](hil-setup.md).
 ESP32-S3 additionally needs the `espup`-installed `esp` toolchain on `PATH`.
+The `-xlto` tasks additionally need `clang` whose LLVM major matches `rustc -vV`'s, since the two
+feed one linker plugin. They are ARM hard-float only.
 
 ## Without cargo-make
 

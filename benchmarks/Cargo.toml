@@ -34,6 +34,12 @@ opt-level = 3
 lto = "fat"
 codegen-units = 1
 
+# Cross-language LTO: rustc emits bitcode and rust-lld runs one ThinLTO over Rust and C together.
+# Deliberately not based on `lto` -- fat LTO runs inside rustc and the C bitcode never joins that
+# link, so cross-LTO silently does nothing there. See docs/task-categories.md.
+[profile.xlto]
+inherits = "release"
+
 [profile.size]
 inherits = "release"
 opt-level = "z"

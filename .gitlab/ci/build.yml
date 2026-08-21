@@ -8,6 +8,8 @@
       - PROFILE: [release, lto, size]
   script:
     - CARGO_FLAG=$([ "$PROFILE" = "release" ] && echo "--release" || echo "--profile $PROFILE")
+    # RUSTFLAGS replaces the crate's .cargo/config.toml rustflags, so XLTO_RUSTFLAGS repeats them.
+    - if [ "$PROFILE" = "xlto" ]; then export RUSTFLAGS="$XLTO_RUSTFLAGS"; fi
     - (cd "$WORKSPACE_DIR/$BIN" && cargo build $CARGO_FLAG --target "$TARGET")
     - install -Dm755 "$CARGO_TARGET_DIR/$TARGET/$PROFILE/$BIN" "$BIN-$PROFILE"
   artifacts:
@@ -24,15 +26,23 @@ build-rp2040:
 
 build-stm32:
   extends: .cargo-build
+  parallel:
+    matrix:
+      - PROFILE: [release, lto, size, xlto]
   variables:
     BIN: mrs-benchmark-stm32
     TARGET: thumbv7em-none-eabihf
+    XLTO_RUSTFLAGS: "-C linker-plugin-lto -C target-cpu=cortex-m4 -C link-arg=-Tlink.x -C link-arg=--lto-O3 -C link-arg=--mllvm=-import-instr-limit=500"
 
 build-rp2350:
   extends: .cargo-build
+  parallel:
+    matrix:
+      - PROFILE: [release, lto, size, xlto]
   variables:
     BIN: mrs-benchmark-rp2350
     TARGET: thumbv8m.main-none-eabihf
+    XLTO_RUSTFLAGS: "-C linker-plugin-lto -C target-cpu=cortex-m33 -C link-arg=--nmagic -C link-arg=-Tlink.x -C link-arg=--lto-O3 -C link-arg=--mllvm=-import-instr-limit=500"
 
 build-host:
   extends: .cargo-build

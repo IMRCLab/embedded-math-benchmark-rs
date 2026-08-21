@@ -35,6 +35,24 @@ fn gcc_system_include_dirs(
     dirs
 }
 
+// Cross-language LTO needs the C side emitted as bitcode rustc's linker plugin can consume, so the
+// `xlto` profile swaps gcc for clang. Returns None for targets we don't cross-LTO (thumbv6m: fat
+// LTO makes compiler_builtins load-bearing there, see docs/platforms.md).
+fn clang_lto_flags(target: &str) -> Option<Vec<String>> {
+    let (cpu, fpu) = match target {
+        "thumbv7em-none-eabihf" => ("cortex-m4", "fpv4-sp-d16"),
+        "thumbv8m.main-none-eabihf" => ("cortex-m33", "fpv5-sp-d16"),
+        _ => return None,
+    };
+    Some(vec![
+        format!("--target={target}"),
+        format!("-mcpu={cpu}"),
+        format!("-mfpu={fpu}"),
+        "-mfloat-abi=hard".to_string(),
+        "-flto=thin".to_string(),
+    ])
+}
+
 fn main() {
     let manifest_dir = PathBuf::from(env::var("CARGO_MANIFEST_DIR").unwrap());
     let cf_src = manifest_dir.join("../vendor/crazyflie-firmware/src");
@@ -82,6 +100,26 @@ fn main() {
     let cmsis_tables_src = cmsis_dsp_dir.join("Source/CommonTables");
 
     let target = env::var("TARGET").unwrap();
+    let out_path = PathBuf::from(env::var("OUT_DIR").unwrap());
+
+    // Cargo routes intermediate artifacts to target/[<triple>/]<profile>/build/..., same trick as
+    // mrs-benchmark-core/build.rs uses to name the profile.
+    let xlto = out_path.to_string_lossy().contains("/xlto/");
+    if xlto {
+        let rustflags = env::var("CARGO_ENCODED_RUSTFLAGS").unwrap_or_default();
+        assert!(
+            rustflags.contains("linker-plugin-lto"),
+            "profile `xlto` needs -Clinker-plugin-lto in RUSTFLAGS; build it with `cargo make`"
+        );
+    }
+
+    // gcc's system include dirs work for clang too, and unlike --sysroot they resolve on both
+    // Arch and Debian layouts.
+    let system_includes = if target.starts_with("thumb") {
+        gcc_system_include_dirs(&wrapper_h, &project_includes)
+    } else {
+        Vec::new()
+    };
 
     // 1. Compile the wrapper C code and CMSIS-DSP routines using the cc crate
     let mut cc_build = cc::Build::new();
@@ -110,13 +148,23 @@ fn main() {
     for dir in &project_includes {
         cc_build.include(dir);
     }
+    if xlto {
+        let flags = clang_lto_flags(&target)
+            .unwrap_or_else(|| panic!("profile `xlto` does not support target {target}"));
+        cc_build.compiler("clang");
+        for flag in flags {
+            cc_build.flag(&flag);
+        }
+        for dir in &system_includes {
+            cc_build.flag("-isystem").flag(dir);
+        }
+    }
     cc_build
         .flag_if_supported("-Wno-absolute-value")
         .flag_if_supported("-Wno-strict-aliasing")
         .compile("cf_math_wrapper");
 
     // 2. Generate the FFI bindings using bindgen
-    let target = env::var("TARGET").unwrap();
     let mut builder = bindgen::Builder::default().header(wrapper_h.to_str().unwrap());
     for dir in &project_includes {
         builder = builder.clang_arg(format!("-I{}", dir.display()));
@@ -134,17 +182,14 @@ fn main() {
 
     builder = builder.clang_arg(format!("--target={}", target));
 
-    if target.starts_with("thumb") {
-        for dir in gcc_system_include_dirs(&wrapper_h, &project_includes) {
-            builder = builder.clang_arg(format!("-I{}", dir));
-        }
+    for dir in &system_includes {
+        builder = builder.clang_arg(format!("-I{}", dir));
     }
 
     builder = builder.layout_tests(false);
 
     let bindings = builder.generate().expect("Unable to generate bindings");
 
-    let out_path = PathBuf::from(env::var("OUT_DIR").unwrap());
     bindings
         .write_to_file(out_path.join("bindings.rs"))
         .expect("Couldn't write bindings!");

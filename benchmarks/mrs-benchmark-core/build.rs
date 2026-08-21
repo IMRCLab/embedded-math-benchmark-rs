@@ -12,6 +12,8 @@ fn main() {
         "size"
     } else if out_dir.contains("/lto/") {
         "lto"
+    } else if out_dir.contains("/xlto/") {
+        "xlto"
     } else if out_dir.contains("/release/") || opt_level == "3" {
         "release"
     } else {

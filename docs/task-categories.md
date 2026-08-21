@@ -26,7 +26,8 @@ quoting a number as a C-vs-Rust result.
 ## What each category supports
 
 **arithmetic**: C-vs-Rust codegen, but only on the free-ABI rows. Quote a `mat33` row as a
-language result and you are mostly quoting AAPCS struct copies.
+language result and you are mostly quoting AAPCS struct copies. At `xlto` this inverts:
+`MatMul3x3` and `QuatToRotMatrix` become clean and the free-ABI rows become the contaminated ones.
 
 **libm-bound**: nothing about language codegen. The result reflects which libm is linked, so
 read it next to the transcendental rows. Note C wins both of these outright.
@@ -71,25 +72,43 @@ The free-ABI rows are trustworthy C-vs-Rust codegen. The `mat33` rows are not: i
 nearly half the C path is marshalling, and the timed loop's whole pre-call body is `ldrd`/`strd`
 copying two matrices onto the stack.
 
-Cross-language LTO fixes part of this. Point `cc` at clang with `-flto=thin`, build Rust with
-`-Clinker-plugin-lto`, and rust-lld runs one ThinLTO over both. Two separate things then block
-inlining:
+## Cross-language LTO (`xlto` profile)
 
-- **ThinLTO import limit.** `-import-instr-limit` defaults to 100, so the bigger wrappers are never
-  imported into the calling module and the inliner reports `NoDefinition`. Passing
-  `--mllvm=-import-instr-limit=10000` to the linker imports them and `cf_mmul` inlines away.
-- **LLVM function-type mismatch.** rustc lowers a by-value `struct vec` to `[3 x float]`; clang keeps
-  `%struct.vec`. Both are AAPCS-identical and link correctly, but `InlineFunction` rejects a call
-  whose type differs from the callee's. That happens before cost analysis, so no remark is emitted
-  and `alwaysinline` cannot override it. Wrappers taking only `ptr`, `float`, or `[9 x i32]` are
-  unaffected, which is why `cf_mmul` inlines and `cf_vcross` does not (`sret` is an attribute, not
-  part of the type).
+`cargo make bench-stm-xlto`, `cargo make bench-pico2-xlto`. clang compiles the C to bitcode, rustc
+emits bitcode under `-Clinker-plugin-lto`, and rust-lld runs one ThinLTO over both. The profile is
+based on `release`, not `lto`: fat LTO runs inside rustc and the C bitcode never joins that link, so
+cross-LTO there silently does nothing.
 
-Scalarizing the float aggregates in the wrapper signature (`float ax, float ay, ...` plus an
-out-pointer) makes the types agree; the callee then inlines to bare `vmul`/`vsub`. Verified in a
-minimal repro, not adopted here.
+Three things must line up or the C stays behind a call:
 
-With the import limit raised, the `MatMul3x3` timed loop is 86 instructions for `crazyflie-fw`
-against 77 for `glam`, both call-free, where the shipped numbers show a 2.76x cycle gap. Cycle
-confirmation on hardware is still pending, and the numbers in `results.csv` are all built the
-current way (gcc, no cross-language LTO).
+- **`-C target-cpu` must match clang's `-mcpu`**, or `ARMTTIImpl::areInlineCompatible` rejects the
+  callee on target features.
+- **`-import-instr-limit`** defaults to 100, too low for the bigger wrappers; we pass 500. Below
+  that the inliner reports `NoDefinition` and never sees a body.
+- **The LLVM function types must match.** rustc lowers a by-value HFA to `[3 x float]` /
+  `[4 x float]`; clang keeps `%struct.vec` / `%struct.quat`. `InlineFunction` rejects the mismatch
+  before cost analysis, so no remark is emitted and `alwaysinline` cannot override it. `ptr`,
+  `float` and `[9 x i32]` params agree, and `sret` is an attribute rather than part of the type.
+
+Nine of the eleven wrappers pass or return a `vec`/`quat` by value and hit the third rule.
+`cf_quat2rotmat` was the only free fix: its return was already `sret`, so scalarizing the quat
+argument into four `float`s (same registers, same ABI) was enough. The others mismatch on the
+*return*, which only an out-pointer fixes, and that would cost the other profiles real memory
+traffic. `cf_mmul` never mismatched at all; it was blocked only by the import limit.
+
+Measured on stm32, median cycles per call, one session:
+
+| Task              | `lto` cfw | `xlto` cfw | `lto` glam | `xlto` glam | ratio           |
+| ----------------- | --------- | ---------- | ---------- | ----------- | --------------- |
+| `MatMul3x3`       | 352.5     | 146.2      | 127.4      | 126.0       | 2.77x -> 1.16x  |
+| `QuatToRotMatrix` | 108.5     | 50.4       | 60.7       | 50.7        | 1.79x -> 1.00x  |
+| `MatVecMul3x3`    | 96.6      | 91.3       | 57.2       | 44.0        | 1.69x -> 2.08x  |
+| `CrossProduct`    | 44.8      | 42.6       | 39.0       | 31.5        | 1.15x -> 1.36x  |
+
+`xlto` closes the two rows it can inline and widens the rest, because Rust gets inlined under the
+same regime while the C stays behind a call. Read each row at the profile where its wrapper can
+actually be inlined, and say which one you used.
+
+Swapping gcc for clang is worth 1.05x (`CrossProduct`) to 1.33x (`MatMul3x3`) on its own, measured
+at `lto` with no cross-LTO. gcc was never a deliberate choice; it is the `cc` crate's default for
+`thumb*-none-eabi*`.

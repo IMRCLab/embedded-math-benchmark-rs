@@ -47,8 +47,10 @@ struct vec cf_mvmul(struct mat33 a, struct vec v) {
     return mvmul(a, v);
 }
 
-struct mat33 cf_quat2rotmat(struct quat q) {
-    return quat2rotmat(q);
+// Scalar params, not struct quat: rustc lowers an HFA to [4 x float] while clang keeps
+// %struct.quat, and the type mismatch blocks cross-LTO inlining (docs/task-categories.md).
+struct mat33 cf_quat2rotmat(float qx, float qy, float qz, float qw) {
+    return quat2rotmat(mkquat(qx, qy, qz, qw));
 }
 
 struct quat cf_qnormalize(struct quat q) {

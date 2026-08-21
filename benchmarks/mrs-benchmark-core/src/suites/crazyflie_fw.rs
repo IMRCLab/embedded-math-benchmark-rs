@@ -534,7 +534,9 @@ impl RawTaskImplementation<QuatToRotMatrixTask> for QuatToRotMatrixLogic {
     }
 
     fn execute(&self, input: &Self::PreparedInput) -> Result<Self::RawOutput, BenchmarkError> {
-        Ok(unsafe { mrs_benchmark_crazyflie_sys::cf_quat2rotmat(*input) })
+        Ok(unsafe {
+            mrs_benchmark_crazyflie_sys::cf_quat2rotmat(input.x, input.y, input.z, input.w)
+        })
     }
 
     fn finalize(

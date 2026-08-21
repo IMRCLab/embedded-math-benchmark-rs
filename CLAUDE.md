@@ -148,6 +148,12 @@ CLI end-to-end test in `tests/cli.rs`) — core/host/macros have none yet.
   don't pay. Measured on STM32: `crazyflie-fw` gains 1.35x median from LTO and `cmsis-dsp` only
   1.04x, so `release` inflates Rust's apparent advantage on cheap ops (CrossProduct 2.72x →
   1.15x). Any cross-language claim from this repo should cite `lto` numbers.
+- **The `xlto` profile is the one where C actually gets inlined.** clang + `-Clinker-plugin-lto`,
+  one ThinLTO over C and Rust together (`cargo make bench-stm-xlto`, `bench-pico2-xlto`). It closes
+  `MatMul3x3` (2.77x → 1.16x) and `QuatToRotMatrix` (1.79x → 1.00x), and widens the rows whose
+  wrappers still can't inline, so it is not a blanket replacement for `lto`. Only for the two ARM
+  hard-float targets. See [docs/task-categories.md](docs/task-categories.md) for which row to quote
+  at which profile.
 - **On RP2040, the C suites' `sqrtf`/`sinf`/`cosf`/`atan2f`/`expf`/`logf` calls aren't real
   newlib.** `rustc` links `libcompiler_builtins.rlib` before a crate's requested `-lm`, and both
   are scanned lazily -- so compiler_builtins's own software fallback resolves those symbols

@@ -21,6 +21,25 @@ dependencies = ["build-stm"]
 command = "probe-rs"
 args = ["run", "--chip", "STM32F405RGTx", "benchmarks/target/thumbv7em-none-eabihf/release/mrs-benchmark-stm32"]
 
+# RUSTFLAGS replaces the crate's .cargo/config.toml rustflags rather than adding to them, so the
+# link args are repeated here. See docs/task-categories.md for what xlto buys and why.
+[tasks.build-stm-xlto]
+description = "Build the STM32 firmware with cross-language LTO"
+private = true
+cwd = "benchmarks/mrs-benchmark-stm32"
+command = "cargo"
+args = ["build", "--profile", "xlto"]
+[tasks.build-stm-xlto.env]
+RUSTFLAGS = "-C linker-plugin-lto -C target-cpu=cortex-m4 -C link-arg=-Tlink.x -C link-arg=--lto-O3 -C link-arg=--mllvm=-import-instr-limit=500"
+
+[tasks.bench-stm-xlto]
+description = "Build and run STM32 benchmarks with cross-language LTO over ST-Link"
+category = "Benchmark"
+workspace = false
+dependencies = ["build-stm-xlto"]
+command = "probe-rs"
+args = ["run", "--chip", "STM32F405RGTx", "benchmarks/target/thumbv7em-none-eabihf/xlto/mrs-benchmark-stm32"]
+
 # --- RP2040 (Pico) ---
 [tasks.build-pico]
 description = "Build the RP2040 firmware"
@@ -52,6 +71,23 @@ workspace = false
 dependencies = ["build-pico2"]
 command = "probe-rs"
 args = ["run", "--chip", "RP235x", "benchmarks/target/thumbv8m.main-none-eabihf/release/mrs-benchmark-rp2350"]
+
+[tasks.build-pico2-xlto]
+description = "Build the RP2350 firmware with cross-language LTO"
+private = true
+cwd = "benchmarks/mrs-benchmark-rp2350"
+command = "cargo"
+args = ["build", "--profile", "xlto"]
+[tasks.build-pico2-xlto.env]
+RUSTFLAGS = "-C linker-plugin-lto -C target-cpu=cortex-m33 -C link-arg=--nmagic -C link-arg=-Tlink.x -C link-arg=--lto-O3 -C link-arg=--mllvm=-import-instr-limit=500"
+
+[tasks.bench-pico2-xlto]
+description = "Build and run RP2350 benchmarks with cross-language LTO over SWD"
+category = "Benchmark"
+workspace = false
+dependencies = ["build-pico2-xlto"]
+command = "probe-rs"
+args = ["run", "--chip", "RP235x", "benchmarks/target/thumbv8m.main-none-eabihf/xlto/mrs-benchmark-rp2350"]
 
 # --- ESP32-S3 ---
 [tasks.build-esp32]
