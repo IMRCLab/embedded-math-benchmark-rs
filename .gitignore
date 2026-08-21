@@ -8,7 +8,8 @@
 __pycache__/
 .venv/
 accuracy_results.json
+accuracy_results.csv
 library_versions.json
 .agents/
 .project/
-
+*.pdf
