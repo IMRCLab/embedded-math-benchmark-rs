@@ -16,17 +16,17 @@
       - "$BIN-$PROFILE"
     expire_in: 1 year
 
-build-stm32:
-  extends: .cargo-build
-  variables:
-    BIN: mrs-benchmark-stm32
-    TARGET: thumbv7em-none-eabihf
-
 build-rp2040:
   extends: .cargo-build
   variables:
     BIN: mrs-benchmark-rp2040
     TARGET: thumbv6m-none-eabi
+
+build-stm32:
+  extends: .cargo-build
+  variables:
+    BIN: mrs-benchmark-stm32
+    TARGET: thumbv7em-none-eabihf
 
 build-rp2350:
   extends: .cargo-build

@@ -12,6 +12,8 @@
     CAPTURE_SECS: "240"
   script:
     - set -o pipefail
+    # GIT_STRATEGY: none leaves this job's old logs on disk between runs, see docs/hil-setup.md.
+    - rm -f -- "${TARGET_NAME}"-*.log
     # PROBE comes from a HIL_PROBE_* project variable; several probes are attached, so
     # probe-rs needs one named. PROBE_SPEED = SWD clock in kHz; gates flashing and RTT
     # reads alike. Both in docs/hil-setup.md.
@@ -30,17 +32,6 @@
     expire_in: 1 year
   allow_failure: true
 
-run-stm32:
-  extends: .firmware-flash
-  needs:
-    - build-stm32
-  variables:
-    CHIP: STM32F405RGTx
-    BIN: mrs-benchmark-stm32
-    TARGET_NAME: stm32
-    PROBE: $HIL_PROBE_STM32
-    PROBE_SPEED: "4000" # fastest step this J-Link accepts
-
 run-rp2040:
   extends: .firmware-flash
   needs:
@@ -51,6 +42,17 @@ run-rp2040:
     TARGET_NAME: rp2040
     PROBE: $HIL_PROBE_RP2040
     PROBE_SPEED: "10000"
+
+run-stm32:
+  extends: .firmware-flash
+  needs:
+    - build-stm32
+  variables:
+    CHIP: STM32F405RGTx
+    BIN: mrs-benchmark-stm32
+    TARGET_NAME: stm32
+    PROBE: $HIL_PROBE_STM32
+    PROBE_SPEED: "4000" # fastest step this J-Link accepts
 
 run-rp2350:
   extends: .firmware-flash

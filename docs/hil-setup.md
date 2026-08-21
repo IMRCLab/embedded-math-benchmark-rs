@@ -27,7 +27,8 @@ The boards connect to the lab Threadripper over SWD through debug probes. One
   through a `HIL_PROBE_*` variable, see [Probe selection](#probe-selection). The shell executor avoids fragile Docker USB
   passthrough.
 
-Output comes back over RTT with `probe-rs`.
+Output comes back over RTT with `probe-rs`; since `GIT_STRATEGY: none` never cleans this
+workspace, `.firmware-flash` `rm -f`s its own `${TARGET_NAME}-*.log` before each flash.
 
 ## CI image
 
