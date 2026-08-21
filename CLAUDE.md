@@ -46,6 +46,7 @@ hardware, and status facts go in `docs/`, not memory.
 - [docs/benchmark.md](docs/benchmark.md) — documentation index, start here
 - [docs/adding_a_benchmark.md](docs/adding_a_benchmark.md) — full recipe for a new task
 - [docs/adding_a_platform.md](docs/adding_a_platform.md) — checklist for a new hardware target
+- [docs/task-categories.md](docs/task-categories.md) — what each task measures & which comparisons it supports
 - [docs/accuracy_evaluation.md](docs/accuracy_evaluation.md) — scientific methodology & ULP evaluation
 - [docs/io-format.md](docs/io-format.md) — `inputs.json` in, `BENCH ` CSV out
 - [docs/running-benchmarks.md](docs/running-benchmarks.md) — build/flash/run per platform

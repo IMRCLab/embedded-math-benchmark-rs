@@ -48,6 +48,9 @@ Use this guide as an index to explore the different components of the framework.
 
 ## Evaluation & Results
 
+- **[Task Categories](task-categories.md)**  
+  What each task measures and which comparisons it supports. Read before quoting a number as a C-vs-Rust result.
+
 - **[Numerical Accuracy Evaluation](accuracy_evaluation.md)**  
   Scientific methodology, ULP distance metrics, and workflow tools for evaluating microbenchmark accuracy against 64-bit reference ground truth.
 
