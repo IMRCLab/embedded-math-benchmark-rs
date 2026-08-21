@@ -19,6 +19,22 @@ No DWT, unlike every other Cortex-M target here. Times via SysTick's 24-bit down
 interrupt, extending the range to 56 bits. Verified on real hardware 2026-08-12: 100 reps
 of `MatMul9x9`/`cmsis-dsp` (~17.3-17.4M cycles) read back correctly past the wrap.
 
+**Known gap: C suites' transcendental math calls aren't real newlib here.** `sqrtf`/`sinf`/
+`cosf`/`atan2f`/`expf`/`logf` calls from `crazyflie-fw`/`cmsis-dsp` C code resolve to Rust's
+own `compiler_builtins` soft-float fallback, not the real arm-none-eabi newlib. Root cause:
+`rustc` always links `libcompiler_builtins.rlib` before a crate's requested `-lm`; both are
+scanned lazily, so once compiler_builtins's (normally weak) symbol resolves the reference,
+`libm.a`'s definition is never pulled in even though its search path is correct.
+`mrs-benchmark-crazyflie-sys/build.rs` fixes this on `stm32`/`rp2350-arm` by whole-archiving
+the real `libm.a` (`+whole-archive` link modifier, forcing every member in regardless of scan
+order). That fix doesn't apply here: RP2040 has no FPU, so fat LTO's identical-code-folding
+merges `mrs-benchmark-core`'s own `libm`-crate calls (the Rust "libm" suite) with
+compiler_builtins's vendored copy of the same upstream algorithm, making that copy a
+genuinely-needed strong symbol rather than an unused weak fallback -- whole-archiving the real
+`libm.a` then collides with it (duplicate symbol) instead of cleanly overriding it. Affects
+only those specific library calls on this one platform; matrix ops, quaternion math, and
+everything not going through a bare libm-named symbol are unaffected. Not yet fixed.
+
 ## RP2350 (Pico 2)
 
 One chip, two cores that share the same flash and boot logic: Cortex-M33 (`rp2350-arm`, running) and Hazard3 RISC-V (`rp2350-riscv`, planned).

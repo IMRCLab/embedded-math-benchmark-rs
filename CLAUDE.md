@@ -146,6 +146,15 @@ CLI end-to-end test in `tests/cli.rs`) — core/host/macros have none yet.
   don't pay. Measured on STM32: `crazyflie-fw` gains 1.35x median from LTO and `cmsis-dsp` only
   1.04x, so `release` inflates Rust's apparent advantage on cheap ops (CrossProduct 2.72x →
   1.15x). Any cross-language claim from this repo should cite `lto` numbers.
+- **On RP2040, the C suites' `sqrtf`/`sinf`/`cosf`/`atan2f`/`expf`/`logf` calls aren't real
+  newlib.** `rustc` links `libcompiler_builtins.rlib` before a crate's requested `-lm`, and both
+  are scanned lazily -- so compiler_builtins's own software fallback resolves those symbols
+  before the linker ever reaches the real arm-none-eabi `libm.a`, even with a correct search
+  path. Fixed on `stm32`/`rp2350-arm` (`mrs-benchmark-crazyflie-sys/build.rs` whole-archives the
+  real `libm.a`). Not fixed on RP2040: it has no FPU, so fat LTO's identical-code-folding makes
+  compiler_builtins's copy load-bearing for `mrs-benchmark-core`'s own Rust "libm" suite too,
+  and whole-archiving collides with it instead of overriding it. See
+  [docs/platforms.md](docs/platforms.md#rp2040-pico-1) for the full root cause.
 - **A suite that can't build on every platform is Cargo-feature-gated, not assumed universal.**
   Both C suites (`crazyflie-fw` and `cmsis-dsp`) sit behind `mrs-benchmark-core`'s `crazyflie`
   feature (default on; the name predates the CMSIS-DSP suite and now under-describes it). A

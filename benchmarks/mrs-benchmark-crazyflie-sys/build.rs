@@ -160,7 +160,10 @@ fn main() {
         .write_to_file(out_path.join("bindings.rs"))
         .expect("Couldn't write bindings!");
 
-    // 3. Link the C compiler toolchain's native math library (libm.a / -lm)
+    // 3. Link the C compiler toolchain's native math library (libm.a / -lm).
+    //
+    // Without whole-archive, compiler_builtins's weak sqrtf/sinf/etc shadow the real libm.a
+    // symbols (rustc links it before -lm, and archive scanning is lazy) -- see docs/platforms.md.
     if target.starts_with("thumb") {
         let mut cmd = std::process::Command::new("arm-none-eabi-gcc");
         cmd.arg("-print-file-name=libm.a");
@@ -183,16 +186,29 @@ fn main() {
             _ => {}
         }
 
-        if let Ok(output) = cmd.output() {
-            if output.status.success() {
-                let path_str = String::from_utf8_lossy(&output.stdout).trim().to_string();
-                let path = PathBuf::from(path_str);
-                if let Some(dir) = path.parent() {
-                    println!("cargo:rustc-link-search=native={}", dir.display());
-                }
-            }
-        }
-    }
+        let output = cmd
+            .output()
+            .expect("Failed to run arm-none-eabi-gcc -print-file-name=libm.a");
+        assert!(output.status.success(), "arm-none-eabi-gcc failed");
+        let path_str = String::from_utf8_lossy(&output.stdout).trim().to_string();
+        let path = PathBuf::from(&path_str);
+        assert!(
+            path.is_absolute() && path.exists(),
+            "arm-none-eabi-gcc did not resolve a real libm.a (got {path_str:?})"
+        );
+        let dir = path.parent().expect("libm.a path has no parent dir");
+        println!("cargo:rustc-link-search=native={}", dir.display());
 
-    println!("cargo:rustc-link-lib=m");
+        // rustc-link-arg=--whole-archive is a no-op here (only applies to this crate's own
+        // artifact, an rlib); the +whole-archive link modifier on rustc-link-lib does propagate.
+        // Skipped on thumbv6m (RP2040): fat LTO makes compiler_builtins's copy load-bearing
+        // there too, so whole-archiving collides with it instead -- see docs/platforms.md.
+        if target == "thumbv6m-none-eabi" {
+            println!("cargo:rustc-link-lib=m");
+        } else {
+            println!("cargo:rustc-link-lib=static:+whole-archive=m");
+        }
+    } else {
+        println!("cargo:rustc-link-lib=m");
+    }
 }

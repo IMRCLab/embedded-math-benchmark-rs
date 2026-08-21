@@ -7,6 +7,16 @@ void assertFail(char *exp, char *file, int line) {
     (void)exp; (void)file; (void)line;
 }
 
+// newlib's libm signals domain/range errors (acosf, asinf, expf, ...) through errno, which
+// normally comes from libc.a's reentrant _impure_ptr machinery. We only link libm.a (whole-
+// archive, to defeat compiler_builtins's weak sqrtf/sinf/cosf/atan2f/expf shims), so provide
+// the single-threaded storage newlib's errno.h expects (`#define errno (*__errno())`) ourselves
+// instead of pulling in all of libc.
+static int cf_errno_storage;
+int *__errno(void) {
+    return &cf_errno_storage;
+}
+
 // Non-inline wrapper functions to expose cmath3d's static inline functions to Rust FFI
 
 struct mat33 cf_mmul(struct mat33 a, struct mat33 b) {
