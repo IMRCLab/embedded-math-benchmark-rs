@@ -60,8 +60,9 @@ parses JSON at runtime. `benchmarks/inputs.json` is read by proc-macros
 is defined once and runs on every platform/library from that single config.
 
 A benchmark = **Task** (identifier + input/output shape) × **Library** implementation
-(`glam`, `nalgebra`, `micromath`, …). Each library impl has three phases; **only `execute`
-is timed** — `prepare` (convert to lib types) and `finalize` (convert back) are not.
+(`glam`, `nalgebra`, `micromath`, `libm` in Rust; `crazyflie-fw`, `cmsis-dsp` in C). Each
+library impl has three phases; **only `execute` is timed** — `prepare` (convert to lib types)
+and `finalize` (convert back) are not.
 
 Adding a task touches five coordinated places — the identifier string must match in all:
 
@@ -81,6 +82,10 @@ You never touch the platform `main.rs` files — the macro weaves tasks in. Full
 - `mrs-benchmark-host` — native runner, times in `ns`.
 - `mrs-benchmark-stm32` / `mrs-benchmark-rp2040` / `mrs-benchmark-rp2350` — `no_std` firmware, time in `cycles`, RTT out. (rp2350 = Pico 2, Cortex-M33: DWT timing like stm32, but boots via an `IMAGE_DEF` block, not boot2.)
 - `mrs-benchmark-esp32s3` — `no_std` firmware, Xtensa (not ARM), CCOUNT register timing, RTT out via native USB JTAG. Needs the `espup`-installed `esp` Rust toolchain, not plain `rustup target add`. **Not a `benchmarks/` workspace member**: `esp-hal`'s `riscv-rt` version conflicts with `rp235x-hal`'s, so it has its own standalone `Cargo.lock` (still built from its own crate dir like the others). Skips the `crazyflie-fw` library (that suite's C build only cross-links for ARM).
+- `mrs-benchmark-crazyflie-sys` — the C side. `build.rs` uses `cc` + `bindgen` to compile the
+  Crazyflie firmware math (`vendor/crazyflie-firmware` submodule, plus local `c_src/` wrappers)
+  and a subset of CMSIS-DSP (`vendor/CMSIS`, not a submodule — `build.rs` fetches it). Feeds
+  both the `crazyflie-fw` and `cmsis-dsp` suites. ARM-only.
 - `mrs-benchmark-collect` — greps `BENCH ` rows from logs → one merged `results.csv`.
 
 ## Commands
@@ -133,21 +138,40 @@ CLI end-to-end test in `tests/cli.rs`) — core/host/macros have none yet.
   the header in [core `lib.rs`](benchmarks/mrs-benchmark-core/src/lib.rs) (`CSV_HEADER`).
 - **`inputs.json` is baked at build time.** Changing it requires a rebuild; there's no
   runtime config on firmware.
-- **`panic = "abort"`** in both profiles (workspace `Cargo.toml`).
-- The C side of the C-vs-Rust comparison is **not yet implemented** — current suites are all
-  Rust math libraries. C slots into the same `library` CSV field when added.
+- **`panic = "abort"`** in every profile (workspace `Cargo.toml`). Three build profiles ship:
+  `release` (opt-level 3), `lto` (adds fat LTO + `codegen-units=1`), `size` (`opt-level="z"` on
+  top of LTO). CI builds and runs all three on every board; `profile` is a CSV column.
+- **Compare C against Rust at `lto`, not `release`.** The C suites are reached through FFI, and
+  `release` does not inline across that boundary — it bills C for call overhead the Rust suites
+  don't pay. Measured on STM32: `crazyflie-fw` gains 1.35x median from LTO and `cmsis-dsp` only
+  1.04x, so `release` inflates Rust's apparent advantage on cheap ops (CrossProduct 2.72x →
+  1.15x). Any cross-language claim from this repo should cite `lto` numbers.
 - **A suite that can't build on every platform is Cargo-feature-gated, not assumed universal.**
-  `crazyflie-fw` is behind `mrs-benchmark-core`'s `crazyflie` feature (default on); a platform
-  that can't build it disables `default-features` on its `mrs-benchmark-core` dependency. The
-  macro also needs to know: `suite_feature_gate()` in `mrs-benchmark-macros/src/lib.rs` wraps
-  that library's generated call sites in a matching `#[cfg(feature = ...)]`, since inputs.json
-  is shared across all platforms and the generated runner otherwise references every library
-  listed anywhere in it unconditionally.
+  Both C suites (`crazyflie-fw` and `cmsis-dsp`) sit behind `mrs-benchmark-core`'s `crazyflie`
+  feature (default on; the name predates the CMSIS-DSP suite and now under-describes it). A
+  platform that can't build them disables `default-features` on its `mrs-benchmark-core`
+  dependency. The macro also needs to know: `suite_feature_gate()` in
+  `mrs-benchmark-macros/src/lib.rs` wraps those libraries' generated call sites in a matching
+  `#[cfg(feature = ...)]`, since inputs.json is shared across all platforms and the generated
+  runner otherwise references every library listed anywhere in it unconditionally.
+- **`library_versions.json` is generated, not hand-maintained** -- `mrs-benchmark-collect`
+  writes it next to `results.csv` (`library_versions()` in
+  `mrs-benchmark-collect/src/lib.rs`), and the report legend falls back to a library's bare
+  name if its key is missing. Rust crate versions come from `benchmarks/Cargo.lock`;
+  `crazyflie-fw` and `cmsis-dsp` come from their pinned git submodule commits/tags instead.
+  `cmsis-dsp` is the one nested case: CMSIS is a submodule *of* the `crazyflie-firmware`
+  submodule (`benchmarks/vendor/crazyflie-firmware/vendor/CMSIS`), so resolving its pin needs
+  `git submodule status --recursive`, not the single-level `git ls-tree` the other two use.
 
-## State (2026-07, moves fast)
+## State (2026-08, moves fast)
 
 Host + RP2040 + RP2350 + STM32 + ESP32-S3 run and benchmark on hardware in GitLab CI
-(RP2040/RP2350/ESP32-S3 on HIL), all with Rust math libraries (ESP32-S3 minus
-`crazyflie-fw`). C implementations (still milestone 1) are next up. QP solvers and
-scheduling (FreeRTOS/Embassy) are later milestones, not current work. Check
+(RP2040/RP2350/ESP32-S3 on HIL), across all three build profiles.
+
+**C is in.** Both C suites run on the ARM targets: `crazyflie-fw` (Bitcraze firmware math) and
+`cmsis-dsp` (ARM's DSP library). ESP32-S3 skips both — that build only cross-links for ARM. So
+milestone 1's C-vs-Rust comparison has data for 20 tasks × 6 libraries × 5 platforms × 3
+profiles in `results.csv`, with ULP accuracy alongside it in `accuracy_results.csv`.
+
+QP solvers and scheduling (FreeRTOS/Embassy) remain later milestones, not current work. Check
 [docs/platforms.md](docs/platforms.md) for live status before assuming a target works.

@@ -26,6 +26,9 @@ pub const TRACKED_RUST_LIBRARIES: &[&str] = &["glam", "libm", "micromath", "nalg
 /// pinned commit stands in for a version number (it tracks `master`, no semver tags).
 pub const CRAZYFLIE_FW_SUBMODULE_PATH: &str = "benchmarks/vendor/crazyflie-firmware";
 
+/// Path (repo-root-relative) to CMSIS, vendored as a submodule *of* crazyflie-firmware, not a top-level one.
+pub const CMSIS_SUBMODULE_PATH: &str = "benchmarks/vendor/crazyflie-firmware/vendor/CMSIS";
+
 /// Anything that can go wrong while collecting rows.
 #[derive(Debug)]
 pub enum CollectError {
@@ -74,10 +77,33 @@ fn submodule_commit(repo_root: &Path, submodule_path: &str) -> Option<String> {
     parse_ls_tree_sha(&String::from_utf8(output.stdout).ok()?)
 }
 
+/// Version checked out at `submodule_dir`: nearest reachable tag, else a short SHA. Needs an actual checkout, unlike `submodule_commit`.
+fn checked_out_submodule_version(submodule_dir: &Path) -> Option<String> {
+    let describe = Command::new("git")
+        .args(["describe", "--tags"])
+        .current_dir(submodule_dir)
+        .output()
+        .ok()?;
+    if describe.status.success() {
+        return Some(String::from_utf8(describe.stdout).ok()?.trim().to_string());
+    }
+
+    let rev_parse = Command::new("git")
+        .args(["rev-parse", "--short=7", "HEAD"])
+        .current_dir(submodule_dir)
+        .output()
+        .ok()?;
+    if !rev_parse.status.success() {
+        return None;
+    }
+    Some(String::from_utf8(rev_parse.stdout).ok()?.trim().to_string())
+}
+
 /// Best-effort snapshot of each math library's version: the four Rust crates
-/// (from `benchmarks/Cargo.lock`) plus `crazyflie-fw`'s pinned commit. Never
-/// fails -- a missing/unreadable source just leaves that one library out of the
-/// returned map, with a human-readable line in the returned warnings instead.
+/// (from `benchmarks/Cargo.lock`) plus `crazyflie-fw` and `cmsis-dsp`'s pinned
+/// submodule commits/tags. Never fails -- a missing/unreadable source just
+/// leaves that one library out of the returned map, with a human-readable line
+/// in the returned warnings instead.
 pub fn library_versions(repo_root: &Path) -> (BTreeMap<String, String>, Vec<String>) {
     let mut warnings = Vec::new();
     let lockfile_path = repo_root.join("benchmarks/Cargo.lock");
@@ -104,6 +130,15 @@ pub fn library_versions(repo_root: &Path) -> (BTreeMap<String, String>, Vec<Stri
         }
         None => warnings.push(format!(
             "could not resolve the pinned commit for {CRAZYFLIE_FW_SUBMODULE_PATH}"
+        )),
+    }
+
+    match checked_out_submodule_version(&repo_root.join(CMSIS_SUBMODULE_PATH)) {
+        Some(version) => {
+            versions.insert("cmsis-dsp".to_string(), version);
+        }
+        None => warnings.push(format!(
+            "could not resolve the checked-out version at {CMSIS_SUBMODULE_PATH}"
         )),
     }
 
@@ -199,6 +234,58 @@ mod tests {
     #[test]
     fn parse_ls_tree_sha_returns_none_for_empty_output() {
         assert_eq!(parse_ls_tree_sha(""), None);
+    }
+
+    fn run_git(dir: &std::path::Path, args: &[&str]) {
+        let status = Command::new("git")
+            .args(args)
+            .current_dir(dir)
+            .status()
+            .unwrap();
+        assert!(status.success(), "git {args:?} failed");
+    }
+
+    fn init_test_git_repo(name: &str) -> std::path::PathBuf {
+        let dir = std::env::temp_dir().join(name);
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        run_git(&dir, &["init", "-q"]);
+        run_git(
+            &dir,
+            &[
+                "-c",
+                "user.email=test@test",
+                "-c",
+                "user.name=test",
+                "commit",
+                "--allow-empty",
+                "-q",
+                "-m",
+                "init",
+            ],
+        );
+        dir
+    }
+
+    #[test]
+    fn checked_out_submodule_version_prefers_a_reachable_tag() {
+        let dir = init_test_git_repo("mrs-benchmark-collect-test-submodule-tag");
+        run_git(&dir, &["tag", "5.7.0"]);
+
+        let version = checked_out_submodule_version(&dir);
+
+        std::fs::remove_dir_all(&dir).ok();
+        assert_eq!(version, Some("5.7.0".to_string()));
+    }
+
+    #[test]
+    fn checked_out_submodule_version_falls_back_to_short_sha_without_tags() {
+        let dir = init_test_git_repo("mrs-benchmark-collect-test-submodule-notag");
+
+        let version = checked_out_submodule_version(&dir);
+
+        std::fs::remove_dir_all(&dir).ok();
+        assert!(matches!(version, Some(sha) if sha.len() == 7));
     }
 
     #[test]
