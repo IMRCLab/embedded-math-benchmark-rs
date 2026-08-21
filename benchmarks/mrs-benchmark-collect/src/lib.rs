@@ -26,8 +26,9 @@ pub const TRACKED_RUST_LIBRARIES: &[&str] = &["glam", "libm", "micromath", "nalg
 /// pinned commit stands in for a version number (it tracks `master`, no semver tags).
 pub const CRAZYFLIE_FW_SUBMODULE_PATH: &str = "benchmarks/vendor/crazyflie-firmware";
 
-/// Path (repo-root-relative) to CMSIS, vendored as a submodule *of* crazyflie-firmware, not a top-level one.
-pub const CMSIS_SUBMODULE_PATH: &str = "benchmarks/vendor/crazyflie-firmware/vendor/CMSIS";
+/// Path (repo-root-relative) to CMSIS-DSP, its own top-level submodule (decoupled from
+/// crazyflie-firmware's own CMSIS_5 pin, which had been frozen at 5.7.0 since 2020).
+pub const CMSIS_SUBMODULE_PATH: &str = "benchmarks/vendor/CMSIS-DSP";
 
 /// Anything that can go wrong while collecting rows.
 #[derive(Debug)]

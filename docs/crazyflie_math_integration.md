@@ -107,13 +107,12 @@ header package) comes along for free as `libnewlib-arm-none-eabi`'s hard depende
 separate Dockerfile entry needed.
 
 ### Submodule fetch
-`GIT_SUBMODULE_STRATEGY: normal` + `GIT_SUBMODULE_DEPTH: 1` (in `.gitlab-ci.yml`) fetch
-only `benchmarks/vendor/crazyflie-firmware` itself, not its own nested submodules
-(`vendor/CMSIS`, `FreeRTOS`, `cmock`, `unity`, `libdw1000`) — none of which this suite
-touches today.
-
-**When CMSIS-DSP (ARM math) is added**, switch to `recursive` with `GIT_SUBMODULE_PATHS`
-excluding the other four vendor trees.
+`GIT_SUBMODULE_STRATEGY: normal` + `GIT_SUBMODULE_DEPTH: 1` (in `.gitlab-ci.yml`) fetch only
+the top-level submodules declared in the repo's own `.gitmodules`: `crazyflie-firmware` and
+`CMSIS-DSP`. It does not recurse into crazyflie-firmware's own nested submodules (`vendor/CMSIS`,
+`FreeRTOS`, `cmock`, `unity`, `libdw1000`) — none of which this suite touches; CMSIS-DSP is
+vendored as our own top-level submodule instead of reusing crazyflie-firmware's nested (and
+long-frozen) CMSIS_5 copy, so `normal` already covers it without switching to `recursive`.
 
 ### Testing against the CI image locally
 `.gitlab/ci/Dockerfile.ci` builds and runs directly, no registry needed:

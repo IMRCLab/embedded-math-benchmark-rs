@@ -48,22 +48,10 @@ fn main() {
     println!("cargo:rerun-if-changed={}", wrapper_h.display());
 
     let c_src_dir = manifest_dir.join("c_src");
-    let cmsis_dir = cf_src.join("../vendor/CMSIS/CMSIS");
-
-    let cmsis_arm_math = cmsis_dir.join("DSP/Include/arm_math.h");
-    if !cmsis_arm_math.exists() {
-        let _ = std::process::Command::new("git")
-            .args([
-                "submodule",
-                "update",
-                "--init",
-                "--depth",
-                "1",
-                "vendor/CMSIS",
-            ])
-            .current_dir(cf_src.join(".."))
-            .status();
-    }
+    // CMSIS-Core headers (cmsis_compiler.h etc.) still come from crazyflie-firmware's nested
+    // CMSIS_5 checkout: CMSIS-DSP depends on them but they didn't move when DSP split out.
+    let cmsis_core_dir = cf_src.join("../vendor/CMSIS/CMSIS");
+    let cmsis_dsp_dir = manifest_dir.join("../vendor/CMSIS-DSP");
 
     let stub_autoconf = c_src_dir.join("stub_autoconf");
     let project_includes = [
@@ -79,18 +67,19 @@ fn main() {
         cf_src.join("deck/interface"),
         cf_src.join("utils/interface"),
         cf_src.join("utils/interface/lighthouse"),
-        cmsis_dir.join("Core/Include"),
-        cmsis_dir.join("DSP/Include"),
+        cmsis_core_dir.join("Core/Include"),
+        cmsis_dsp_dir.join("Include"),
+        cmsis_dsp_dir.join("PrivateInclude"),
     ];
 
     let kalman_core_c = cf_src.join("modules/src/kalman_core/kalman_core.c");
     let lee_c = cf_src.join("modules/src/controller/controller_lee.c");
     let lee_wrapper_c = c_src_dir.join("cf_lee_controller.c");
 
-    let cmsis_matrix_src = cmsis_dir.join("DSP/Source/MatrixFunctions");
-    let cmsis_fastmath_src = cmsis_dir.join("DSP/Source/FastMathFunctions");
-    let cmsis_basicmath_src = cmsis_dir.join("DSP/Source/BasicMathFunctions");
-    let cmsis_tables_src = cmsis_dir.join("DSP/Source/CommonTables");
+    let cmsis_matrix_src = cmsis_dsp_dir.join("Source/MatrixFunctions");
+    let cmsis_fastmath_src = cmsis_dsp_dir.join("Source/FastMathFunctions");
+    let cmsis_basicmath_src = cmsis_dsp_dir.join("Source/BasicMathFunctions");
+    let cmsis_tables_src = cmsis_dsp_dir.join("Source/CommonTables");
 
     let target = env::var("TARGET").unwrap();
 
