@@ -84,8 +84,9 @@ You never touch the platform `main.rs` files — the macro weaves tasks in. Full
 - `mrs-benchmark-esp32s3` — `no_std` firmware, Xtensa (not ARM), CCOUNT register timing, RTT out via native USB JTAG. Needs the `espup`-installed `esp` Rust toolchain, not plain `rustup target add`. **Not a `benchmarks/` workspace member**: `esp-hal`'s `riscv-rt` version conflicts with `rp235x-hal`'s, so it has its own standalone `Cargo.lock` (still built from its own crate dir like the others). Skips the `crazyflie-fw` library (that suite's C build only cross-links for ARM).
 - `mrs-benchmark-crazyflie-sys` — the C side. `build.rs` uses `cc` + `bindgen` to compile the
   Crazyflie firmware math (`vendor/crazyflie-firmware` submodule, plus local `c_src/` wrappers)
-  and a subset of CMSIS-DSP (`vendor/CMSIS`, not a submodule — `build.rs` fetches it). Feeds
-  both the `crazyflie-fw` and `cmsis-dsp` suites. ARM-only.
+  and a subset of CMSIS-DSP (`vendor/CMSIS-DSP`, its own top-level submodule — CMSIS-Core
+  headers still come from crazyflie-firmware's nested CMSIS_5 checkout). Feeds both the
+  `crazyflie-fw` and `cmsis-dsp` suites. ARM-only.
 - `mrs-benchmark-collect` — greps `BENCH ` rows from logs → one merged `results.csv`.
 
 ## Commands
@@ -167,10 +168,12 @@ CLI end-to-end test in `tests/cli.rs`) — core/host/macros have none yet.
   writes it next to `results.csv` (`library_versions()` in
   `mrs-benchmark-collect/src/lib.rs`), and the report legend falls back to a library's bare
   name if its key is missing. Rust crate versions come from `benchmarks/Cargo.lock`;
-  `crazyflie-fw` and `cmsis-dsp` come from their pinned git submodule commits/tags instead.
-  `cmsis-dsp` is the one nested case: CMSIS is a submodule *of* the `crazyflie-firmware`
-  submodule (`benchmarks/vendor/crazyflie-firmware/vendor/CMSIS`), so resolving its pin needs
-  `git submodule status --recursive`, not the single-level `git ls-tree` the other two use.
+  `crazyflie-fw` and `cmsis-dsp` come from their pinned git submodule commits/tags instead —
+  both are top-level submodules (`benchmarks/vendor/crazyflie-firmware`,
+  `benchmarks/vendor/CMSIS-DSP`). `crazyflie-fw` tracks `master` with no tags, so it resolves
+  via `git ls-tree` (works even without a checkout); `cmsis-dsp` is pinned to a real release tag, so
+  it resolves via `git describe --tags` in the checked-out submodule instead, to report the
+  human-readable tag rather than a bare SHA.
 
 ## State (2026-08, moves fast)
 
