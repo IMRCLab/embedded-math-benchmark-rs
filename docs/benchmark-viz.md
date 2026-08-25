@@ -89,6 +89,19 @@ real ~110-page report from ~35s to ~9s locally (12 cores); CI's 64-core runner s
 Not tried, possible follow-up if more speed is needed: swap the Agg backend for `mplcairo`
 (faster raster pipeline, drop-in `matplotlib.use()` replacement).
 
+## Paper figures: `viz/paper_figures.py`
+
+A second entry point for the workshop paper's Results section, not part of the CI report.
+Imports `data.py`/`common.py`/`config.py` from `plot.py` for loading and chart primitives, but
+draws its own small grids (a curated task subset, one row) sized for an IEEE two-column figure
+instead of the full report's exhaustive per-platform grid. `plot.py`/`report.pdf` are untouched.
+`common.add_legend`'s optional `fontsize` param exists for this: the report's own calls omit it
+and keep their default (sized for a 16in-wide page), this script passes a small explicit size
+since that default reads oversized on a page-width figure.
+
+Usage: `uv run --project viz viz/paper_figures.py results.csv docs/draft/images/`. Writes
+`fig-results-{category,crossplatform,accuracy}.pdf` to the given directory.
+
 ## CI
 
 - `report` stage (between `collect` and `check`), job `report-pdf` in

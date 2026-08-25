@@ -112,8 +112,14 @@ def legend_handles(libs, versions=None):
     ]
 
 
-def add_legend(fig, libs, versions=None):
-    fig.legend(handles=legend_handles(libs, versions), loc="lower center", ncol=len(libs), frameon=False)
+def add_legend(fig, libs, versions=None, fontsize=None):
+    """fontsize=None keeps the report's own default (sized for its 16in-wide
+    pages); paper_figures.py passes an explicit small size instead, since that
+    default reads oversized on a page-width figure."""
+    kwargs = {}
+    if fontsize is not None:
+        kwargs = dict(fontsize=fontsize, handlelength=1.2, handleheight=0.9, columnspacing=1.0)
+    fig.legend(handles=legend_handles(libs, versions), loc="lower center", ncol=len(libs), frameon=False, **kwargs)
 
 
 def page_header(fig, title, subtitle, generated_at):
