@@ -28,7 +28,9 @@ The boards connect to the lab Threadripper over SWD through debug probes. One
   passthrough.
 
 Output comes back over RTT with `probe-rs`; since `GIT_STRATEGY: none` never cleans this
-workspace, `.firmware-flash` `rm -f`s its own `${TARGET_NAME}-*.log` before each flash.
+workspace and all four `run-*` jobs share it, `.firmware-flash` scopes both its `rm -f`
+cleanup and its `artifacts.paths` glob to this target's own filenames, so a job never touches
+or re-uploads another target's leftover log.
 
 ## CI image
 
