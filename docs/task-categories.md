@@ -74,7 +74,7 @@ copying two matrices onto the stack.
 
 ## Cross-language LTO (`xlto` profile)
 
-`cargo make bench-stm-xlto`, `cargo make bench-pico2-xlto`. clang compiles the C to bitcode, rustc
+`cargo make bench-stm32-xlto`, `cargo make bench-rp2350-xlto`. clang compiles the C to bitcode, rustc
 emits bitcode under `-Clinker-plugin-lto`, and rust-lld runs one ThinLTO over both. The profile is
 based on `release`, not `lto`: fat LTO runs inside rustc and the C bitcode never joins that link, so
 cross-LTO there silently does nothing.
@@ -96,18 +96,45 @@ argument into four `float`s (same registers, same ABI) was enough. The others mi
 *return*, which only an out-pointer fixes, and that would cost the other profiles real memory
 traffic. `cf_mmul` never mismatched at all; it was blocked only by the import limit.
 
-Measured on stm32, median cycles per call, one session:
+Measured on stm32 in CI (`results.csv`, pipeline 486019), median cycles per call across the full
+~26-input sweep per task. These numbers replace the one-session table this section used to carry.
 
 | Task              | `lto` cfw | `xlto` cfw | `lto` glam | `xlto` glam | ratio           |
 | ----------------- | --------- | ---------- | ---------- | ----------- | --------------- |
-| `MatMul3x3`       | 352.5     | 146.2      | 127.4      | 126.0       | 2.77x -> 1.16x  |
-| `QuatToRotMatrix` | 108.5     | 50.4       | 60.7       | 50.7        | 1.79x -> 1.00x  |
-| `MatVecMul3x3`    | 96.6      | 91.3       | 57.2       | 44.0        | 1.69x -> 2.08x  |
-| `CrossProduct`    | 44.8      | 42.6       | 39.0       | 31.5        | 1.15x -> 1.36x  |
+| `MatMul3x3`       | 349.6     | 146.9      | 126.5      | 126.4       | 2.76x -> 1.16x  |
+| `QuatToRotMatrix` | 112.3     | 62.0       | 60.4       | 51.0        | 1.86x -> 1.22x  |
+| `MatVecMul3x3`    | 97.3      | 100.0      | 56.3       | 52.7        | 1.73x -> 1.90x  |
+| `CrossProduct`    | 41.8      | 52.6       | 35.3       | 36.2        | 1.18x -> 1.45x  |
 
 `xlto` closes the two rows it can inline and widens the rest, because Rust gets inlined under the
-same regime while the C stays behind a call. Read each row at the profile where its wrapper can
-actually be inlined, and say which one you used.
+same regime while the C stays behind a call. `CrossProduct` shows a second effect: `crazyflie-fw`'s
+own call site gets 26% slower under `xlto`, not just relatively behind a faster glam. Read each row
+at the profile where its wrapper can actually be inlined, and say which one you used.
+
+### `xlto` is not a strict win
+
+Across every stm32 task x library pair that ran under both `lto` and `xlto` (60 pairs), 20
+improved by more than 3%, 14 regressed by more than 3%, and 26 were unchanged. The regressions
+are not confined to C wrappers that fail to inline. Pure-Rust rows regress too, so part of this is
+`xlto`'s `release`-based ThinLTO codegen itself, not only the FFI story:
+
+| Task            | Library                        | `lto` -> `xlto` |
+| ---------------- | ------------------------------ | ---------------- |
+| `SinCos`         | micromath                      | +31%              |
+| `QuatSlerp`      | crazyflie-fw                    | +28%              |
+| `MatMul9x9`      | nalgebra                        | +20%              |
+| `QuatMul`/`UnitQuatMul` | crazyflie-fw              | +14-15%           |
+| `LeeController`  | glam / nalgebra / micromath     | +5-12%            |
+
+Against that, the big wins outside the table above are `EkfStep` crazyflie-fw (2.06x) and
+CMSIS-DSP's own `MatMul9x9` (1.88x) and `DotProduct64D` (1.78x). Both call real library routines
+with pointer ABI, so they benefit from the same ThinLTO without any struct-marshalling story.
+
+**Verdict:** `xlto` is not a blanket replacement for `lto`, and skipping it is not a mistake by
+default. Build it for code shaped like `MatMul3x3`/`QuatToRotMatrix` (mat33 by-value ABI) or
+CMSIS-DSP's larger linalg routines, where it is a clear win. Elsewhere treat it as close to a coin
+flip: reach for it only when profiling shows the workload sits in a row it actually helps, not as
+a default swap-in for `lto`.
 
 Swapping gcc for clang is worth 1.05x (`CrossProduct`) to 1.33x (`MatMul3x3`) on its own, measured
 at `lto` with no cross-LTO. gcc was never a deliberate choice; it is the `cc` crate's default for

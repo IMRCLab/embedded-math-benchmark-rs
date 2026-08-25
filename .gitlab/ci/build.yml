@@ -1,5 +1,7 @@
-# Builds crate $BIN for $TARGET with $PROFILE from its own crate dir
-# (picks up crate-local .cargo/config.toml) and flattens the binary to the project root.
+# Builds crate $BIN for $TARGET with $PROFILE via the matching `cargo make build-<chip>[-$PROFILE]`
+# task (Makefile.toml owns the actual cargo/rustflags invocation, including xlto's cross-language
+# LTO flags), then flattens the binary to the project root. <chip> is $BIN with its
+# "mrs-benchmark-" prefix stripped, e.g. mrs-benchmark-stm32 -> build-stm32.
 .cargo-build:
   stage: build
   needs: []
@@ -7,10 +9,9 @@
     matrix:
       - PROFILE: [release, lto, size]
   script:
-    - CARGO_FLAG=$([ "$PROFILE" = "release" ] && echo "--release" || echo "--profile $PROFILE")
-    # RUSTFLAGS replaces the crate's .cargo/config.toml rustflags, so XLTO_RUSTFLAGS repeats them.
-    - if [ "$PROFILE" = "xlto" ]; then export RUSTFLAGS="$XLTO_RUSTFLAGS"; fi
-    - (cd "$WORKSPACE_DIR/$BIN" && cargo build $CARGO_FLAG --target "$TARGET")
+    - TASK="build-${BIN#mrs-benchmark-}"
+    - if [ "$PROFILE" != "release" ]; then TASK="$TASK-$PROFILE"; fi
+    - cargo make "$TASK"
     - install -Dm755 "$CARGO_TARGET_DIR/$TARGET/$PROFILE/$BIN" "$BIN-$PROFILE"
   artifacts:
     name: "$BIN-$PROFILE-$CI_COMMIT_SHORT_SHA"
@@ -32,7 +33,6 @@ build-stm32:
   variables:
     BIN: mrs-benchmark-stm32
     TARGET: thumbv7em-none-eabihf
-    XLTO_RUSTFLAGS: "-C linker-plugin-lto -C target-cpu=cortex-m4 -C link-arg=-Tlink.x -C link-arg=--lto-O3 -C link-arg=--mllvm=-import-instr-limit=500"
 
 build-rp2350:
   extends: .cargo-build
@@ -42,7 +42,6 @@ build-rp2350:
   variables:
     BIN: mrs-benchmark-rp2350
     TARGET: thumbv8m.main-none-eabihf
-    XLTO_RUSTFLAGS: "-C linker-plugin-lto -C target-cpu=cortex-m33 -C link-arg=--nmagic -C link-arg=-Tlink.x -C link-arg=--lto-O3 -C link-arg=--mllvm=-import-instr-limit=500"
 
 build-host:
   extends: .cargo-build
@@ -52,8 +51,6 @@ build-host:
 
 build-esp32s3:
   extends: .cargo-build
-  before_script:
-    - source "$HOME/export-esp.sh"
   variables:
     BIN: mrs-benchmark-esp32s3
     TARGET: xtensa-esp32s3-none-elf

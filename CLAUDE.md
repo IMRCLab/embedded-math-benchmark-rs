@@ -99,9 +99,9 @@ cargo make inputs                           # generate inputs.json via tasks.py
 cargo make generate-ref                     # compute f64 ground truth reference_results.json
 cargo make update                           # update inputs.json and reference_results.json together
 cargo make bench-host                       # native, ns
-cargo make bench-stm                        # STM32F405 over probe-rs, cycles
-cargo make bench-pico                       # RP2040 over probe-rs, cycles
-cargo make bench-esp32                      # ESP32-S3 over probe-rs, cycles
+cargo make bench-stm32                      # STM32F405 over probe-rs, cycles
+cargo make bench-rp2040                     # RP2040 over probe-rs, cycles
+cargo make bench-esp32s3                    # ESP32-S3 over probe-rs, cycles
 cargo make bench-host | cargo make collect -- -o results.csv
 cargo make eval-accuracy                    # evaluate ULP distance & relative error vs f64 ref
 cargo make report                           # generate report.pdf with Pareto trade-off pages
@@ -148,12 +148,15 @@ CLI end-to-end test in `tests/cli.rs`) — core/host/macros have none yet.
   don't pay. Measured on STM32: `crazyflie-fw` gains 1.35x median from LTO and `cmsis-dsp` only
   1.04x, so `release` inflates Rust's apparent advantage on cheap ops (CrossProduct 2.72x →
   1.15x). Any cross-language claim from this repo should cite `lto` numbers.
-- **The `xlto` profile is the one where C actually gets inlined.** clang + `-Clinker-plugin-lto`,
-  one ThinLTO over C and Rust together (`cargo make bench-stm-xlto`, `bench-pico2-xlto`). It closes
-  `MatMul3x3` (2.77x → 1.16x) and `QuatToRotMatrix` (1.79x → 1.00x), and widens the rows whose
-  wrappers still can't inline, so it is not a blanket replacement for `lto`. Only for the two ARM
-  hard-float targets. See [docs/task-categories.md](docs/task-categories.md) for which row to quote
-  at which profile.
+- **The `xlto` profile is the one where C actually gets inlined, but it's not a blanket upgrade
+  over `lto`.** clang + `-Clinker-plugin-lto`, one ThinLTO over C and Rust together (`cargo make
+  bench-stm32-xlto`, `bench-rp2350-xlto`). CI data (stm32, full input sweep) closes `MatMul3x3`
+  (2.76x → 1.16x) and `QuatToRotMatrix` (1.86x → 1.22x), and helps CMSIS-DSP's own `MatMul9x9`/
+  `DotProduct64D` (~1.8x) and `EkfStep` (2.06x). But of 60 measured task x library pairs, 14
+  regress by more than 3% (some over 20%), on both the C and pure-Rust side. Build it for code
+  shaped like the wins above; don't swap it in as a default replacement for `lto`. Only for the two
+  ARM hard-float targets. See [docs/task-categories.md](docs/task-categories.md) for the full
+  breakdown and which row to quote at which profile.
 - **On RP2040, the C suites' `sqrtf`/`sinf`/`cosf`/`atan2f`/`expf`/`logf` calls aren't real
   newlib.** `rustc` links `libcompiler_builtins.rlib` before a crate's requested `-lm`, and both
   are scanned lazily -- so compiler_builtins's own software fallback resolves those symbols
