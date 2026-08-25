@@ -22,7 +22,14 @@
         ELF="${BIN}-${PROF}"
         LOG="${TARGET_NAME}-${PROF}.log"
         echo "=== Flashing ${ELF} on ${CHIP} ==="
-        timeout ${CAPTURE_SECS}s probe-rs run --chip "$CHIP" ${PROBE:+--probe "$PROBE"} ${PROBE_SPEED:+--speed "$PROBE_SPEED"} "$ELF" | tee "$LOG" || exit 1
+        # probe-rs intermittently fails the first flash after a fresh probe attach
+        # (AP/DRW communication error during erase); retry before giving up, see
+        # docs/hil-setup.md "Probe selection".
+        for attempt in 1 2 3; do
+          timeout ${CAPTURE_SECS}s probe-rs run --chip "$CHIP" ${PROBE:+--probe "$PROBE"} ${PROBE_SPEED:+--speed "$PROBE_SPEED"} "$ELF" | tee "$LOG" && break
+          [ "$attempt" -eq 3 ] && exit 1
+          echo "flash attempt ${attempt} failed, retrying..." >&2
+        done
       done
   artifacts:
     name: "bench-$CI_COMMIT_SHORT_SHA"

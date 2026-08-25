@@ -80,6 +80,16 @@ Resolving the probe dynamically instead (grep each candidate's `probe-rs info` f
 signature) costs an attach per candidate: 10.4s on the RP2350 probe, paid by both Pico jobs,
 about 21s per pipeline. Not worth it for a mapping that only changes when the hardware does.
 
+**Known flaky first flash (RPi Debug Probe / CMSIS-DAP).** `probe-rs run` intermittently fails
+the first flash after a fresh USB attach with `Failed to erase flash sector` / `Failed to read
+register DRW` / `Target device did not respond` — an AP communication error mid-erase, not a
+real hardware fault. Matches [probe-rs/probe-rs#1424](https://github.com/probe-rs/probe-rs/discussions/1424),
+retry succeeds. `.firmware-flash` in [`run.yml`](../.gitlab/ci/run.yml) retries each profile up
+to 3x before failing the job. Confirmed 2026-08-25 on two unrelated physical RP2350
+probe+board pairs (the swapped-in replacement showed the identical error signature from its
+first flash) -- don't assume this error means the board is dead; retry before replacing
+hardware.
+
 ### Probe speed
 
 `probe-rs` picks a conservative SWD clock. It gates flashing _and_ RTT reads, so raising it
