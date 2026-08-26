@@ -128,6 +128,7 @@ def plot_task_page(agg, df_ok, error_counts, tasks, platform_profiles, libs, pag
             if not task_rows[(task_rows["platform"] == p) & (task_rows["profile"] == prof)].empty
         ]
         task_samples = df_ok[df_ok["task"] == task]
+        common.shade_groups(ax, [(gi * group_span, gi * group_span + n_libs - 1) for gi in range(len(task_pp))])
 
         task_n = int(task_rows["count"].max())
         ax.set_title(f"{task} (n={task_n})", fontsize=9, pad=14)

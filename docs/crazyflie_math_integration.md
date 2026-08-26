@@ -4,6 +4,23 @@ This document details the integration of the Crazyflie C math library (`math3d.h
 
 The library is registered under the identifier `crazyflie-fw` and serves as a direct reference for performance comparisons between embedded C and Rust math libraries.
 
+## Math provenance
+
+Verified (2026-08-26) that every `crazyflie-fw` task calls genuine code, not a hand-rolled
+stand-in: the wrapped `math3d.h` functions (`vcross`, `mmul`, `qqmul`, `qslerp`,
+`quat2rotmat`, `qnormalize`, ...) are textbook formulas, cited to their sources in comments;
+`cf_ekf_step`/`cf_lee_controller` call the real `kalman_core.c`/`controller_lee.c`. Crazyflie
+firmware does contain a classic Quake fast-inverse-sqrt (`sensfusion6.c`'s `invSqrt`, magic
+constant `0x5f3759df`) but that file is never compiled into this crate (not in `build.rs`'s
+file list) -- every sqrt path here (`vnormalize`, `arm_sqrt` in `kalman_core.c`, CMSIS's own
+`arm_sqrt_f32` on GCC/clang) resolves to plain `sqrtf`.
+
+`Sqrt`/`SinCos`/`Atan2`/`Exp`/`Ln` are the exception: they call `sinf`/`cosf`/etc. directly, so
+`crazyflie-fw` there is really just the ARM toolchain's linked `newlib`, no firmware code runs
+at all (see [task-categories.md](task-categories.md)'s transcendental row). The paper and
+`viz/paper_figures.py` label that column `newlib` instead, to keep it visually distinct from
+tasks (like `Vec3Normalize`) where `crazyflie-fw` genuinely does run firmware code.
+
 ---
 
 ## Required Installs & Dependencies

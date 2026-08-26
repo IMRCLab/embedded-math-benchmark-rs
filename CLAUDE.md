@@ -105,6 +105,7 @@ cargo make bench-esp32s3                    # ESP32-S3 over probe-rs, cycles
 cargo make bench-host | cargo make collect -- -o results.csv
 cargo make eval-accuracy                    # evaluate ULP distance & relative error vs f64 ref
 cargo make report                           # generate report.pdf with Pareto trade-off pages
+cargo make paper-figures                    # render docs/draft/images/*.pdf for the paper (viz/paper_figures.py)
 ```
 
 Bare `cargo build`/`test`/`clippy` at the workspace root (`benchmarks/`) act on **native
@@ -143,11 +144,20 @@ CLI end-to-end test in `tests/cli.rs`) — core/host/macros have none yet.
 - **`panic = "abort"`** in every profile (workspace `Cargo.toml`). Three build profiles ship:
   `release` (opt-level 3), `lto` (adds fat LTO + `codegen-units=1`), `size` (`opt-level="z"` on
   top of LTO). CI builds and runs all three on every board; `profile` is a CSV column.
-- **Compare C against Rust at `lto`, not `release`.** The C suites are reached through FFI, and
-  `release` does not inline across that boundary — it bills C for call overhead the Rust suites
-  don't pay. Measured on STM32: `crazyflie-fw` gains 1.35x median from LTO and `cmsis-dsp` only
-  1.04x, so `release` inflates Rust's apparent advantage on cheap ops (CrossProduct 2.72x →
-  1.15x). Any cross-language claim from this repo should cite `lto` numbers.
+- **The valid profile for a C-vs-Rust number depends on the task's ABI class**, and there is no
+  single right one: free-ABI at `lto`, `mat33` by-value and pointer-ABI at `xlto`. `release` bills
+  C for call overhead Rust doesn't pay (CrossProduct 2.70x); `lto` gives Rust fat LTO and the C
+  object nothing (MatMul9x9 2.21x, but 0.98x at `xlto`); `size` inverts linalg to C outright
+  (0.63x). At matched ABI and profile the two languages land within ~25%, both directions. Table
+  in [docs/task-categories.md](docs/task-categories.md#which-profile-makes-a-c-vs-rust-number-valid).
+  Cite the profile with every cross-language claim.
+- **A task touching a transcendental measures the `libm` crate, not the language.** `glam` and
+  `nalgebra` use `features = ["libm"]`, and that crate is 1.8x (sqrt) to 10x (sincos) slower than
+  newlib on every platform. It fully accounts for `Vec3Normalize` and `QuatSlerp`. See
+  [docs/task-categories.md](docs/task-categories.md#the-rust-libm-crate-is-the-transcendental-bottleneck).
+- **Never quote `crazyflie-fw` composite ULP as accuracy.** The f64 reference follows the Rust
+  operation order, so `EkfStep`'s 789,913 ULP is divergence from a different filter, not error.
+  See [docs/accuracy_evaluation.md](docs/accuracy_evaluation.md#the-composite-reference-is-not-neutral).
 - **The `xlto` profile is the one where C actually gets inlined, but it's not a blanket upgrade
   over `lto`.** clang + `-Clinker-plugin-lto`, one ThinLTO over C and Rust together (`cargo make
   bench-stm32-xlto`, `bench-rp2350-xlto`). CI data (stm32, full input sweep) closes `MatMul3x3`

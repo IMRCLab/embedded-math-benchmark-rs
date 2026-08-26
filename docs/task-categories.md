@@ -29,21 +29,44 @@ quoting a number as a C-vs-Rust result.
 language result and you are mostly quoting AAPCS struct copies. At `xlto` this inverts:
 `MatMul3x3` and `QuatToRotMatrix` become clean and the free-ABI rows become the contaminated ones.
 
-**libm-bound**: nothing about language codegen. The result reflects which libm is linked, so
-read it next to the transcendental rows. Note C wins both of these outright.
+**libm-bound**: nothing about language codegen. These rows measure the *transcendental provider*, and C wins both outright. The gap is inherited whole from the transcendental rows, so quote those instead unless you specifically want the composite. See [The Rust `libm` crate is the transcendental bottleneck](#the-rust-libm-crate-is-the-transcendental-bottleneck).
 
-**transcendental**: libm implementations against each other, newlib vs the Rust `libm` crate vs
-micromath. The `crazyflie-fw` rows here hold no Crazyflie code; they are the ARM toolchain's
-newlib. In results predating `84d6028` they are not even that, because `compiler_builtins`'
-weak symbols shadowed the real `libm.a`. See [platforms.md](platforms.md).
+**transcendental**: libm implementations against each other, newlib vs the Rust `libm` crate vs micromath. The `crazyflie-fw` rows here hold no Crazyflie code; they are the ARM toolchain's newlib. In results predating `84d6028` they are not even that, because `compiler_builtins`' weak symbols shadowed the real `libm.a`. See [platforms.md](platforms.md).
 
-**linalg**: the cleanest C-vs-Rust comparison in the suite. CMSIS-DSP takes
-`arm_matrix_instance_f32*`, so there is no by-value marshalling, and its routines are non-inline
-library calls in real use too.
+**linalg**: no by-value marshalling (CMSIS-DSP takes `arm_matrix_instance_f32*`, and its routines are non-inline library calls in real use too), but *profile-dominated*: at `lto` Rust gets fat LTO and the C object gets nothing. `MatMul9x9` reads 2.21x Rust at `lto` and 0.98x at `xlto`. Quote it at `xlto`.
 
-**composite**: what a realistic control-loop step costs per platform. Not a language
-comparison, because the C and Rust paths are different algorithms rather than two translations
-of one. The ULP data shows this directly.
+**composite**: what a realistic control-loop step costs per platform. Not a language comparison, because the C and Rust paths are different algorithms rather than two translations of one. The ULP data shows this directly, but the f64 reference follows the Rust operation order, so `crazyflie-fw`'s composite ULP is divergence rather than error. See [accuracy_evaluation.md](accuracy_evaluation.md#the-composite-reference-is-not-neutral).
+
+## Which profile makes a C-vs-Rust number valid
+
+Each ABI class is only a language comparison at the profile where both sides get equivalent compiler treatment. Read the row there; say which one you used.
+
+| ABI class | Tasks | Read at | C/best-Rust there | Why not the others |
+| --------- | ----- | ------- | ----------------- | ------------------ |
+| free (registers) | `CrossProduct` `QuatMul` `UnitQuatMul` `RotateVector` | `lto` | 1.06-1.27x | `release` leaves Rust-side scaffolding un-inlined (2.70x on `CrossProduct`); `xlto` slows cfw's own call site 26% |
+| `mat33` by-value | `MatMul3x3` `QuatToRotMatrix` | `xlto` | 1.16-1.22x | `lto` bills C for AAPCS struct copies (2.76x) |
+| pointer | `MatMul9x9` `MatInverse9x9` `DotProduct64D` | `xlto` | 0.94-1.47x | `lto` gives Rust fat LTO and the C object nothing (2.21x) |
+
+Measured on stm32, `results.csv` of 2026-08-26. **At matched ABI and profile, C and Rust land within ~25% of each other, in both directions.** Any larger number is a profile or ABI artifact rather than a language result.
+
+`size` inverts the linalg rows outright: `MatMul9x9` 0.63x, `MatInverse9x9` 0.64x. nalgebra's compile-time unrolling is what `opt-level="z"` throws away, so C wins flash-constrained builds.
+
+## The Rust `libm` crate is the transcendental bottleneck
+
+`glam` and `nalgebra` are built with `features = ["libm"]` (there is no `f32::sqrt` in `core`), so every transcendental in a pure-Rust suite routes through the `libm` crate. It is the slowest provider in the suite on every platform:
+
+| Task | C (newlib / builtins) | Rust `libm` crate | ratio |
+| ---- | --------------------- | ----------------- | ----- |
+| `Sqrt` stm32 `lto` | 232.9 ns | 423.1 ns | 1.82x |
+| `Sqrt` rp2040 `lto` | 1983.0 ns | 5777.3 ns | 2.91x |
+| `SinCos` stm32 `lto` | 2153.8 ns | 21801.9 ns | 10.12x |
+
+That ratio carries straight into any task that touches one:
+
+- `Vec3Normalize`: glam - cfw = 163 ns; `Sqrt`: libm - cfw = 190 ns. Same gap.
+- `QuatSlerp` (`acos` + 3 `sin`): glam/cfw = 10.35x; `SinCos`: libm/cfw = 10.12x. Same ratio.
+
+So on transcendental-touching work the libm choice outweighs the language choice by an order of magnitude. rp2040 confirms this rather than contradicting it: the two sides still do not share an implementation there (C resolves to `compiler_builtins`, Rust to the `libm` crate), and C is still faster. Do not attribute these rows to "the ARM toolchain's sqrtf". The cause is which crate Rust pulled in, and it is portable across targets.
 
 ## FFI cost is about struct shape
 

@@ -80,6 +80,15 @@ def label_bar_value(ax, x_center, bar_top, scale, rotation=0):
     draw_value_label(ax, x_center, label_offset(bar_top, scale, ax), format_compact(bar_top), rotation)
 
 
+def shade_groups(ax, bounds, alpha=0.05):
+    """Faint alternating background band per x-axis group (each a (start, end)
+    bar-index pair), so a bar chart grouped by platform/task reads at a
+    glance instead of blurring into one row of bars."""
+    for gi, (start, end) in enumerate(bounds):
+        if gi % 2 == 0:
+            ax.axvspan(start - 0.5, end + 0.5, color="#000000", alpha=alpha, zorder=0)
+
+
 def style_grid(ax):
     ax.grid(axis="y", color="#d0d0d0", linewidth=0.6, zorder=0)
     ax.set_axisbelow(True)

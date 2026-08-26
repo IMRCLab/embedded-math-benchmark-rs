@@ -17,8 +17,7 @@ LIBRARY_COLORS = {
     "cmsis-dsp": "#008300",
 }
 CF_HATCH = "///"
-CMSIS_HATCH = "xxx"
-LIBRARY_HATCHES = {"crazyflie-fw": CF_HATCH, "cmsis-dsp": CMSIS_HATCH}
+LIBRARY_HATCHES = {"crazyflie-fw": CF_HATCH, "cmsis-dsp": CF_HATCH}
 FALLBACK_COLOR = "#999999"
 
 # Display order mirrors benchmarks/inputs.json case order. Kept by hand (like

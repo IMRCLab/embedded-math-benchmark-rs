@@ -223,3 +223,11 @@ workspace = false
 dependencies = ["eval-accuracy"]
 command = "uv"
 args = ["run", "--project", "viz", "viz/plot.py", "results.csv", "report.pdf"]
+
+[tasks.paper-figures]
+description = "Render the curated paper figures into docs/draft/images/ via viz/paper_figures.py"
+category = "Benchmark"
+workspace = false
+dependencies = ["eval-accuracy"]
+command = "uv"
+args = ["run", "--project", "viz", "viz/paper_figures.py", "results.csv", "docs/draft/images/"]
