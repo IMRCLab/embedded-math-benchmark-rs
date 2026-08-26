@@ -56,8 +56,9 @@ TASK_ORDER = [
 # point next to real hardware, so it trails instead of leading every page/table.
 PLATFORM_ORDER = ["stm32", "rp2040", "rp2350-arm", "esp32s3", "host"]
 
-# Compilation profiles in standard display order
-PROFILE_ORDER = ["release", "lto", "size"]
+# Compilation profiles, weakest to strongest optimization; xlto (cross-language
+# ThinLTO) exists only on the two ARM hard-float targets.
+PROFILE_ORDER = ["release", "lto", "xlto", "size"]
 
 LOG_THRESHOLD = 10.0
 LOG_COLOR = "#c62828"

@@ -13,3 +13,13 @@ library_versions.json
 .agents/
 .project/
 *.pdf
+
+# LaTeX build byproducts
+*.aux
+*.bbl
+*.blg
+*.log
+*.out
+*.run.xml
+*-blx.bib
+texput.log

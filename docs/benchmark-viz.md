@@ -100,7 +100,23 @@ and keep their default (sized for a 16in-wide page), this script passes a small 
 since that default reads oversized on a page-width figure.
 
 Usage: `uv run --project viz viz/paper_figures.py results.csv docs/draft/images/`. Writes
-`fig-results-{category,crossplatform,accuracy}.pdf` to the given directory.
+`fig-results-{category,profile,crossplatform}.pdf` to the given directory, and prints the
+accuracy table's LaTeX body rows plus the resolved library versions to stderr for the paper's
+caption.
+
+Three conventions this script has that the report deliberately does not:
+
+- **One profile per panel, not one per figure.** `CATEGORY_TASKS` is a task to profile map, not
+  a list: each ABI class is drawn at the profile where its C-vs-Rust number is valid
+  ([task-categories.md](task-categories.md#which-profile-makes-a-c-vs-rust-number-valid)). The
+  panel prints its own `@ profile` so a mixed figure stays readable.
+- **Cross-platform panels are normalized to each group's fastest library.** Absolute cycles
+  differ ~40x between the M0+ and the M4F, and a shared log axis flattens every within-platform
+  ordering, which is the one thing that figure exists to show.
+- **Accuracy is a table, not a figure.** Mean ULP spans 0.07 to 1.2e5, which reads as numbers
+  and not as bars. `ACCURACY_EXCLUDE` drops `crazyflie-fw`'s composite row, since that number is
+  divergence rather than error
+  ([accuracy_evaluation.md](accuracy_evaluation.md#the-composite-reference-is-not-neutral)).
 
 ## CI
 
