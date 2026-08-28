@@ -1,23 +1,13 @@
 FROM rust:latest
 
-# uv binary only (not its Python/wheels) - multi-stage copy, no curl+checksum step.
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /usr/local/bin/
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     gcc-arm-none-eabi libnewlib-arm-none-eabi libclang-dev \
     clang \
     && rm -rf /var/lib/apt/lists/*
-# The xlto profile feeds clang bitcode and rustc bitcode to one linker plugin, so clang's LLVM
-# major must match `rustc -vV`'s. Mismatch shows up as a link error, not silently.
-RUN test "$(clang --version | sed -nE 's/.*clang version ([0-9]+).*/\1/p' | head -1)" \
-      = "$(rustc -vV | sed -nE 's/^LLVM version: ([0-9]+).*/\1/p')" \
-    || echo "WARNING: clang and rustc LLVM majors differ; the xlto profile will not link"
-# Bake the cross targets + components in: CARGO_HOME is persisted across CI jobs but
-# RUSTUP_HOME isn't. A new target must be added here too.
+# CARGO_HOME is persisted across CI jobs but RUSTUP_HOME isn't, so a new target must be added here.
 RUN rustup target add thumbv7em-none-eabihf thumbv6m-none-eabi thumbv8m.main-none-eabihf \
     && rustup component add rustfmt clippy
-# Xtensa has no upstream Rust target: espup bakes in a separate "esp" toolchain + $HOME/export-esp.sh, sourced by the esp32s3 build job only.
 RUN cargo install espup --locked && espup install --targets esp32s3
-# Build jobs invoke `cargo make build-<chip>[-$PROFILE]` so Makefile.toml stays the single source
-# of truth for cargo/rustflags invocations (see .gitlab/ci/build.yml).
 RUN cargo install cargo-make --locked

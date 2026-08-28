@@ -252,8 +252,9 @@ class MatInverse3x3Task(BenchmarkTask):
 
     def compute_reference(self, input_dict: dict) -> dict[str, Any]:
         m = np.array(input_dict["matrix"], dtype=np.float64).reshape(3, 3)
-        det = float(np.linalg.det(m))
-        if abs(det) < 1e-6:
+        # scale-free singularity test: an absolute det threshold rejects well-conditioned tiny-scale matrices
+        cond = float(np.linalg.cond(m))
+        if not np.isfinite(cond) or cond >= 1.0 / np.finfo(np.float32).eps:
             return {"error": "Matrix not invertible"}
 
         inv = np.linalg.inv(m)

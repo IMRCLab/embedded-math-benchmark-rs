@@ -22,8 +22,7 @@ Build and run on the host or a microcontroller. Inputs come from `benchmarks/inp
 
 Firmware tasks need `probe-rs` and a connected probe, see [HIL Setup](hil-setup.md).
 ESP32-S3 additionally needs the `espup`-installed `esp` toolchain on `PATH`.
-The `-xlto` tasks additionally need `clang` whose LLVM major matches `rustc -vV`'s, since the two
-feed one linker plugin. They are ARM hard-float only.
+The `-xlto` tasks additionally need `clang`, and are ARM hard-float only. Its LLVM major need not match `rustc -vV`'s: newer LLVM reads older bitcode, so an older clang still links (clang 19 against rustc's LLVM 22 only warns).
 
 ## Without cargo-make
 

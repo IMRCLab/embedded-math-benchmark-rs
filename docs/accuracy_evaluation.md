@@ -55,10 +55,11 @@ The C path calls `kalmanCoreFinalize` three times, uses `kalmanCoreDefaultParams
 
 **Rule:** never quote `crazyflie-fw` composite ULP as accuracy. Compare only within `glam`/`nalgebra`/`micromath`, which do share an algorithm. That comparison is valid, and it shows micromath's fast-math cost in a realistic control step (1,305 vs 0.15 ULP on `LeeController`).
 
-Two further cautions on the accuracy CSV:
+Further cautions on the accuracy CSV:
 
 - ULP is not comparable across tasks. It is scale-relative to each output quantity, so "micromath is 6,030 ULP on `SinCos` but 1,305 on `LeeController`" says nothing about error growth. There is no compounding-drift result in this data.
 - `mean_rel_error` is unusable where the reference is near zero: `CrossProduct` reports ~5e5 for every library, including bit-identical ones. Use ULP there.
+- Ill-conditioned inputs dominate a ULP mean. `MatInverse3x3` calls a matrix singular at $\kappa(A) \ge 1/\varepsilon_{f32}$ rather than on `|det|`, which moves stm32 `lto` mean ULP from 1,051,177 to 3.25 (nalgebra) and 469,534 to 3.59 (glam).
 
 ## Command Workflows (`cargo-make`)
 

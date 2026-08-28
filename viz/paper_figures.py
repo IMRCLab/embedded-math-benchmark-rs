@@ -70,6 +70,13 @@ FLAGSHIP_PLATFORM = "stm32"
 FLAGSHIP_PROFILE = "lto"
 
 
+def _save(fig, out_path):
+    """LaTeX adds its own float spacing, so the figure ships trimmed to its
+    artists with only a hairline pad instead of savefig's default 0.1in."""
+    fig.savefig(out_path, bbox_inches="tight", pad_inches=0.01)
+    plt.close(fig)
+
+
 def _legend_below(fig, libs, fontsize, gap=0.02):
     """common.add_legend anchors at the figure's lower edge, which is inside the
     bottom margin the rotated tick labels hang into. Anchoring the legend's top
@@ -145,11 +152,9 @@ def fig_category_grid(agg, df_ok, out_path):
     for ax in axes[len(tasks):]:
         ax.axis("off")
 
-    _legend_below(fig, libs, fontsize=8)  # bare names: versions cited once in the caption, not per-figure
-    fig.suptitle(f"{FLAGSHIP_PLATFORM}, one task per ABI class", fontsize=9, y=1.05)
-    fig.subplots_adjust(left=0.045, right=0.99, top=0.80, bottom=0.28, wspace=0.75)
-    fig.savefig(out_path, bbox_inches="tight")
-    plt.close(fig)
+    fig.suptitle(f"{FLAGSHIP_PLATFORM}, one task per ABI class", fontsize=9, y=1.03)
+    fig.subplots_adjust(left=0.045, right=0.99, top=0.78, bottom=0.28, wspace=0.6)
+    _save(fig, out_path)
 
 
 def _c_over_rust(agg, task, platform, profile):
@@ -205,8 +210,7 @@ def fig_profile_ratio(agg, out_path):
     ax.legend(fontsize=6, ncol=4, frameon=False, loc="upper center",
               bbox_to_anchor=(0.5, -0.13), columnspacing=0.8, handlelength=1.0)
     fig.subplots_adjust(left=0.15, right=0.99, top=0.96, bottom=0.28)
-    fig.savefig(out_path, bbox_inches="tight")
-    plt.close(fig)
+    _save(fig, out_path)
 
 
 def _draw_cross_platform_panel(ax, task, agg, task_medians, platforms, profile, libs):
@@ -281,10 +285,9 @@ def fig_cross_platform(agg, df_ok, out_path):
     # Legend only lists libraries these two tasks actually plot: the full
     # library set would pad the legend row wider than the panels above it,
     # forcing side whitespace once bbox_inches="tight" grows to fit it.
-    _legend_below(fig, used_libs, fontsize=6.5, gap=0.0)
-    fig.subplots_adjust(left=0.16, right=0.98, top=0.90, bottom=0.24, wspace=0.6)
-    fig.savefig(out_path, bbox_inches="tight")
-    plt.close(fig)
+    _legend_below(fig, used_libs, fontsize=6.5, gap=-0.05)
+    fig.subplots_adjust(left=0.16, right=0.98, top=0.93, bottom=0.22, wspace=0.55)
+    _save(fig, out_path)
 
 
 def _fmt_ulp(value):
