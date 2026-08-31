@@ -1,44 +1,42 @@
-# Numerical Accuracy & Evaluation Framework
+# Numerical accuracy
 
-This document describes the design, scientific metrics, and workflows used to evaluate the numerical accuracy of embedded math libraries (`glam`, `nalgebra`, `micromath`, `crazyflie-fw`, `libm`) against high-precision 64-bit floating-point (`f64`) reference ground truth.
+How the microbenchmark outputs are compared against a 64-bit reference, and what that comparison
+does and does not support. Task definitions, input generators, f64 reference calculators and
+accuracy evaluators all live in `tools/inputs_generator/tasks.py`; adding a task there is covered
+in [adding_a_benchmark.md](adding_a_benchmark.md).
 
-## Architecture: Single Point of Reference (`tasks.py`)
+## Metrics
 
-All task definitions, supported library mappings, input generators, 64-bit reference calculators, and accuracy evaluators are co-located in a single file: `tools/inputs_generator/tasks.py`.
+**ULP distance** is the bit-level distance between the target's f32 output and the f64 reference
+rounded to f32:
 
-```
-tools/inputs_generator/
-├── pyproject.toml              # Python & dependencies configuration (managed via uv)
-├── tasks.py                    # Single source of truth for all benchmark tasks
-├── generate_inputs.py          # Generates benchmarks/inputs.json
-├── generate_reference.py       # Generates benchmarks/reference_results.json (f64 reference)
-└── evaluate_accuracy.py        # Compares results.csv against reference_results.json
-```
-
-### Adding a New Task
-To add a new benchmark task or evaluation rule, subclass `BenchmarkTask` in `tools/inputs_generator/tasks.py` and register it in `TASK_REGISTRY`. The input generator, reference calculator, and accuracy evaluator automatically pick it up without modifying any CLI scripts.
-
----
-
-## Accuracy Metrics & Scientific Methodology
-
-### 1. ULP Distance (Units in the Last Place)
-ULP distance measures the bit-level distance between single-precision IEEE 754 floats:
 $$\text{ULP}(y_{\text{lib}}, y_{\text{ref}}) = \frac{|y_{\text{lib}} - y_{\text{ref}}|}{2^{E(y_{\text{ref}}) - 23}}$$
 
-- **0 ULP**: Bit-exact match with the nearest valid single-precision float representation.
-- **1 to 2 ULPs**: Expected floating-point noise from instruction reordering or non-FMA hardware.
-- **> 10 ULPs**: Polynomial lookup approximation drift (typical for fast approximations like `micromath`).
+0 ULP is a bit-exact match. 1 to 2 ULP is ordinary floating-point noise from instruction
+reordering or a missing FMA. Anything above ~10 ULP is polynomial-approximation drift, which in
+this suite means micromath.
 
-### 2. Relative & Absolute Error
-- **Relative Error**: $\epsilon_{\text{rel}} = \frac{\|y_{\text{lib}} - y_{\text{ref}}\|_2}{\|y_{\text{ref}}\|_2 + \epsilon}$
-- **Absolute Error**: $\epsilon_{\text{abs}} = \|y_{\text{lib}} - y_{\text{ref}}\|_2$
+Alongside it the evaluator reports relative error
+$\|y_{\text{lib}} - y_{\text{ref}}\|_2 / (\|y_{\text{ref}}\|_2 + \epsilon)$, absolute error
+$\|y_{\text{lib}} - y_{\text{ref}}\|_2$, and for quaternion tasks the geodesic rotation angle
+$\theta_{\text{err}} = 2\arccos(|q_{\text{lib}} \cdot q_{\text{ref}}|)$ in radians.
 
-### 3. Geodesic Rotation Angle Error
-For quaternion operations (`QuatMul`, `QuatSlerp`, `RotateVector`), the angular error in 3D space is evaluated in radians:
-$$\theta_{\text{err}} = 2 \arccos(|q_{\text{lib}} \cdot q_{\text{ref}}|)$$
+`cargo make eval-accuracy` writes `accuracy_results.csv` and `accuracy_results.json` plus a
+terminal summary table.
 
----
+## What the numbers look like
+
+Current values live in `accuracy_results.csv` and section 3 of `report.pdf`; treat anything quoted
+here as an order of magnitude, not a figure to cite.
+
+On pure linear algebra every library stays within ~15 mean ULP of the reference, on inputs that are
+not singular in f32. The gap that matters is fast-math approximation: at stm32 `lto`, micromath is
+around 1.2e5 mean ULP on `Sqrt` and 5.4e5 on `Atan2`, against 0.07 and 0.14 for both `libm` and
+newlib. That is three to six orders of magnitude, and it is not uniform across functions, so read
+the per-task rows rather than assuming one figure for the crate.
+
+`newlib` in the accuracy output is the `crazyflie-fw` column for the five single-transcendental
+tasks, where no firmware code runs, see [c-suites.md](c-suites.md#naming).
 
 ## The composite reference is not neutral
 
@@ -60,25 +58,3 @@ Further cautions on the accuracy CSV:
 - ULP is not comparable across tasks. It is scale-relative to each output quantity, so "micromath is 6,030 ULP on `SinCos` but 1,305 on `LeeController`" says nothing about error growth. There is no compounding-drift result in this data.
 - `mean_rel_error` is unusable where the reference is near zero: `CrossProduct` reports ~5e5 for every library, including bit-identical ones. Use ULP there.
 - Ill-conditioned inputs dominate a ULP mean. `MatInverse3x3` calls a matrix singular at $\kappa(A) \ge 1/\varepsilon_{f32}$ rather than on `|det|`, which moves stm32 `lto` mean ULP from 1,051,177 to 3.25 (nalgebra) and 469,534 to 3.59 (glam).
-
-## Command Workflows (`cargo-make`)
-
-All workflows are automated via `cargo-make` tasks:
-
-```bash
-# 1. Generate inputs.json from task definitions
-cargo make inputs
-
-# 2. Compute 64-bit reference ground truth
-cargo make generate-ref
-
-# 3. Run benchmarks and collect results into results.csv
-cargo make bench-host | cargo make collect -- -o results.csv
-
-# 4. Evaluate numerical accuracy of results.csv against reference ground truth
-cargo make eval-accuracy
-```
-
-Outputs:
-- Terminal Markdown summary table comparing Max ULP, Mean ULP, Relative Error, and % Bit-Exact runs.
-- `accuracy_results.csv` and `accuracy_results.json` containing structured metrics per platform, library, and task.

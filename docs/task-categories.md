@@ -55,15 +55,9 @@ Measured on stm32, `results.csv` of 2026-08-26. **At matched ABI and profile, C 
 
 `glam` and `nalgebra` are built with `features = ["libm"]` (there is no `f32::sqrt` in `core`), so every transcendental in a pure-Rust suite routes through the `libm` crate. That crate is not uniformly slower than newlib. It loses badly on `Sqrt` and `SinCos`, and wins on `Atan2`, `Exp` and `Ln`. Which provider you link decides each function; the language does not.
 
-ns per call, stm32 `lto`:
-
-| Task | newlib | `libm` crate | micromath |
-| ---- | ------ | ------------ | --------- |
-| `Sqrt` | 233 | 423 (1.82x) | 209 |
-| `SinCos` | 2154 | 21802 (10.12x) | 373 |
-| `Atan2` | 1456 | 1091 (0.75x) | 388 |
-| `Exp` | 1106 | 598 (0.54x) | 696 |
-| `Ln` | 1007 | 566 (0.56x) | 478 |
+Against newlib at stm32 `lto`, the `libm` crate costs 1.82x on `Sqrt` and 10.12x on `SinCos`, and
+saves 0.75x on `Atan2`, 0.54x on `Exp` and 0.56x on `Ln`. micromath is the fastest provider on all
+five except `Exp`, at the accuracy cost in [accuracy_evaluation.md](accuracy_evaluation.md).
 
 The two losses have different causes, both visible in the disassembly. For `Sqrt`, newlib emits `vsqrt.f32` (14 of the 39 cycles its 233 ns spans; the rest is `sqrtf`'s NaN and errno guard plus the call), while the `libm` crate's architecture dispatch has no 32-bit ARM backend and falls back to a 128-entry table lookup with integer Goldschmidt iterations. For trigonometry no core here has a hardware instruction, so newlib evaluates single-precision polynomials on the FPU via `vfma.f32`, and the `libm` crate evaluates them in `f64`, which forces `rustc` to emit `__aeabi_dmul` software emulation on a single-precision FPU. That is the whole 10x.
 
@@ -74,8 +68,6 @@ Wherever the ratio is large it carries straight into any task that touches that 
 - `Vec3Normalize`: glam - cfw = 163 ns; `Sqrt`: libm - cfw = 190 ns. Same gap.
 - `QuatSlerp` (`acos` + 3 `sin`): glam/cfw = 10.35x; `SinCos`: libm/cfw = 10.12x. Same ratio.
 
-micromath is the fastest provider on every transcendental except `Exp`, at the accuracy cost in [accuracy_evaluation.md](accuracy_evaluation.md).
-
 ## FFI cost is about struct shape
 
 What costs real cycles at the FFI boundary is AAPCS-VFP by-value struct passing, not the wrapper
@@ -85,16 +77,10 @@ bytes: arguments get copied onto the stack, results come back through a hidden `
 Rust keeps the same values in registers, so every `mat33` at the boundary is memory traffic
 Rust never pays.
 
-Measured on stm32 / `lto`, cycles per call, against the memory ops in the C wrapper body:
-
-| Task              | mem ops in wrapper | `crazyflie-fw` | `glam` | ratio |
-| ----------------- | ------------------ | -------------- | ------ | ----- |
-| `UnitQuatMul`     | 0 of 24            | 75.8           | 71.4   | 1.06x |
-| `QuatMul`         | 0 of 24            | 76.0           | 68.5   | 1.11x |
-| `CrossProduct`    | 0 of 13            | 41.8           | 35.3   | 1.18x |
-| `MatVecMul3x3`    | 10 of 30           | 97.3           | 56.3   | 1.73x |
-| `QuatToRotMatrix` | 9 of 36            | 106.2          | 60.4   | 1.76x |
-| `MatMul3x3`       | 42 of 93           | 349.6          | 126.5  | 2.76x |
+The C/Rust ratio at stm32 `lto` tracks the memory ops in the wrapper body almost exactly. The
+free-ABI wrappers have none and land at 1.06x to 1.18x; `MatVecMul3x3` and `QuatToRotMatrix` have
+roughly a third of their instructions marshalling and land at 1.73x and 1.76x; `MatMul3x3` is
+nearly half marshalling and lands at 2.76x. Current figures are in `report.pdf`.
 
 The free-ABI rows are trustworthy C-vs-Rust codegen. The `mat33` rows are not: in `MatMul3x3`
 nearly half the C path is marshalling, and the timed loop's whole pre-call body is `ldrd`/`strd`

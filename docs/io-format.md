@@ -1,4 +1,4 @@
-# Benchmark I/O Format
+# Benchmark I/O format
 
 How benchmark inputs are defined and how results come back out.
 
@@ -16,7 +16,7 @@ directly only to add a one-off case, see [Adding a Benchmark](adding_a_benchmark
     {
       "libraries": ["glam"],
       "test": "MatMul3x3",
-      "repetitions": 1000,
+      "repetitions": 25,
       "inputs": [
         {
           "lhs": [1, 2, 3, 4, 5, 6, 7, 8, 9],
@@ -27,7 +27,7 @@ directly only to add a one-off case, see [Adding a Benchmark](adding_a_benchmark
     {
       "libraries": ["nalgebra"],
       "test": "RotateVector",
-      "repetitions": 5000,
+      "repetitions": 25,
       "platforms": ["rp2040", "rp2350-arm"],
       "inputs": [{ "point": [1, 2, 3], "quat": [0, 0, 0.7071, 0.7071] }]
     }
@@ -40,8 +40,11 @@ directly only to add a one-off case, see [Adding a Benchmark](adding_a_benchmark
   (`[f32; 3]`) and `quat` (`[f32; 4]`).
 - `libraries` lists which library implementations to benchmark for this case.
 - `repetitions` sets how many times to loop over the inputs when timing (per case, no
-  top-level default).
+  top-level default). Currently 25 everywhere except `EkfStep`, which uses 10.
 - `platforms` (optional) restricts a case to some chip IDs. Omit it to run everywhere.
+
+The suite currently has 20 tasks over 1,009 inputs. The workshop paper reports the 18 primitives,
+excluding the two composites (`EkfStep`, `LeeController`).
 
 A central registry in `mrs-benchmark-core` maps each task identifier to its implementations
 and input type. `mrs_benchmark_macros::generate_benchmarks!()` reads this registry plus
@@ -55,16 +58,16 @@ grep them out.
 ```
 [some normal log line]
 BENCH platform,profile,library,task,input_index,repetitions,duration,unit,result
-BENCH stm32,release,glam,MatMul3x3,0,1000,3003284,cycles,"[30.0, 84.0, 138.0, 24.0, 69.0, 114.0, 18.0, 54.0, 90.0]"
+BENCH stm32,release,glam,MatMul3x3,0,25,75082,cycles,"[30.0, 84.0, 138.0, 24.0, 69.0, 114.0, 18.0, 54.0, 90.0]"
 [more logs]
 BENCH platform,profile,library,task,input_index,repetitions,duration,unit,result
-BENCH host,release,glam,MatMul3x3,0,1000,104523,ns,"[30.0, 84.0, 138.0, 24.0, 69.0, 114.0, 18.0, 54.0, 90.0]"
+BENCH host,release,glam,MatMul3x3,0,25,2613,ns,"[30.0, 84.0, 138.0, 24.0, 69.0, 114.0, 18.0, 54.0, 90.0]"
 ```
 
 - Each platform automatically prints the common header row.
 - One data row per (platform, profile, library, task, input). Columns, in order:
   `platform,profile,library,task,input_index,repetitions,duration,unit,result`.
-- `profile` is the compile profile (`release`, `lto`, `size`, or `dev`), baked in at build time.
+- `profile` is the compile profile (`release`, `lto`, `size`, `xlto`), baked in at build time. See [build-profiles.md](build-profiles.md).
 - `result` is the computed output (e.g. array of floats) formatted as `Debug` so Python can
   parse it with `ast.literal_eval`; it's quoted to protect its internal commas. A failed
   math op emits `ERROR: <reason>` instead.
@@ -76,9 +79,7 @@ them, and merges every platform into one headed `results.csv`. See
 [Running the Benchmarks](running-benchmarks.md#collecting-results-into-a-csv). C libraries
 slot into the `library` field.
 
-`collect` also writes a best-effort `library_versions.json` sidecar next to `results.csv`
-(library name -> version string), read from `benchmarks/Cargo.lock` and the
-`crazyflie-firmware` git submodule's pinned commit at collect time. `viz/plot.py` picks it up
-automatically if present. A missing/unreadable source just drops that one library's entry
-(with a stderr warning) rather than failing `collect`. Sourced from the main workspace's
-lockfile only -- `mrs-benchmark-esp32s3` resolves independently and isn't tracked separately.
+`collect` also writes a best-effort `library_versions.json` next to `results.csv`, mapping library
+name to version: Rust crates from `benchmarks/Cargo.lock`, the two C suites from their pinned
+submodules. `viz/plot.py` picks it up automatically if present, and a library missing from it
+falls back to its bare name in the report legend.

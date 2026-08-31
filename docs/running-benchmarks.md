@@ -1,4 +1,4 @@
-# Running the Benchmarks
+# Running the benchmarks
 
 Build and run on the host or a microcontroller. Inputs come from `benchmarks/inputs.json`
 (baked in at build time); results print as `BENCH `-prefixed CSV rows, see

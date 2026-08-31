@@ -1,4 +1,4 @@
-# Hardware-in-the-Loop (HIL) CI Setup
+# Hardware-in-the-loop (HIL) CI setup
 
 Flashing and measuring firmware benchmarks on real hardware from GitLab CI. Firmware runs over a
 debug probe on the lab machine; the host benchmark runs natively alongside it.

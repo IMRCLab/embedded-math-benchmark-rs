@@ -8,7 +8,6 @@ State-update talks happen every few weeks, so each one is a dated deck under `up
 slides/
   .marprc.yml        registers the shared theme
   themes/project.css shared look for every deck
-  template.md        copy this to start a new update
   updates/
     2026-07-05.md    one deck per presentation, ISO-dated
 ```

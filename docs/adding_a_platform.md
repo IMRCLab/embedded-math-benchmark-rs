@@ -1,4 +1,4 @@
-# Adding a New Platform
+# Adding a new platform
 
 Checklist for bringing up a new hardware target (or new architecture on existing silicon).
 

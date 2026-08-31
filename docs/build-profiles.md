@@ -34,16 +34,8 @@ Most wrappers pass or return a `vec`/`quat` by value and hit the third rule. Onl
 mismatch on the *return*, which only an out-pointer would fix, and that would cost the other
 profiles real memory traffic.
 
-Median cycles per call on stm32, full input sweep:
-
-| Task              | `lto` cfw | `xlto` cfw | `lto` glam | `xlto` glam | ratio           |
-| ----------------- | --------- | ---------- | ---------- | ----------- | --------------- |
-| `MatMul3x3`       | 349.6     | 146.9      | 126.5      | 126.4       | 2.76x -> 1.16x  |
-| `QuatToRotMatrix` | 106.2     | 62.0       | 60.4       | 51.0        | 1.76x -> 1.22x  |
-| `MatVecMul3x3`    | 97.3      | 100.0      | 56.3       | 52.7        | 1.73x -> 1.90x  |
-| `CrossProduct`    | 41.8      | 52.6       | 35.3       | 36.2        | 1.18x -> 1.45x  |
-
-`xlto` closes the two rows it can inline and widens the rest, because Rust gets inlined under the
+On stm32 this closes the two rows it can inline, `MatMul3x3` from 2.76x to 1.16x and
+`QuatToRotMatrix` from 1.76x to 1.22x, and widens the rest, because Rust gets inlined under the
 same regime while the C stays behind a call. `CrossProduct` shows a second effect: `crazyflie-fw`'s
 own call site gets 26% slower under `xlto`, not just relatively behind a faster glam.
 

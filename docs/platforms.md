@@ -1,4 +1,4 @@
-# Targets & Platforms
+# Targets and platforms
 
 Where the benchmarks run, how each is timed, and their current status.
 
