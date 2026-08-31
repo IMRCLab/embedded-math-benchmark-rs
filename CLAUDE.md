@@ -151,17 +151,17 @@ CLI end-to-end test in `tests/cli.rs`) — core/host/macros have none yet.
   (0.63x). At matched ABI and profile the two languages land within ~25%, both directions. Table
   in [docs/task-categories.md](docs/task-categories.md#which-profile-makes-a-c-vs-rust-number-valid).
   Cite the profile with every cross-language claim.
-- **A task touching a transcendental measures the `libm` crate, not the language.** `glam` and
-  `nalgebra` use `features = ["libm"]`, and that crate is 1.8x (sqrt) to 10x (sincos) slower than
-  newlib on every platform. It fully accounts for `Vec3Normalize` and `QuatSlerp`. See
-  [docs/task-categories.md](docs/task-categories.md#the-rust-libm-crate-is-the-transcendental-bottleneck).
+- **A task touching a transcendental measures the linked math provider, not the language.** The
+  Rust `libm` crate loses to newlib on `sqrt` (1.8x) and `sincos` (10x) and wins on `atan2`, `exp`
+  and `ln`. See
+  [docs/task-categories.md](docs/task-categories.md#which-transcendental-provider-you-link-decides-the-cost).
 - **Never quote `crazyflie-fw` composite ULP as accuracy.** The f64 reference follows the Rust
   operation order, so `EkfStep`'s 789,913 ULP is divergence from a different filter, not error.
   See [docs/accuracy_evaluation.md](docs/accuracy_evaluation.md#the-composite-reference-is-not-neutral).
 - **The `xlto` profile is the one where C actually gets inlined, but it's not a blanket upgrade
   over `lto`.** clang + `-Clinker-plugin-lto`, one ThinLTO over C and Rust together (`cargo make
   bench-stm32-xlto`, `bench-rp2350-xlto`). CI data (stm32, full input sweep) closes `MatMul3x3`
-  (2.76x → 1.16x) and `QuatToRotMatrix` (1.86x → 1.22x), and helps CMSIS-DSP's own `MatMul9x9`/
+  (2.76x → 1.16x) and `QuatToRotMatrix` (1.76x → 1.22x), and helps CMSIS-DSP's own `MatMul9x9`/
   `DotProduct64D` (~1.8x) and `EkfStep` (2.06x). But of 60 measured task x library pairs, 14
   regress by more than 3% (some over 20%), on both the C and pure-Rust side. Build it for code
   shaped like the wins above; don't swap it in as a default replacement for `lto`. Only for the two
