@@ -71,6 +71,7 @@ fn main() {
     let cmsis_core_dir = cf_src.join("../vendor/CMSIS/CMSIS");
     let cmsis_dsp_dir = manifest_dir.join("../vendor/CMSIS-DSP");
 
+    // platform_defaults.h wants Kconfig's autoconf.h; its own #ifndef fallbacks suffice, so an empty stub is enough.
     let stub_autoconf = c_src_dir.join("stub_autoconf");
     let project_includes = [
         c_src_dir.clone(),
@@ -159,6 +160,7 @@ fn main() {
             cc_build.flag("-isystem").flag(dir);
         }
     }
+    // third-party crazyflie headers warn under optimization; not our code to fix.
     cc_build
         .flag_if_supported("-Wno-absolute-value")
         .flag_if_supported("-Wno-strict-aliasing")
@@ -180,12 +182,14 @@ fn main() {
         .use_core() // Ensure no_std output
         .ctypes_prefix("core::ffi"); // Use core::ffi types
 
+    // bindgen's clang defaults to the host triple, which gets pointer sizes and struct layouts wrong.
     builder = builder.clang_arg(format!("--target={}", target));
 
     for dir in &system_includes {
         builder = builder.clang_arg(format!("-I{}", dir));
     }
 
+    // clang emits size asserts for libc structs like _reent that differ host vs target; we never pass them.
     builder = builder.layout_tests(false);
 
     let bindings = builder.generate().expect("Unable to generate bindings");

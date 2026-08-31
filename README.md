@@ -11,7 +11,10 @@ This project aims to:
 - **Evaluate Numeric Solvers**: Compare embedded quadratic programming (QP) solvers (e.g., OSQP, cvxgen vs. generated Rust code) for actuation allocation and MPC.
 - **Compare Scheduling**: Analyze real-time scheduling behavior between traditional RTOSs (like FreeRTOS) in C and modern async executors (like Embassy) in Rust.
 
-For the detailed scope and milestones, see the [Full Project Requirements](docs/project_requirements.md) (the original brief; scope evolves).
+Milestone 1, the math-library comparison, is done and running on hardware in CI across five
+platforms and four build profiles. QP solvers and scheduling are later milestones. The results
+are written up in `rust_for_robotics_workshop_iros_2026.pdf` at the repo root; the original
+brief is in [docs/archive/](docs/archive/project_requirements.md).
 
 ## Usage
 

@@ -6,7 +6,7 @@ Embedded microbenchmarks comparing **C vs Rust** performance and scheduling on
 compute-constrained robotic hardware (STM32, RP2040/RP2350, ESP32-S3). Long-term goal: quantify
 robotic workloads (controllers, state estimators, math), evaluate QP solvers, and compare
 scheduling (FreeRTOS vs Embassy). See [README.md](README.md) and
-[docs/project_requirements.md](docs/project_requirements.md).
+[docs/archive/project_requirements.md](docs/archive/project_requirements.md).
 
 **Current focus is milestone 1 only: benchmarking embedded math libraries** (glam,
 nalgebra, micromath, and eventually C equivalents) across platforms. QP solvers and

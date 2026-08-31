@@ -1,8 +1,9 @@
 # Draft: `rp2350-riscv` target
 
-Status: **not scheduled**. The `probe-rs` flashing blocker has a verified workaround — see
-[Targets & Platforms: RP2350](../platforms.md#rp2350-pico-2) for the chip behavior, the
-workaround, and recovery. This doc covers only the not-yet-built crate.
+Status: **not scheduled**. The `probe-rs` flashing blocker has a verified workaround; see
+[`tools/rp2350-rescue/`](../../tools/rp2350-rescue/README.md) for flashing and recovery, and
+[Targets & Platforms](../platforms.md#rp2350-pico-2) for the chip behavior. This doc covers only
+the not-yet-built crate.
 
 ## Shape: new sibling crate `mrs-benchmark-rp2350-riscv`
 

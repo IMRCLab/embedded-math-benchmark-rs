@@ -5,6 +5,22 @@ Build and run on the host or a microcontroller. Inputs come from `benchmarks/inp
 [Benchmark I/O Format](io-format.md). For chip names, target triples, and units, see
 [Targets & Platforms](platforms.md).
 
+## Prerequisites
+
+Host-only runs need nothing beyond a Rust toolchain. For firmware:
+
+```bash
+rustup target add thumbv7em-none-eabihf thumbv6m-none-eabi thumbv8m.main-none-eabihf
+cargo install cargo-make probe-rs-tools --locked
+paru -S arm-none-eabi-gcc arm-none-eabi-newlib          # Arch
+sudo apt install gcc-arm-none-eabi libnewlib-arm-none-eabi   # Debian/Ubuntu
+```
+
+The ARM cross-compiler and newlib are what the [C suites](c-suites.md) build against; without
+them the ARM firmware still builds with `default-features = false` on `mrs-benchmark-core`.
+esp32s3 needs the `espup`-installed `esp` toolchain instead of a `rustup` target, and the `-xlto`
+tasks additionally need `clang`.
+
 ## cargo-make
 
 `cargo install cargo-make` once, then from the repo root:
