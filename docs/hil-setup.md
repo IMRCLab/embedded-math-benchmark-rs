@@ -25,7 +25,7 @@ target's filenames.
 ### CI image
 
 `rust:latest` ships none of the firmware Rust targets, the C cross-compiler, or Espressif's
-`espup` Xtensa toolchain. [`Dockerfile.ci`](../.gitlab/ci/Dockerfile.ci) layers those on top and
+`espup` Xtensa toolchain. [`Dockerfile.ci`](../.github/docker/Dockerfile.ci) layers those on top and
 [`image.yml`](../.gitlab/ci/image.yml) rebuilds it when the Dockerfile or the job changes, using
 kaniko so it can build unprivileged. Targets are baked into the image, so a new one must be added
 there too.

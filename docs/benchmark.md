@@ -16,6 +16,6 @@
 
 Read [task categories](task-categories.md) before quoting any number as a C-vs-Rust result.
 
-Hardware specified but not yet built: [RP2350 RISC-V](draft/rp2350-riscv-design.md). The
-nRF52840 runs on the bench; its remaining CI wiring is in [draft/nrf52840-design.md](draft/nrf52840-design.md).
+Hardware specified but not yet built: [RP2350 RISC-V](draft/rp2350-riscv-design.md).
+Planned move to public GitHub + GitHub Actions: [GitHub migration](draft/github-migration.md).
 The original project brief is in [archive/](archive/project_requirements.md).

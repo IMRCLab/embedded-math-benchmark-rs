@@ -198,19 +198,19 @@ env = { RUSTUP_TOOLCHAIN = "esp" }
 script_runner = "@shell"
 # Sources espup's env (linker on PATH) so callers don't have to remember to.
 # `@shell` runs scripts via dash, not bash, so this needs POSIX `.`, not `source`.
-script = ['. "$HOME/export-esp.sh"', 'cargo build --release']
+script = ['. "${ESP_ENV_SCRIPT:-$HOME/export-esp.sh}"', 'cargo build --release']
 
 [tasks.build-esp32s3-lto]
 description = "Build the ESP32-S3 firmware with LTO"
 category = "Firmware Build"
 extend = "build-esp32s3"
-script = ['. "$HOME/export-esp.sh"', 'cargo build --profile lto']
+script = ['. "${ESP_ENV_SCRIPT:-$HOME/export-esp.sh}"', 'cargo build --profile lto']
 
 [tasks.build-esp32s3-size]
 description = "Build the ESP32-S3 firmware with the size profile"
 category = "Firmware Build"
 extend = "build-esp32s3"
-script = ['. "$HOME/export-esp.sh"', 'cargo build --profile size']
+script = ['. "${ESP_ENV_SCRIPT:-$HOME/export-esp.sh}"', 'cargo build --profile size']
 
 [tasks.bench-esp32s3]
 description = "Build and run ESP32-S3 benchmarks over its native USB JTAG"

@@ -1,0 +1,329 @@
+# Port of the GitLab pipeline. Setup and rationale: docs/draft/github-migration.md
+name: CI
+
+on:
+  push:
+    branches: ['**']
+  workflow_dispatch:
+    inputs:
+      force_image_rebuild:
+        description: Rebuild the CI container image even if its content-hash tag already exists
+        type: boolean
+        default: false
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  packages: read # every container job pulls the CI image from ghcr
+
+env:
+  CARGO_HOME: /persist/cargo
+  CARGO_TARGET_DIR: /persist/target
+  UV_CACHE_DIR: /persist/uv
+  UV_PYTHON_INSTALL_DIR: /persist/uv-python
+  UV_LINK_MODE: copy
+  ESP_ENV_SCRIPT: /root/export-esp.sh # container jobs get HOME=/github/home, espup installed as root
+
+jobs:
+  image:
+    runs-on: [self-hosted, mrs, build]
+    timeout-minutes: 40
+    permissions:
+      packages: write
+    outputs:
+      image: ${{ steps.tag.outputs.image }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: false
+      # Tag is a content hash of the Dockerfile, so an unchanged file is a no-op below.
+      - id: tag
+        run: |
+          repo=$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')
+          h=$(sha256sum .github/docker/Dockerfile.ci | cut -c1-16)
+          echo "image=ghcr.io/$repo/ci:$h" >> "$GITHUB_OUTPUT"
+          echo "latest=ghcr.io/$repo/ci:latest" >> "$GITHUB_OUTPUT"
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - id: check
+        run: |
+          if [ "${{ inputs.force_image_rebuild }}" != "true" ] \
+            && docker manifest inspect "${{ steps.tag.outputs.image }}" >/dev/null 2>&1; then
+            echo "build=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "build=true" >> "$GITHUB_OUTPUT"
+          fi
+      - if: steps.check.outputs.build == 'true'
+        run: |
+          docker build \
+            -t "${{ steps.tag.outputs.image }}" -t "${{ steps.tag.outputs.latest }}" \
+            -f .github/docker/Dockerfile.ci .github/docker
+          docker push "${{ steps.tag.outputs.image }}"
+          if [ "${{ github.ref }}" = refs/heads/main ]; then
+            docker push "${{ steps.tag.outputs.latest }}"
+          fi
+
+  build:
+    needs: image
+    runs-on: [self-hosted, mrs, build]
+    timeout-minutes: 45
+    container:
+      image: ${{ needs.image.outputs.image }}
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+      volumes:
+        - mrs-cargo-cache:/persist
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { target: host,     bin: mrs-benchmark-host,     triple: x86_64-unknown-linux-gnu,  profile: release }
+          - { target: host,     bin: mrs-benchmark-host,     triple: x86_64-unknown-linux-gnu,  profile: lto }
+          - { target: host,     bin: mrs-benchmark-host,     triple: x86_64-unknown-linux-gnu,  profile: size }
+          - { target: stm32,    bin: mrs-benchmark-stm32,    triple: thumbv7em-none-eabihf,     profile: release }
+          - { target: stm32,    bin: mrs-benchmark-stm32,    triple: thumbv7em-none-eabihf,     profile: lto }
+          - { target: stm32,    bin: mrs-benchmark-stm32,    triple: thumbv7em-none-eabihf,     profile: size }
+          - { target: stm32,    bin: mrs-benchmark-stm32,    triple: thumbv7em-none-eabihf,     profile: xlto }
+          - { target: nrf52840, bin: mrs-benchmark-nrf52840, triple: thumbv7em-none-eabihf,     profile: release }
+          - { target: nrf52840, bin: mrs-benchmark-nrf52840, triple: thumbv7em-none-eabihf,     profile: lto }
+          - { target: nrf52840, bin: mrs-benchmark-nrf52840, triple: thumbv7em-none-eabihf,     profile: size }
+          - { target: nrf52840, bin: mrs-benchmark-nrf52840, triple: thumbv7em-none-eabihf,     profile: xlto }
+          - { target: rp2040,   bin: mrs-benchmark-rp2040,   triple: thumbv6m-none-eabi,        profile: release }
+          - { target: rp2040,   bin: mrs-benchmark-rp2040,   triple: thumbv6m-none-eabi,        profile: lto }
+          - { target: rp2040,   bin: mrs-benchmark-rp2040,   triple: thumbv6m-none-eabi,        profile: size }
+          - { target: rp2350,   bin: mrs-benchmark-rp2350,   triple: thumbv8m.main-none-eabihf, profile: release }
+          - { target: rp2350,   bin: mrs-benchmark-rp2350,   triple: thumbv8m.main-none-eabihf, profile: lto }
+          - { target: rp2350,   bin: mrs-benchmark-rp2350,   triple: thumbv8m.main-none-eabihf, profile: size }
+          - { target: rp2350,   bin: mrs-benchmark-rp2350,   triple: thumbv8m.main-none-eabihf, profile: xlto }
+          - { target: esp32s3,  bin: mrs-benchmark-esp32s3,  triple: xtensa-esp32s3-none-elf,   profile: release }
+          - { target: esp32s3,  bin: mrs-benchmark-esp32s3,  triple: xtensa-esp32s3-none-elf,   profile: lto }
+          - { target: esp32s3,  bin: mrs-benchmark-esp32s3,  triple: xtensa-esp32s3-none-elf,   profile: size }
+    name: build (${{ matrix.target }}, ${{ matrix.profile }})
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+      - name: cargo make build
+        run: |
+          task="build-${{ matrix.target }}"
+          [ "${{ matrix.profile }}" = release ] || task="$task-${{ matrix.profile }}"
+          cargo make "$task"
+      - name: Stage ELF at repo root
+        run: install -Dm755 "$CARGO_TARGET_DIR/${{ matrix.triple }}/${{ matrix.profile }}/${{ matrix.bin }}" "${{ matrix.bin }}-${{ matrix.profile }}"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: fw-${{ matrix.target }}-${{ matrix.profile }}
+          path: ${{ matrix.bin }}-${{ matrix.profile }}
+          retention-days: 90
+
+  check:
+    needs: image
+    runs-on: [self-hosted, mrs, build]
+    timeout-minutes: 30
+    continue-on-error: true # advisory, fmt and clippy never block a merge
+    container:
+      image: ${{ needs.image.outputs.image }}
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+      volumes:
+        - mrs-cargo-cache:/persist
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { name: fmt,             dir: benchmarks,                        run: "cargo fmt --all -- --check" }
+          - { name: clippy-host,     dir: benchmarks,                        run: "cargo clippy -- -D warnings" }
+          - { name: clippy-stm32,    dir: benchmarks/mrs-benchmark-stm32,    run: "cargo clippy -- -D warnings" }
+          - { name: clippy-nrf52840, dir: benchmarks/mrs-benchmark-nrf52840, run: "cargo clippy -- -D warnings" }
+          - { name: clippy-rp2040,   dir: benchmarks/mrs-benchmark-rp2040,   run: "cargo clippy -- -D warnings" }
+          - { name: clippy-rp2350,   dir: benchmarks/mrs-benchmark-rp2350,   run: "cargo clippy -- -D warnings" }
+          - { name: clippy-esp32s3,  dir: benchmarks/mrs-benchmark-esp32s3,  run: '. "${ESP_ENV_SCRIPT:-$HOME/export-esp.sh}" && cargo clippy -- -D warnings' }
+    name: check (${{ matrix.name }})
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+      - run: cd "${{ matrix.dir }}" && ${{ matrix.run }}
+
+  run-host:
+    needs: [image, build]
+    if: ${{ !cancelled() && needs.image.result == 'success' }} # one failed build leg must not skip the rest
+    runs-on: [self-hosted, mrs, build]
+    timeout-minutes: 15
+    container: # glibc parity with the build that produced the host binary
+      image: ${{ needs.image.outputs.image }}
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+      volumes:
+        - mrs-cargo-cache:/persist
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: fw-host-*
+          merge-multiple: true
+          path: fw
+      # RUNNER_TEMP is emptied per job; the workspace is not, and this job never checks out.
+      - run: |
+          set -o pipefail
+          mkdir -p "$RUNNER_TEMP/logs"
+          for prof in release lto size; do
+            chmod +x "fw/mrs-benchmark-host-$prof"
+            "./fw/mrs-benchmark-host-$prof" | tee "$RUNNER_TEMP/logs/host-$prof.log"
+          done
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: logs-host
+          path: ${{ runner.temp }}/logs/*.log
+          retention-days: 90
+
+  run-firmware:
+    needs: build
+    if: ${{ !cancelled() }} # one failed build leg must not skip the other boards
+    runs-on: [self-hosted, mrs, flash]
+    timeout-minutes: 60 # worst case is 4 profiles x 3 attempts x the 240s capture
+    continue-on-error: true
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { target: stm32,    chip: STM32F405RGTx, bin: mrs-benchmark-stm32,    probe_var: HIL_PROBE_STM32,    speed: "4000",  profiles: "release lto size xlto" }
+          - { target: nrf52840, chip: nRF52840_xxAA, bin: mrs-benchmark-nrf52840, probe_var: HIL_PROBE_NRF52840, speed: "4000",  profiles: "release lto size xlto" }
+          - { target: rp2040,   chip: RP2040,        bin: mrs-benchmark-rp2040,   probe_var: HIL_PROBE_RP2040,   speed: "10000", profiles: "release lto size" }
+          - { target: rp2350,   chip: RP235x,        bin: mrs-benchmark-rp2350,   probe_var: HIL_PROBE_RP2350,   speed: "10000", profiles: "release lto size xlto" }
+          - { target: esp32s3,  chip: esp32s3,       bin: mrs-benchmark-esp32s3,  probe_var: HIL_PROBE_ESP32S3,  speed: "",      profiles: "release lto size" }
+    name: run-firmware (${{ matrix.target }})
+    env:
+      PROBE: ${{ vars[matrix.probe_var] }}
+      SPEED: ${{ matrix.speed }}
+    steps:
+      # No checkout here (artifact-only), so probe-rs needs putting on PATH.
+      - run: echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: fw-${{ matrix.target }}-*
+          merge-multiple: true
+          path: fw
+      # RUNNER_TEMP is emptied per job; the workspace is not, and this job never checks out.
+      - name: Flash and capture
+        run: |
+          set -o pipefail
+          mkdir -p "$RUNNER_TEMP/logs"
+          for prof in ${{ matrix.profiles }}; do
+            elf="fw/${{ matrix.bin }}-$prof"
+            log="$RUNNER_TEMP/logs/${{ matrix.target }}-$prof.log"
+            echo "=== Flashing $elf on ${{ matrix.chip }} ==="
+            # probe-rs often fails the first flash after a fresh attach, see docs/hil-setup.md
+            for attempt in 1 2 3; do
+              timeout 240s probe-rs run --chip "${{ matrix.chip }}" \
+                ${PROBE:+--probe "$PROBE"} ${SPEED:+--speed "$SPEED"} "$elf" | tee "$log" && break
+              [ "$attempt" -eq 3 ] && exit 1
+              echo "flash attempt $attempt failed, retrying..." >&2
+            done
+          done
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: logs-${{ matrix.target }}
+          path: ${{ runner.temp }}/logs/*.log
+          retention-days: 90
+
+  collect:
+    needs: [image, run-host, run-firmware]
+    # merge whatever logs exist even if a flash leg died, but host rows are not optional
+    if: ${{ !cancelled() && needs.image.result == 'success' && needs.run-host.result == 'success' }}
+    runs-on: [self-hosted, mrs, build]
+    timeout-minutes: 15
+    container:
+      image: ${{ needs.image.outputs.image }}
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+      volumes:
+        - mrs-cargo-cache:/persist
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true # collect reads submodule SHAs into library_versions.json
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: logs-*
+          merge-multiple: true
+          path: logs
+      - run: cd benchmarks && cargo run --quiet -p mrs-benchmark-collect -- ../logs/*.log -o ../results.csv
+      - uses: actions/upload-artifact@v4
+        with:
+          name: results
+          path: |
+            results.csv
+            library_versions.json
+          retention-days: 90
+
+  report:
+    needs: [image, collect]
+    continue-on-error: true # a plotting bug should not fail the pipeline
+    runs-on: [self-hosted, mrs, build]
+    timeout-minutes: 20
+    container:
+      image: ${{ needs.image.outputs.image }}
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+      volumes:
+        - mrs-cargo-cache:/persist
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: false
+      - uses: actions/download-artifact@v4
+        with:
+          name: results
+      - run: uv run tools/inputs_generator/evaluate_accuracy.py --results results.csv --reference benchmarks/reference_results.json --output-csv accuracy_results.csv --output-json accuracy_results.json
+      - run: uv run --project viz viz/plot.py results.csv report.pdf
+      - uses: actions/upload-artifact@v4
+        with:
+          name: report
+          path: |
+            report.pdf
+            accuracy_results.csv
+            accuracy_results.json
+          retention-days: 90
+
+  # Rolling `latest` prerelease. Assets never expire, and the tag-addressed URL
+  # /releases/download/latest/report.pdf is stable (/releases/latest/ skips prereleases).
+  publish:
+    needs: [collect, report]
+    permissions:
+      contents: write # moves the rolling `latest` release
+    if: ${{ github.ref == 'refs/heads/main' && needs.collect.result == 'success' }}
+    runs-on: [self-hosted, mrs, build]
+    timeout-minutes: 10
+    continue-on-error: true
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: results
+      - uses: actions/download-artifact@v4
+        with:
+          name: report
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: latest
+          name: Latest main build
+          prerelease: true
+          fail_on_unmatched_files: false
+          files: |
+            report.pdf
+            results.csv
+            library_versions.json
+            accuracy_results.csv
+            accuracy_results.json
