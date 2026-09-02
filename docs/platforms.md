@@ -59,6 +59,13 @@ crystal as the HFCLK source so the cycle-to-ns conversion in `viz/config.py` is 
 **DWT on nRF52 needs a debugger attached** to count, which the HIL setup always has. A
 no-debugger run would read zero cycles.
 
+Numeric results are bit-identical to the STM32 (same core, FPU, and linked libm), but cycle
+counts are not: nRF runs 0.9x to 1.6x the STM32's cycles for the same work, median ~1.14x. The
+STM32F405's ART flash accelerator hides flash latency that the nRF52840's small instruction
+cache does not, so the gap is near zero on tight FPU loops (matrix mul) and widest on branchy
+libm transcendentals (`Exp`, `Atan2`, `SinCos`) and the `size` profile. A caveat for any
+cross-MCU cycle comparison, even between identical cores.
+
 Runs on hardware over a standalone J-Link (`1366:1020:000802013924`) at 4 MHz SWD. Recent
 nRF52840 silicon ships with APPROTECT locked; `probe-rs` clears it with a full-erase unlock over
 CTRL-AP on first contact (nothing to preserve on a bench board).
