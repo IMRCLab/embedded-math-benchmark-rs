@@ -1,0 +1,8 @@
+# Scoped to this crate: Cargo only reads it when the working directory is inside
+# mrs-benchmark-nrf52840, so the host build (run from benchmarks/) never sees it.
+# Same target as the STM32 (Cortex-M4F); binaries differ by crate name, not path.
+[build]
+target = "thumbv7em-none-eabihf"
+
+[target.thumbv7em-none-eabihf]
+rustflags = ["-C", "link-arg=-Tlink.x"]

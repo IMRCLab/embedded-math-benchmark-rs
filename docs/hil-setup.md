@@ -37,9 +37,9 @@ All steps run on the Threadripper and need **root**: the runner is a system-mode
 
 ### Probes
 
-Use existing J-Links where available (one covers all three chips, with the best RTT). Otherwise an
-ST-Link or RPi Debug Probe is the cheap default. ESP32-S3 needs no external probe: its USB JTAG
-enumerates directly, see [platforms.md](platforms.md#esp32-s3).
+Use existing J-Links where available (best RTT throughput). Otherwise an ST-Link or RPi Debug
+Probe is the cheap default. ESP32-S3 needs no external probe: its USB JTAG enumerates directly,
+see [platforms.md](platforms.md#esp32-s3).
 
 `probe-rs` needs RPi Debug Probe firmware 2.2.0 or newer; older firmware fails with an "outdated
 firmware" error. Fix once by unplugging, holding BOOTSEL while replugging (it mounts as
@@ -100,10 +100,10 @@ account.
 
 ### Probe selection
 
-Four probes are attached and the two Pico ones share a VID:PID (`2e8a:000c`), so `probe-rs run`
-fails with "multiple probes found" unless the job names one. Each run job passes `--probe` from a
-`HIL_PROBE_*` GitLab project variable (Settings, CI/CD, Variables), wired to `PROBE` per job in
-[`run.yml`](../.gitlab/ci/run.yml).
+Several probes are attached (two RPi Debug Probes share the VID:PID `2e8a:000c`), so `probe-rs
+run` fails with "multiple probes found" unless the job names one. Each run job passes `--probe`
+from a `HIL_PROBE_<TARGET>` GitLab project variable (Settings, CI/CD, Variables), wired to `PROBE`
+per job in [`run.yml`](../.gitlab/ci/run.yml).
 
 After a probe swap, run `probe-rs list` and paste the new selectors into those variables. The two
 Debug Probes differ only by serial, so tell them apart with `probe-rs info --verbose --probe

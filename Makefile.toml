@@ -71,6 +71,51 @@ dependencies = ["build-stm32-xlto"]
 command = "probe-rs"
 args = ["run", "--chip", "STM32F405RGTx", "benchmarks/target/thumbv7em-none-eabihf/xlto/mrs-benchmark-stm32"]
 
+# --- nRF52840 ---
+# Same Cortex-M4F target as the STM32; the binary name keeps the two apart in benchmarks/target/.
+[tasks.build-nrf52840]
+description = "Build the nRF52840 firmware"
+category = "Firmware Build"
+cwd = "benchmarks/mrs-benchmark-nrf52840"
+command = "cargo"
+args = ["build", "--release"]
+
+[tasks.bench-nrf52840]
+description = "Build and run nRF52840 benchmarks over a J-Link"
+category = "Benchmark"
+workspace = false
+dependencies = ["build-nrf52840"]
+command = "probe-rs"
+args = ["run", "--chip", "nRF52840_xxAA", "benchmarks/target/thumbv7em-none-eabihf/release/mrs-benchmark-nrf52840"]
+
+[tasks.build-nrf52840-lto]
+description = "Build the nRF52840 firmware with LTO"
+category = "Firmware Build"
+extend = "build-nrf52840"
+args = ["build", "--profile", "lto"]
+
+[tasks.build-nrf52840-size]
+description = "Build the nRF52840 firmware with the size profile"
+category = "Firmware Build"
+extend = "build-nrf52840"
+args = ["build", "--profile", "size"]
+
+[tasks.build-nrf52840-xlto]
+description = "Build the nRF52840 firmware with cross-language LTO"
+category = "Firmware Build"
+extend = "build-nrf52840"
+args = ["build", "--profile", "xlto"]
+[tasks.build-nrf52840-xlto.env]
+RUSTFLAGS = "-C linker-plugin-lto -C target-cpu=cortex-m4 -C link-arg=-Tlink.x -C link-arg=--lto-O3 -C link-arg=--mllvm=-import-instr-limit=500"
+
+[tasks.bench-nrf52840-xlto]
+description = "Build and run nRF52840 benchmarks with cross-language LTO over a J-Link"
+category = "Benchmark"
+workspace = false
+dependencies = ["build-nrf52840-xlto"]
+command = "probe-rs"
+args = ["run", "--chip", "nRF52840_xxAA", "benchmarks/target/thumbv7em-none-eabihf/xlto/mrs-benchmark-nrf52840"]
+
 # --- RP2040 (Pico) ---
 [tasks.build-rp2040]
 description = "Build the RP2040 firmware"

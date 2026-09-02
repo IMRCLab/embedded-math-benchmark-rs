@@ -10,7 +10,7 @@ Where the benchmarks run, how each is timed, and their current status.
 | rp2350-arm (Pico 2)   | `RP235x`        | `thumbv8m.main-none-eabihf`    | DWT cycle counter             | cycles | running |
 | esp32s3               | `esp32s3`       | `xtensa-esp32s3-none-elf`      | Xtensa `CCOUNT` register      | cycles | running |
 | rp2350-riscv (Pico 2) | `RP235x_riscv`  | `riscv32imac-unknown-none-elf` | RISC-V `mcycle`/`mcycleh` CSR | cycles | planned |
-| nrf52840              | `nRF52840_xxAA` | `thumbv7em-none-eabihf`        | DWT cycle counter             | cycles | planned |
+| nrf52840              | `nRF52840_xxAA` | `thumbv7em-none-eabihf`        | DWT cycle counter             | cycles | running |
 
 Measured with rustc 1.98.0 (LLVM 22.1.8) on ARM, the espup Xtensa fork of 1.97.0-nightly on
 esp32s3, `arm-none-eabi-gcc` 14.2.1 (newlib) for the C suites, and clang 19.1.7 for `xlto`.
@@ -49,7 +49,16 @@ versions, so it keeps its own `Cargo.lock`. Skips both C suites, which only cros
 Its USB Serial/JTAG controller enumerates directly as a probe-rs probe, with no external wiring,
 see [HIL setup](hil-setup.md#probes).
 
-## nRF52840 (planned)
+## nRF52840
 
-Not yet physically on hand. Cortex-M4F, same core family and target triple as STM32F405. See the
-[spec](draft/nrf52840-design.md).
+Cortex-M4F, hardware FPU, same core family and target triple (`thumbv7em-none-eabihf`) as the
+STM32F405, so it shares the STM32's toolchain, DWT timing, and both C suites with no
+target-specific plumbing. Core clock is fixed at 64 MHz; `main.rs` selects the external HFXO
+crystal as the HFCLK source so the cycle-to-ns conversion in `viz/config.py` is exact.
+
+**DWT on nRF52 needs a debugger attached** to count, which the HIL setup always has. A
+no-debugger run would read zero cycles.
+
+Runs on hardware over a standalone J-Link (`1366:1020:000802013924`) at 4 MHz SWD. Recent
+nRF52840 silicon ships with APPROTECT locked; `probe-rs` clears it with a full-erase unlock over
+CTRL-AP on first contact (nothing to preserve on a bench board).

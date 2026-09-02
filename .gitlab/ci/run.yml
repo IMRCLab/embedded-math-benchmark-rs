@@ -64,6 +64,18 @@ run-stm32:
     PROBE: $HIL_PROBE_STM32
     PROBE_SPEED: "4000" # fastest step this J-Link accepts
 
+run-nrf52840:
+  extends: .firmware-flash
+  needs:
+    - build-nrf52840
+  variables:
+    CHIP: nRF52840_xxAA
+    BIN: mrs-benchmark-nrf52840
+    TARGET_NAME: nrf52840
+    PROFILES: "release lto size xlto"
+    PROBE: $HIL_PROBE_NRF52840
+    PROBE_SPEED: "4000" # this J-Link caps here; 4500+ are rejected outright
+
 run-rp2350:
   extends: .firmware-flash
   needs:

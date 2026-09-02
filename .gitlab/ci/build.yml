@@ -34,6 +34,15 @@ build-stm32:
     BIN: mrs-benchmark-stm32
     TARGET: thumbv7em-none-eabihf
 
+build-nrf52840:
+  extends: .cargo-build
+  parallel:
+    matrix:
+      - PROFILE: [release, lto, size, xlto]
+  variables:
+    BIN: mrs-benchmark-nrf52840
+    TARGET: thumbv7em-none-eabihf
+
 build-rp2350:
   extends: .cargo-build
   parallel:

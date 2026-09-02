@@ -29,6 +29,16 @@ clippy-stm32:
     - cd $WORKSPACE_DIR/mrs-benchmark-stm32 && cargo clippy -- -D warnings
 
 # Firmware crate
+clippy-nrf52840:
+  stage: check
+  needs: []
+  allow_failure: true
+  variables:
+    TARGET: thumbv7em-none-eabihf
+  script:
+    - cd $WORKSPACE_DIR/mrs-benchmark-nrf52840 && cargo clippy -- -D warnings
+
+# Firmware crate
 clippy-rp2040:
   stage: check
   needs: []

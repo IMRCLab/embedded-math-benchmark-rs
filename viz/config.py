@@ -54,7 +54,7 @@ TASK_ORDER = [
 
 # MCUs in CLAUDE.md's crate map order, host last: it's not an interesting reference
 # point next to real hardware, so it trails instead of leading every page/table.
-PLATFORM_ORDER = ["stm32", "rp2040", "rp2350-arm", "esp32s3", "host"]
+PLATFORM_ORDER = ["stm32", "nrf52840", "rp2040", "rp2350-arm", "esp32s3", "host"]
 
 # Compilation profiles, weakest to strongest optimization; xlto (cross-language
 # ThinLTO) exists only on the two ARM hard-float targets.
@@ -75,6 +75,7 @@ GROUP_GAP = 2.5
 # reports `ns` directly via std::time::Instant and needs no conversion.
 PLATFORM_CLOCK_HZ = {
     "stm32": 168e6,
+    "nrf52840": 64e6,
     "rp2040": 125e6,
     "rp2350-arm": 150e6,
     "esp32s3": 240e6,

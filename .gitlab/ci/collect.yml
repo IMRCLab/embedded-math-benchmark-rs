@@ -19,6 +19,9 @@ collect-results:
     - job: run-stm32
       artifacts: true
       optional: true
+    - job: run-nrf52840
+      artifacts: true
+      optional: true
     - job: run-esp32s3
       artifacts: true
       optional: true

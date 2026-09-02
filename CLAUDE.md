@@ -84,6 +84,7 @@ You never touch the platform `main.rs` files — the macro weaves tasks in. Full
 - `mrs-benchmark-macros` — proc-macros reading `inputs.json` at build time.
 - `mrs-benchmark-host` — native runner, times in `ns`.
 - `mrs-benchmark-stm32` / `mrs-benchmark-rp2040` / `mrs-benchmark-rp2350` — `no_std` firmware, time in `cycles`, RTT out. (rp2350 = Pico 2, Cortex-M33: DWT timing like stm32, but boots via an `IMAGE_DEF` block, not boot2.)
+- `mrs-benchmark-nrf52840` — `no_std` firmware, Cortex-M4F. Same target triple, DWT timing, and both C suites as stm32 with no target-specific plumbing; `nrf52840-hal` only selects the HFXO crystal (core is fixed at 64 MHz). See [docs/platforms.md](docs/platforms.md#nrf52840).
 - `mrs-benchmark-esp32s3` — `no_std` firmware, Xtensa (not ARM), CCOUNT register timing, RTT out via native USB JTAG. Needs the `espup`-installed `esp` Rust toolchain, not plain `rustup target add`. **Not a `benchmarks/` workspace member**: `esp-hal`'s `riscv-rt` version conflicts with `rp235x-hal`'s, so it has its own standalone `Cargo.lock` (still built from its own crate dir like the others). Skips the `crazyflie-fw` library (that suite's C build only cross-links for ARM).
 - `mrs-benchmark-crazyflie-sys` — the C side, ARM-only. `build.rs` uses `cc` + `bindgen` to
   compile the Crazyflie firmware math and a subset of CMSIS-DSP, feeding both the `crazyflie-fw`
@@ -100,6 +101,7 @@ cargo make generate-ref                     # compute f64 ground truth reference
 cargo make update                           # update inputs.json and reference_results.json together
 cargo make bench-host                       # native, ns
 cargo make bench-stm32                      # STM32F405 over probe-rs, cycles
+cargo make bench-nrf52840                   # nRF52840 over probe-rs, cycles
 cargo make bench-rp2040                     # RP2040 over probe-rs, cycles
 cargo make bench-esp32s3                    # ESP32-S3 over probe-rs, cycles
 cargo make bench-host | cargo make collect -- -o results.csv
@@ -128,7 +130,7 @@ CLI end-to-end test in `tests/cli.rs`) — core/host/macros have none yet.
 ## Conventions & gotchas
 
 - **Code comments: rare and one line.** Only comment what the code can't say itself: a non-obvious
-  *why*, a hidden invariant, a workaround. One line each, plain ASCII, no multi-line blocks or
+  _why_, a hidden invariant, a workaround. One line each, plain ASCII, no multi-line blocks or
   banners. Background and rationale go in the commit message or `docs/`, not above the code.
 - **No em dashes, en dashes or spaced double hyphens** in prose, docs, commit messages or
   comments. Hyphens in compound words are fine.
@@ -167,7 +169,7 @@ CLI end-to-end test in `tests/cli.rs`) — core/host/macros have none yet.
 
 ## State (2026-08, moves fast)
 
-Host + RP2040 + RP2350 + STM32 + ESP32-S3 run and benchmark on hardware in GitLab CI
+Host + RP2040 + RP2350 + STM32 + ESP32-S3 + nRF52840 run and benchmark on hardware in GitLab CI
 (RP2040/RP2350/ESP32-S3 on HIL), across all three build profiles.
 
 **C is in.** Both C suites run on the ARM targets: `crazyflie-fw` (Bitcraze firmware math) and
