@@ -1,25 +1,43 @@
-# mrs-microbenchmarks
+# embedded-math-benchmark-rs
 
-Embedded microbenchmarks for comparing **C** and **Rust** performance and scheduling on
-computationally constrained robotic hardware (e.g., Raspberry Pi Pico and STM32).
-
-## Project Overview
-
-This project aims to:
-
-- **Quantify Performance**: Benchmark typical robotic workloads (like controllers, state estimators, and math libraries) implemented in both C and Rust.
-- **Evaluate Numeric Solvers**: Compare embedded quadratic programming (QP) solvers (e.g., OSQP, cvxgen vs. generated Rust code) for actuation allocation and MPC.
-- **Compare Scheduling**: Analyze real-time scheduling behavior between traditional RTOSs (like FreeRTOS) in C and modern async executors (like Embassy) in Rust.
-
-Milestone 1, the math-library comparison, is done and running on hardware in CI across five
-platforms and four build profiles. QP solvers and scheduling are later milestones. The results
-are written up in `rust_for_robotics_workshop_iros_2026.pdf` at the repo root; the original
-brief is in [docs/archive/](docs/archive/project_requirements.md).
-
-## Usage
-
-For detailed instructions on building, flashing, and running the benchmarks, see [Running the Benchmarks](docs/running-benchmarks.md)
+Microbenchmarks comparing C and Rust math libraries on the compute-constrained
+microcontrollers used in multi-robot systems (STM32, RP2040, RP2350, ESP32-S3, nRF52840).
+One JSON config defines every task; proc-macros bake it into `no_std` firmware that runs on
+each platform and reports both cycle counts and numerical accuracy.
 
 ## Documentation
 
-All guides, research, format specifications, and hardware setup instructions can be found in the **[Benchmark Framework Documentation](docs/benchmark.md)** overview.
+| Doc                                                  | What it covers                                                         |
+| ---------------------------------------------------- | ---------------------------------------------------------------------- |
+| [Running the benchmarks](docs/running-benchmarks.md) | Prerequisites, build, flash and run, per platform                      |
+| [Benchmark I/O format](docs/io-format.md)            | `inputs.json` in, `BENCH ` CSV out                                     |
+| [Targets and platforms](docs/platforms.md)           | Chips, target triples, timing sources, status                          |
+| [Task categories](docs/task-categories.md)           | What each task measures, and which comparisons it supports             |
+| [Build profiles](docs/build-profiles.md)             | `release`, `lto`, `size`, `xlto`, and when each is valid               |
+| [Numerical accuracy](docs/accuracy_evaluation.md)    | ULP methodology, and what the accuracy CSV does not support            |
+| [C reference suites](docs/c-suites.md)               | `crazyflie-fw` and `cmsis-dsp`: provenance, naming, wrapper deviations |
+| [Benchmark report](docs/benchmark-viz.md)            | `results.csv` to `report.pdf`, and the paper figures                   |
+| [Adding a benchmark](docs/adding_a_benchmark.md)     | Recipe for a new task                                                  |
+| [Adding a platform](docs/adding_a_platform.md)       | Checklist for a new hardware target                                    |
+| [HIL setup](docs/hil-setup.md)                       | Probe provisioning, CI runners, troubleshooting                        |
+
+## Quick start
+
+```bash
+cargo install cargo-make
+cargo make bench-host | cargo make collect -- -o results.csv
+cargo make report
+```
+
+Actual firmware runs need `probe-rs` and a connected probe, see
+[running the benchmarks](docs/running-benchmarks.md). Results land in `results.csv` and
+`accuracy_results.csv` and render to `report.pdf`.
+
+## Layout
+
+- `benchmarks/`: Cargo workspace. `mrs-benchmark-core` holds the traits, task registry and
+  per-library suites; `-macros` bakes `inputs.json` in at build time; `-host` and one
+  `no_std` crate per platform run it; `-collect` merges logs into `results.csv`
+- `docs/`
+- `viz/`: renders `results.csv` into `report.pdf`
+- `tools/`: standalone scripts (input generator, RP2350 rescue)

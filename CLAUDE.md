@@ -2,16 +2,10 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-Embedded microbenchmarks comparing **C vs Rust** performance and scheduling on
-compute-constrained robotic hardware (STM32, RP2040/RP2350, ESP32-S3). Long-term goal: quantify
-robotic workloads (controllers, state estimators, math), evaluate QP solvers, and compare
-scheduling (FreeRTOS vs Embassy). See [README.md](README.md) and
-[docs/archive/project_requirements.md](docs/archive/project_requirements.md).
-
-**Current focus is milestone 1 only: benchmarking embedded math libraries** (glam,
-nalgebra, micromath, and eventually C equivalents) across platforms. QP solvers and
-RTOS/Embassy scheduling comparisons are later milestones — don't prioritize them or assume
-they're in scope unless the user brings them up.
+Embedded microbenchmarks comparing **C vs Rust** math libraries on compute-constrained
+robotic hardware (STM32, RP2040/RP2350, ESP32-S3, nRF52840). Goal: quantify the cost and
+numerical accuracy of robotic workloads (controllers, state estimators, linear algebra) per
+language, library, chip and build profile. See [README.md](README.md).
 
 ## Repo layout
 
@@ -43,7 +37,7 @@ you learn a durable fact about how the user works or a cross-session convention,
 a memory in that same task. Reserve memory for `user`/`feedback`/`reference`; project,
 hardware, and status facts go in `docs/`, not memory.
 
-- [docs/benchmark.md](docs/benchmark.md) — documentation index, start here
+- [README.md](README.md) — overview and documentation index, start here
 - [docs/adding_a_benchmark.md](docs/adding_a_benchmark.md) — full recipe for a new task
 - [docs/adding_a_platform.md](docs/adding_a_platform.md) — checklist for a new hardware target
 - [docs/task-categories.md](docs/task-categories.md) — what each task measures & which comparisons it supports
@@ -169,15 +163,13 @@ CLI end-to-end test in `tests/cli.rs`) — core/host/macros have none yet.
 
 ## State (2026-08, moves fast)
 
-Host + RP2040 + RP2350 + STM32 + ESP32-S3 + nRF52840 run and benchmark on hardware in GitLab CI
+Host + RP2040 + RP2350 + STM32 + ESP32-S3 + nRF52840 run and benchmark on hardware in CI
 (RP2040/RP2350/ESP32-S3 on HIL), across all three build profiles.
 
 **C is in.** Both C suites run on the ARM targets: `crazyflie-fw` (Bitcraze firmware math) and
 `cmsis-dsp` (ARM's DSP library). ESP32-S3 skips both — that build only cross-links for ARM. So
-milestone 1's C-vs-Rust comparison has data for 20 tasks x 6 libraries x 5 platforms x 4
-profiles in `results.csv`, with ULP accuracy alongside it in `accuracy_results.csv`. The IROS
-workshop paper (`rust_for_robotics_workshop_iros_2026.pdf`, repo root) reports the 18 primitives
-from that set, excluding the two composites.
+the C-vs-Rust comparison has data for 20 tasks x 6 libraries x 5 platforms x 4 profiles in
+`results.csv`, with ULP accuracy alongside it in `accuracy_results.csv`. The IROS workshop
+paper reports the 18 primitives from that set, excluding the two composites.
 
-QP solvers and scheduling (FreeRTOS/Embassy) remain later milestones, not current work. Check
-[docs/platforms.md](docs/platforms.md) for live status before assuming a target works.
+Check [docs/platforms.md](docs/platforms.md) for live status before assuming a target works.
