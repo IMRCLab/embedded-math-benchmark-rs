@@ -1,6 +1,7 @@
 # Port of the GitLab pipeline. Setup and rationale: docs/draft/github-migration.md
 name: CI
 
+# Never add pull_request/pull_request_target: fork code would run on the docker-group HIL runners.
 on:
   push:
     branches: ['**']
@@ -29,7 +30,8 @@ env:
 
 jobs:
   image:
-    runs-on: [self-hosted, mrs, build]
+    # Host job, not a container job: it builds the image and needs the docker socket.
+    runs-on: [self-hosted, mrsbench, hostjob]
     timeout-minutes: 40
     permissions:
       packages: write
@@ -71,7 +73,7 @@ jobs:
 
   build:
     needs: image
-    runs-on: [self-hosted, mrs, build]
+    runs-on: [self-hosted, mrsbench, build]
     timeout-minutes: 45
     container:
       image: ${{ needs.image.outputs.image }}
@@ -125,7 +127,7 @@ jobs:
 
   check:
     needs: image
-    runs-on: [self-hosted, mrs, build]
+    runs-on: [self-hosted, mrsbench, build]
     timeout-minutes: 30
     continue-on-error: true # advisory, fmt and clippy never block a merge
     container:
@@ -156,7 +158,7 @@ jobs:
   run-host:
     needs: [image, build]
     if: ${{ !cancelled() && needs.image.result == 'success' }} # one failed build leg must not skip the rest
-    runs-on: [self-hosted, mrs, build]
+    runs-on: [self-hosted, mrsbench, build]
     timeout-minutes: 15
     container: # glibc parity with the build that produced the host binary
       image: ${{ needs.image.outputs.image }}
@@ -166,6 +168,8 @@ jobs:
       volumes:
         - mrs-cargo-cache:/persist
     steps:
+      # The workspace persists across runs; a stale ELF here would be re-run as a fresh result.
+      - run: rm -rf fw
       - uses: actions/download-artifact@v4
         with:
           pattern: fw-host-*
@@ -189,7 +193,7 @@ jobs:
   run-firmware:
     needs: build
     if: ${{ !cancelled() }} # one failed build leg must not skip the other boards
-    runs-on: [self-hosted, mrs, flash]
+    runs-on: [self-hosted, mrsbench, flash]
     timeout-minutes: 60 # worst case is 4 profiles x 3 attempts x the 240s capture
     continue-on-error: true
     strategy:
@@ -208,6 +212,8 @@ jobs:
     steps:
       # No checkout here (artifact-only), so probe-rs needs putting on PATH.
       - run: echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+      # The workspace persists across runs; a stale ELF here would be flashed and collected as a fresh result.
+      - run: rm -rf fw
       - uses: actions/download-artifact@v4
         with:
           pattern: fw-${{ matrix.target }}-*
@@ -241,7 +247,7 @@ jobs:
     needs: [image, run-host, run-firmware]
     # merge whatever logs exist even if a flash leg died, but host rows are not optional
     if: ${{ !cancelled() && needs.image.result == 'success' && needs.run-host.result == 'success' }}
-    runs-on: [self-hosted, mrs, build]
+    runs-on: [self-hosted, mrsbench, build]
     timeout-minutes: 15
     container:
       image: ${{ needs.image.outputs.image }}
@@ -271,7 +277,7 @@ jobs:
   report:
     needs: [image, collect]
     continue-on-error: true # a plotting bug should not fail the pipeline
-    runs-on: [self-hosted, mrs, build]
+    runs-on: [self-hosted, mrsbench, build]
     timeout-minutes: 20
     container:
       image: ${{ needs.image.outputs.image }}
@@ -305,10 +311,12 @@ jobs:
     permissions:
       contents: write # moves the rolling `latest` release
     if: ${{ github.ref == 'refs/heads/main' && needs.collect.result == 'success' }}
-    runs-on: [self-hosted, mrs, build]
+    runs-on: [self-hosted, mrsbench, hostjob]
     timeout-minutes: 10
     continue-on-error: true
     steps:
+      # report is continue-on-error, so without this a failed run re-publishes the previous report.pdf.
+      - run: rm -f report.pdf results.csv library_versions.json accuracy_results.csv accuracy_results.json
       - uses: actions/download-artifact@v4
         with:
           name: results
