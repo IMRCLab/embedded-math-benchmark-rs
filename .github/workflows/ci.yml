@@ -12,8 +12,9 @@ on:
         type: boolean
         default: false
 
+# Keyed on workflow only, not ref: two refs must never flash concurrently, they'd contend for the same probes.
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: ${{ github.workflow }}
   cancel-in-progress: true
 
 permissions:
