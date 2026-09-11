@@ -5,6 +5,9 @@ microcontrollers used in multi-robot systems (STM32, RP2040, RP2350, ESP32-S3, n
 One JSON config defines every task; proc-macros bake it into `no_std` firmware that runs on
 each platform and reports both cycle counts and numerical accuracy.
 
+**[Latest benchmark report (PDF)](https://github.com/IMRCLab/embedded-math-benchmark-rs/releases/latest/download/report.pdf)**
+([raw results.csv](https://github.com/IMRCLab/embedded-math-benchmark-rs/releases/latest/download/results.csv)).
+
 ## Documentation
 
 | Doc                                                  | What it covers                                                         |
