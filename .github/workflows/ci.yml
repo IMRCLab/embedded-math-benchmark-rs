@@ -345,12 +345,14 @@ jobs:
             accuracy_results.json
           retention-days: 90
 
-  # Rolling `latest` prerelease. Assets never expire, and the tag-addressed URL
-  # /releases/download/latest/report.pdf is stable (/releases/latest/ skips prereleases).
+  # Two releases per successful main build: a permanent per-commit archive (never
+  # overwritten, so it survives independent of the 90-day artifact retention above)
+  # and a rolling `latest` release pinned as GitHub's actual "Latest release" so
+  # /releases/latest and the repo sidebar badge always resolve to it.
   publish:
     needs: [collect, report]
     permissions:
-      contents: write # moves the rolling `latest` release
+      contents: write # creates per-build releases, moves the rolling `latest` one
     if: ${{ github.ref == 'refs/heads/main' && needs.collect.result == 'success' }}
     runs-on: [self-hosted, mrsbench, hostjob]
     timeout-minutes: 10
@@ -364,11 +366,29 @@ jobs:
       - uses: actions/download-artifact@v8
         with:
           name: report
+      - id: build-info
+        run: |
+          echo "sha=${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
+          echo "date=$(date -u +%F)" >> "$GITHUB_OUTPUT"
+      - uses: softprops/action-gh-release@v3
+        with:
+          tag_name: build-${{ steps.build-info.outputs.sha }}
+          name: Main build ${{ steps.build-info.outputs.date }} (${{ steps.build-info.outputs.sha }})
+          prerelease: true
+          make_latest: false
+          fail_on_unmatched_files: false
+          files: |
+            report.pdf
+            results.csv
+            library_versions.json
+            accuracy_results.csv
+            accuracy_results.json
       - uses: softprops/action-gh-release@v3
         with:
           tag_name: latest
           name: Latest main build
-          prerelease: true
+          prerelease: false
+          make_latest: true
           fail_on_unmatched_files: false
           files: |
             report.pdf
