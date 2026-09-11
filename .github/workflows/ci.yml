@@ -29,6 +29,10 @@ env:
   UV_CACHE_DIR: /persist/uv
   UV_PYTHON_INSTALL_DIR: /persist/uv-python
   UV_LINK_MODE: copy
+  # Container jobs get HOME=/github/home forced by the runner even if container.env sets HOME
+  # (confirmed on a live run: overriding HOME there is a no-op), so espup's install location
+  # has to be named explicitly instead.
+  ESP_ENV_SCRIPT: /root/export-esp.sh
 
 jobs:
   image:
@@ -159,8 +163,6 @@ jobs:
         password: ${{ secrets.GITHUB_TOKEN }}
       volumes:
         - mrs-cargo-cache:/persist
-      env:
-        HOME: /root # GHA forces HOME=/github/home in containers; espup installed export-esp.sh under /root
     strategy:
       fail-fast: false
       matrix:
@@ -171,7 +173,7 @@ jobs:
           - { name: clippy-nrf52840, dir: benchmarks/mrs-benchmark-nrf52840, run: "cargo clippy -- -D warnings" }
           - { name: clippy-rp2040,   dir: benchmarks/mrs-benchmark-rp2040,   run: "cargo clippy -- -D warnings" }
           - { name: clippy-rp2350,   dir: benchmarks/mrs-benchmark-rp2350,   run: "cargo clippy -- -D warnings" }
-          - { name: clippy-esp32s3,  dir: benchmarks/mrs-benchmark-esp32s3,  run: '. "$HOME/export-esp.sh" && cargo clippy -- -D warnings' }
+          - { name: clippy-esp32s3,  dir: benchmarks/mrs-benchmark-esp32s3,  run: '. "${ESP_ENV_SCRIPT:-$HOME/export-esp.sh}" && cargo clippy -- -D warnings' }
     name: check (${{ matrix.name }})
     steps:
       - uses: actions/checkout@v7
@@ -327,6 +329,10 @@ jobs:
 
   report:
     needs: [image, collect]
+    # No status-check function (success/failure/cancelled/always) in an if: means GitHub ANDs
+    # in an implicit success(), which checks the WHOLE ancestor chain, not just these needs: a
+    # failed build-esp32s3 leg would then skip this even though it only needs image and collect.
+    if: ${{ !cancelled() && needs.image.result == 'success' && needs.collect.result == 'success' }}
     continue-on-error: true # a plotting bug should not fail the pipeline
     runs-on: [self-hosted, mrsbench, build]
     timeout-minutes: 20
@@ -363,7 +369,10 @@ jobs:
     needs: [collect, report]
     permissions:
       contents: write # creates per-build releases, moves the rolling `latest` one
-    if: ${{ github.ref == 'refs/heads/main' && needs.collect.result == 'success' }}
+    # Same implicit-success() trap as report above: needs.collect.result alone is a plain
+    # boolean expression, so without !cancelled() this would also silently require every
+    # ancestor job (build-esp32s3, run-firmware-*, check) to have succeeded too.
+    if: ${{ !cancelled() && github.ref == 'refs/heads/main' && needs.collect.result == 'success' }}
     runs-on: [self-hosted, mrsbench, hostjob]
     timeout-minutes: 10
     continue-on-error: true

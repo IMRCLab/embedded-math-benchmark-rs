@@ -175,6 +175,14 @@ finishes, `collect` fans in, `report` and `publish` follow.
   false`, so two refs flashing the same board queue instead of racing, without blocking either
   ref's unrelated build or check work. `cancel-in-progress: false` matters here specifically
   because it only ever drops a still-pending job, never one already flashing.
+- **Every `if:` that isn't already a status-check function needs `!cancelled()` added.** An `if:`
+  without `success()`, `failure()`, `cancelled()` or `always()` gets an implicit `&& success()`
+  from GitHub, and that `success()` checks the job's *entire* ancestor chain, not just its own
+  `needs:`. `report` (no `if:` at all) and `publish` (`needs.collect.result == 'success'` with no
+  status function) both learned this the hard way: an unrelated `build-esp32s3` failure silently
+  skipped both, despite neither depending on it. `check`, `run-host`, `collect` and
+  `run-firmware-<target>` already start their conditions with `!cancelled()` for this reason;
+  any new job with a custom `if:` needs the same.
 
 ### The `container:` model
 
@@ -185,11 +193,11 @@ for the tag), the GitHub equivalent of GitLab's Docker executor. The image is
 cut-over). The `image` job tags it with a 16-char hash of the Dockerfile, so an unchanged
 Dockerfile is a fast no-op and every pipeline builds against the image matching that commit.
 
-A container job normally runs with `HOME=/github/home`, not `/root` as GitLab's Docker executor
-left it, but `espup` installs `export-esp.sh` into `/root` during the image build. The `build`
-and `check` jobs override `HOME: /root` on their `container:` block to match, so the esp32s3
-tasks' existing `${ESP_ENV_SCRIPT:-$HOME/export-esp.sh}` fallback in `Makefile.toml` finds it
-without CI needing to set `ESP_ENV_SCRIPT` at all. Local runs are unaffected.
+A container job runs with `HOME=/github/home`, not `/root` as GitLab's Docker executor left it,
+and the runner forces that regardless of what `container.env` or job `env:` sets (confirmed on
+a live run: setting `HOME` there is a no-op). `espup` installs `export-esp.sh` into `/root`, so
+the esp32s3 tasks read `${ESP_ENV_SCRIPT:-$HOME/export-esp.sh}` and CI sets `ESP_ENV_SCRIPT`
+explicitly. Local runs are unaffected.
 
 `mrs-cargo-cache:/persist` is mounted into each container, with `CARGO_HOME`,
 `CARGO_TARGET_DIR` and the `uv` caches pointed at it, exactly as the GitLab pipeline did.
