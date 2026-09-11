@@ -39,7 +39,7 @@ jobs:
     outputs:
       image: ${{ steps.tag.outputs.image }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           submodules: false
       # Tag is a content hash of the Dockerfile, so an unchanged file is a no-op below.
@@ -49,7 +49,7 @@ jobs:
           h=$(sha256sum .github/docker/Dockerfile.ci | cut -c1-16)
           echo "image=ghcr.io/$repo/ci:$h" >> "$GITHUB_OUTPUT"
           echo "latest=ghcr.io/$repo/ci:latest" >> "$GITHUB_OUTPUT"
-      - uses: docker/login-action@v3
+      - uses: docker/login-action@v4
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -110,9 +110,9 @@ jobs:
           - { target: esp32s3,  bin: mrs-benchmark-esp32s3,  triple: xtensa-esp32s3-none-elf,   profile: size }
     name: build (${{ matrix.target }}, ${{ matrix.profile }})
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
-          submodules: true
+          submodules: recursive
       - name: cargo make build
         run: |
           task="build-${{ matrix.target }}"
@@ -120,7 +120,7 @@ jobs:
           cargo make "$task"
       - name: Stage ELF at repo root
         run: install -Dm755 "$CARGO_TARGET_DIR/${{ matrix.triple }}/${{ matrix.profile }}/${{ matrix.bin }}" "${{ matrix.bin }}-${{ matrix.profile }}"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: fw-${{ matrix.target }}-${{ matrix.profile }}
           path: ${{ matrix.bin }}-${{ matrix.profile }}
@@ -151,9 +151,9 @@ jobs:
           - { name: clippy-esp32s3,  dir: benchmarks/mrs-benchmark-esp32s3,  run: '. "${ESP_ENV_SCRIPT:-$HOME/export-esp.sh}" && cargo clippy -- -D warnings' }
     name: check (${{ matrix.name }})
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
-          submodules: true
+          submodules: recursive
       - run: cd "${{ matrix.dir }}" && ${{ matrix.run }}
 
   run-host:
@@ -171,7 +171,7 @@ jobs:
     steps:
       # The workspace persists across runs; a stale ELF here would be re-run as a fresh result.
       - run: rm -rf fw
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           pattern: fw-host-*
           merge-multiple: true
@@ -184,7 +184,7 @@ jobs:
             chmod +x "fw/mrs-benchmark-host-$prof"
             "./fw/mrs-benchmark-host-$prof" | tee "$RUNNER_TEMP/logs/host-$prof.log"
           done
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: logs-host
@@ -215,7 +215,7 @@ jobs:
       - run: echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
       # The workspace persists across runs; a stale ELF here would be flashed and collected as a fresh result.
       - run: rm -rf fw
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           pattern: fw-${{ matrix.target }}-*
           merge-multiple: true
@@ -237,7 +237,7 @@ jobs:
               echo "flash attempt $attempt failed, retrying..." >&2
             done
           done
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: logs-${{ matrix.target }}
@@ -258,16 +258,16 @@ jobs:
       volumes:
         - mrs-cargo-cache:/persist
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
-          submodules: true # collect reads submodule SHAs into library_versions.json
-      - uses: actions/download-artifact@v4
+          submodules: recursive # collect reads submodule SHAs into library_versions.json
+      - uses: actions/download-artifact@v8
         with:
           pattern: logs-*
           merge-multiple: true
           path: logs
       - run: cd benchmarks && cargo run --quiet -p mrs-benchmark-collect -- ../logs/*.log -o ../results.csv
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: results
           path: |
@@ -288,15 +288,15 @@ jobs:
       volumes:
         - mrs-cargo-cache:/persist
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           submodules: false
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: results
       - run: uv run tools/inputs_generator/evaluate_accuracy.py --results results.csv --reference benchmarks/reference_results.json --output-csv accuracy_results.csv --output-json accuracy_results.json
       - run: uv run --project viz viz/plot.py results.csv report.pdf
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: report
           path: |
@@ -318,13 +318,13 @@ jobs:
     steps:
       # report is continue-on-error, so without this a failed run re-publishes the previous report.pdf.
       - run: rm -f report.pdf results.csv library_versions.json accuracy_results.csv accuracy_results.json
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: results
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: report
-      - uses: softprops/action-gh-release@v2
+      - uses: softprops/action-gh-release@v3
         with:
           tag_name: latest
           name: Latest main build
