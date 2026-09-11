@@ -127,7 +127,8 @@ jobs:
           retention-days: 90
 
   check:
-    needs: image
+    needs: [image, build, run-host, run-firmware] # forces check to the back of the shared runner queue
+    if: ${{ !cancelled() && needs.image.result == 'success' }} # advisory, so a failed build/flash leg must not skip it
     runs-on: [self-hosted, mrsbench, build]
     timeout-minutes: 30
     continue-on-error: true # advisory, fmt and clippy never block a merge
