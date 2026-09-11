@@ -36,6 +36,12 @@ jobs:
     runs-on: [self-hosted, mrsbench, flash]
     timeout-minutes: 60 # worst case is 4 profiles x 3 attempts x the 240s capture
     continue-on-error: true
+    # Scoped to the target, not the ref: this is the one place cross-branch exclusivity is
+    # enforced, since two refs must never flash the same physical probe at once. Never cancels
+    # a running flash, only a still-pending one, so a mid-flash job is never killed outright.
+    concurrency:
+      group: flash-${{ inputs.target }}
+      cancel-in-progress: false
     name: run-firmware (${{ inputs.target }})
     env:
       PROBE: ${{ vars[inputs.probe_var] }}

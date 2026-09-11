@@ -12,9 +12,11 @@ on:
         type: boolean
         default: false
 
-# Keyed on workflow only, not ref: two refs must never flash concurrently, they'd contend for the same probes.
+# Per ref, not per workflow: an unrelated branch's push should not cancel this one's build/check
+# work. Cross-branch board safety is handled separately, by flash-target.yml's own concurrency
+# group, which is scoped to the target and holds regardless of which ref is flashing it.
 concurrency:
-  group: ${{ github.workflow }}
+  group: ci-${{ github.ref }}
   cancel-in-progress: true
 
 permissions:
@@ -27,7 +29,6 @@ env:
   UV_CACHE_DIR: /persist/uv
   UV_PYTHON_INSTALL_DIR: /persist/uv-python
   UV_LINK_MODE: copy
-  ESP_ENV_SCRIPT: /root/export-esp.sh # container jobs get HOME=/github/home, espup installed as root
 
 jobs:
   image:
@@ -136,7 +137,9 @@ jobs:
       image: ${{ needs.image.outputs.image }}
 
   check:
-    needs: # forces check to the back of the shared runner queue
+    # forces check to the back of the build runner's queue; run-firmware-* is a separate
+    # runner pool, so check does not need to wait on it too
+    needs:
       - image
       - build-host
       - build-stm32
@@ -145,12 +148,7 @@ jobs:
       - build-rp2350
       - build-esp32s3
       - run-host
-      - run-firmware-stm32
-      - run-firmware-nrf52840
-      - run-firmware-rp2040
-      - run-firmware-rp2350
-      - run-firmware-esp32s3
-    if: ${{ !cancelled() && needs.image.result == 'success' }} # advisory, so a failed build/flash leg must not skip it
+    if: ${{ !cancelled() && needs.image.result == 'success' }} # advisory, so a failed build leg must not skip it
     runs-on: [self-hosted, mrsbench, build]
     timeout-minutes: 30
     continue-on-error: true # advisory, fmt and clippy never block a merge
@@ -161,6 +159,8 @@ jobs:
         password: ${{ secrets.GITHUB_TOKEN }}
       volumes:
         - mrs-cargo-cache:/persist
+      env:
+        HOME: /root # GHA forces HOME=/github/home in containers; espup installed export-esp.sh under /root
     strategy:
       fail-fast: false
       matrix:
@@ -171,7 +171,7 @@ jobs:
           - { name: clippy-nrf52840, dir: benchmarks/mrs-benchmark-nrf52840, run: "cargo clippy -- -D warnings" }
           - { name: clippy-rp2040,   dir: benchmarks/mrs-benchmark-rp2040,   run: "cargo clippy -- -D warnings" }
           - { name: clippy-rp2350,   dir: benchmarks/mrs-benchmark-rp2350,   run: "cargo clippy -- -D warnings" }
-          - { name: clippy-esp32s3,  dir: benchmarks/mrs-benchmark-esp32s3,  run: '. "${ESP_ENV_SCRIPT:-$HOME/export-esp.sh}" && cargo clippy -- -D warnings' }
+          - { name: clippy-esp32s3,  dir: benchmarks/mrs-benchmark-esp32s3,  run: '. "$HOME/export-esp.sh" && cargo clippy -- -D warnings' }
     name: check (${{ matrix.name }})
     steps:
       - uses: actions/checkout@v7
@@ -180,7 +180,17 @@ jobs:
       - run: cd "${{ matrix.dir }}" && ${{ matrix.run }}
 
   run-host:
-    needs: [image, build-host]
+    # needs every build-*, not just build-host, so it queues behind them on the shared build
+    # runner instead of possibly interleaving with a still-running compile; run-firmware-* is
+    # a separate runner pool and can't add CPU noise to this timing-sensitive benchmark
+    needs:
+      - image
+      - build-host
+      - build-stm32
+      - build-nrf52840
+      - build-rp2040
+      - build-rp2350
+      - build-esp32s3
     if: ${{ !cancelled() && needs.image.result == 'success' }} # one failed build leg must not skip the rest
     runs-on: [self-hosted, mrsbench, build]
     timeout-minutes: 15

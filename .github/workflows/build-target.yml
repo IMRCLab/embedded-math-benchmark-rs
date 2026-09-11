@@ -26,7 +26,6 @@ on:
 env:
   CARGO_HOME: /persist/cargo
   CARGO_TARGET_DIR: /persist/target
-  ESP_ENV_SCRIPT: /root/export-esp.sh # container jobs get HOME=/github/home, espup installed as root
 
 jobs:
   build:
@@ -39,6 +38,8 @@ jobs:
         password: ${{ secrets.GITHUB_TOKEN }}
       volumes:
         - mrs-cargo-cache:/persist
+      env:
+        HOME: /root # GHA forces HOME=/github/home in containers; espup installed export-esp.sh under /root
     strategy:
       fail-fast: false
       matrix:

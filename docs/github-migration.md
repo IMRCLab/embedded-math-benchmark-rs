@@ -168,9 +168,13 @@ finishes, `collect` fans in, `report` and `publish` follow.
   own target is built, in parallel with every other target still building on the single `build`
   runner. Each job's actual steps live in one place, the reusable workflows `build-target.yml`
   and `flash-target.yml`; `ci.yml` itself only carries a short per-target call site.
-- **A new run cancels the previous one** (`concurrency: cancel-in-progress: true`, keyed on the
-  workflow only, not the ref, so the whole repo serialises). Two refs must never flash
-  concurrently, they'd contend for the same physical probes.
+- **A new push cancels the previous run on the same ref** (`concurrency: group: ci-${{
+  github.ref }}, cancel-in-progress: true` at the top of `ci.yml`), the usual "latest push
+  wins" behaviour. Cross-ref board safety is a separate, narrower guarantee: `flash-target.yml`
+  gives its `flash` job its own `concurrency: group: flash-<target>` with `cancel-in-progress:
+  false`, so two refs flashing the same board queue instead of racing, without blocking either
+  ref's unrelated build or check work. `cancel-in-progress: false` matters here specifically
+  because it only ever drops a still-pending job, never one already flashing.
 
 ### The `container:` model
 
@@ -181,9 +185,11 @@ for the tag), the GitHub equivalent of GitLab's Docker executor. The image is
 cut-over). The `image` job tags it with a 16-char hash of the Dockerfile, so an unchanged
 Dockerfile is a fast no-op and every pipeline builds against the image matching that commit.
 
-A container job runs with `HOME=/github/home`, not `/root` as GitLab's Docker executor left
-it. `espup` installs `export-esp.sh` into `/root`, so the esp32s3 tasks read
-`${ESP_ENV_SCRIPT:-$HOME/export-esp.sh}` and CI sets `ESP_ENV_SCRIPT`. Local runs are unaffected.
+A container job normally runs with `HOME=/github/home`, not `/root` as GitLab's Docker executor
+left it, but `espup` installs `export-esp.sh` into `/root` during the image build. The `build`
+and `check` jobs override `HOME: /root` on their `container:` block to match, so the esp32s3
+tasks' existing `${ESP_ENV_SCRIPT:-$HOME/export-esp.sh}` fallback in `Makefile.toml` finds it
+without CI needing to set `ESP_ENV_SCRIPT` at all. Local runs are unaffected.
 
 `mrs-cargo-cache:/persist` is mounted into each container, with `CARGO_HOME`,
 `CARGO_TARGET_DIR` and the `uv` caches pointed at it, exactly as the GitLab pipeline did.
