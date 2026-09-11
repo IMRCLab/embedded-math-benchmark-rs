@@ -1,0 +1,62 @@
+# Reusable workflow: build one firmware/host target across its profiles. Called once per
+# target from ci.yml, so each target's build is its own job in the dependency graph and
+# run-firmware-<target> can start the moment this one job finishes (see docs/github-migration.md).
+name: build-target
+
+on:
+  workflow_call:
+    inputs:
+      target:
+        required: true
+        type: string
+      bin:
+        required: true
+        type: string
+      triple:
+        required: true
+        type: string
+      profiles:
+        description: JSON array of profile names, e.g. '["release","lto","size"]'
+        required: true
+        type: string
+      image:
+        required: true
+        type: string
+
+env:
+  CARGO_HOME: /persist/cargo
+  CARGO_TARGET_DIR: /persist/target
+  ESP_ENV_SCRIPT: /root/export-esp.sh # container jobs get HOME=/github/home, espup installed as root
+
+jobs:
+  build:
+    runs-on: [self-hosted, mrsbench, build]
+    timeout-minutes: 45
+    container:
+      image: ${{ inputs.image }}
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+      volumes:
+        - mrs-cargo-cache:/persist
+    strategy:
+      fail-fast: false
+      matrix:
+        profile: ${{ fromJSON(inputs.profiles) }}
+    name: build (${{ inputs.target }}, ${{ matrix.profile }})
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          submodules: recursive
+      - name: cargo make build
+        run: |
+          task="build-${{ inputs.target }}"
+          [ "${{ matrix.profile }}" = release ] || task="$task-${{ matrix.profile }}"
+          cargo make "$task"
+      - name: Stage ELF at repo root
+        run: install -Dm755 "$CARGO_TARGET_DIR/${{ inputs.triple }}/${{ matrix.profile }}/${{ inputs.bin }}" "${{ inputs.bin }}-${{ matrix.profile }}"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: fw-${{ inputs.target }}-${{ matrix.profile }}
+          path: ${{ inputs.bin }}-${{ matrix.profile }}
+          retention-days: 90

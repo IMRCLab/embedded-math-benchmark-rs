@@ -72,62 +72,84 @@ jobs:
             docker push "${{ steps.tag.outputs.latest }}"
           fi
 
-  build:
+  # One job per target, each calling build-target.yml: run-firmware-<target> can then need only
+  # its own target's build job, so it starts as soon as that target is built instead of waiting
+  # for every target. See docs/github-migration.md.
+  build-host:
     needs: image
-    runs-on: [self-hosted, mrsbench, build]
-    timeout-minutes: 45
-    container:
+    uses: ./.github/workflows/build-target.yml
+    with:
+      target: host
+      bin: mrs-benchmark-host
+      triple: x86_64-unknown-linux-gnu
+      profiles: '["release","lto","size"]'
       image: ${{ needs.image.outputs.image }}
-      credentials:
-        username: ${{ github.actor }}
-        password: ${{ secrets.GITHUB_TOKEN }}
-      volumes:
-        - mrs-cargo-cache:/persist
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - { target: host,     bin: mrs-benchmark-host,     triple: x86_64-unknown-linux-gnu,  profile: release }
-          - { target: host,     bin: mrs-benchmark-host,     triple: x86_64-unknown-linux-gnu,  profile: lto }
-          - { target: host,     bin: mrs-benchmark-host,     triple: x86_64-unknown-linux-gnu,  profile: size }
-          - { target: stm32,    bin: mrs-benchmark-stm32,    triple: thumbv7em-none-eabihf,     profile: release }
-          - { target: stm32,    bin: mrs-benchmark-stm32,    triple: thumbv7em-none-eabihf,     profile: lto }
-          - { target: stm32,    bin: mrs-benchmark-stm32,    triple: thumbv7em-none-eabihf,     profile: size }
-          - { target: stm32,    bin: mrs-benchmark-stm32,    triple: thumbv7em-none-eabihf,     profile: xlto }
-          - { target: nrf52840, bin: mrs-benchmark-nrf52840, triple: thumbv7em-none-eabihf,     profile: release }
-          - { target: nrf52840, bin: mrs-benchmark-nrf52840, triple: thumbv7em-none-eabihf,     profile: lto }
-          - { target: nrf52840, bin: mrs-benchmark-nrf52840, triple: thumbv7em-none-eabihf,     profile: size }
-          - { target: nrf52840, bin: mrs-benchmark-nrf52840, triple: thumbv7em-none-eabihf,     profile: xlto }
-          - { target: rp2040,   bin: mrs-benchmark-rp2040,   triple: thumbv6m-none-eabi,        profile: release }
-          - { target: rp2040,   bin: mrs-benchmark-rp2040,   triple: thumbv6m-none-eabi,        profile: lto }
-          - { target: rp2040,   bin: mrs-benchmark-rp2040,   triple: thumbv6m-none-eabi,        profile: size }
-          - { target: rp2350,   bin: mrs-benchmark-rp2350,   triple: thumbv8m.main-none-eabihf, profile: release }
-          - { target: rp2350,   bin: mrs-benchmark-rp2350,   triple: thumbv8m.main-none-eabihf, profile: lto }
-          - { target: rp2350,   bin: mrs-benchmark-rp2350,   triple: thumbv8m.main-none-eabihf, profile: size }
-          - { target: rp2350,   bin: mrs-benchmark-rp2350,   triple: thumbv8m.main-none-eabihf, profile: xlto }
-          - { target: esp32s3,  bin: mrs-benchmark-esp32s3,  triple: xtensa-esp32s3-none-elf,   profile: release }
-          - { target: esp32s3,  bin: mrs-benchmark-esp32s3,  triple: xtensa-esp32s3-none-elf,   profile: lto }
-          - { target: esp32s3,  bin: mrs-benchmark-esp32s3,  triple: xtensa-esp32s3-none-elf,   profile: size }
-    name: build (${{ matrix.target }}, ${{ matrix.profile }})
-    steps:
-      - uses: actions/checkout@v7
-        with:
-          submodules: recursive
-      - name: cargo make build
-        run: |
-          task="build-${{ matrix.target }}"
-          [ "${{ matrix.profile }}" = release ] || task="$task-${{ matrix.profile }}"
-          cargo make "$task"
-      - name: Stage ELF at repo root
-        run: install -Dm755 "$CARGO_TARGET_DIR/${{ matrix.triple }}/${{ matrix.profile }}/${{ matrix.bin }}" "${{ matrix.bin }}-${{ matrix.profile }}"
-      - uses: actions/upload-artifact@v7
-        with:
-          name: fw-${{ matrix.target }}-${{ matrix.profile }}
-          path: ${{ matrix.bin }}-${{ matrix.profile }}
-          retention-days: 90
+
+  build-stm32:
+    needs: image
+    uses: ./.github/workflows/build-target.yml
+    with:
+      target: stm32
+      bin: mrs-benchmark-stm32
+      triple: thumbv7em-none-eabihf
+      profiles: '["release","lto","size","xlto"]'
+      image: ${{ needs.image.outputs.image }}
+
+  build-nrf52840:
+    needs: image
+    uses: ./.github/workflows/build-target.yml
+    with:
+      target: nrf52840
+      bin: mrs-benchmark-nrf52840
+      triple: thumbv7em-none-eabihf
+      profiles: '["release","lto","size","xlto"]'
+      image: ${{ needs.image.outputs.image }}
+
+  build-rp2040:
+    needs: image
+    uses: ./.github/workflows/build-target.yml
+    with:
+      target: rp2040
+      bin: mrs-benchmark-rp2040
+      triple: thumbv6m-none-eabi
+      profiles: '["release","lto","size"]'
+      image: ${{ needs.image.outputs.image }}
+
+  build-rp2350:
+    needs: image
+    uses: ./.github/workflows/build-target.yml
+    with:
+      target: rp2350
+      bin: mrs-benchmark-rp2350
+      triple: thumbv8m.main-none-eabihf
+      profiles: '["release","lto","size","xlto"]'
+      image: ${{ needs.image.outputs.image }}
+
+  build-esp32s3:
+    needs: image
+    uses: ./.github/workflows/build-target.yml
+    with:
+      target: esp32s3
+      bin: mrs-benchmark-esp32s3
+      triple: xtensa-esp32s3-none-elf
+      profiles: '["release","lto","size"]'
+      image: ${{ needs.image.outputs.image }}
 
   check:
-    needs: [image, build, run-host, run-firmware] # forces check to the back of the shared runner queue
+    needs: # forces check to the back of the shared runner queue
+      - image
+      - build-host
+      - build-stm32
+      - build-nrf52840
+      - build-rp2040
+      - build-rp2350
+      - build-esp32s3
+      - run-host
+      - run-firmware-stm32
+      - run-firmware-nrf52840
+      - run-firmware-rp2040
+      - run-firmware-rp2350
+      - run-firmware-esp32s3
     if: ${{ !cancelled() && needs.image.result == 'success' }} # advisory, so a failed build/flash leg must not skip it
     runs-on: [self-hosted, mrsbench, build]
     timeout-minutes: 30
@@ -158,7 +180,7 @@ jobs:
       - run: cd "${{ matrix.dir }}" && ${{ matrix.run }}
 
   run-host:
-    needs: [image, build]
+    needs: [image, build-host]
     if: ${{ !cancelled() && needs.image.result == 'success' }} # one failed build leg must not skip the rest
     runs-on: [self-hosted, mrsbench, build]
     timeout-minutes: 15
@@ -192,61 +214,78 @@ jobs:
           path: ${{ runner.temp }}/logs/*.log
           retention-days: 90
 
-  run-firmware:
-    needs: build
-    if: ${{ !cancelled() }} # one failed build leg must not skip the other boards
-    runs-on: [self-hosted, mrsbench, flash]
-    timeout-minutes: 60 # worst case is 4 profiles x 3 attempts x the 240s capture
-    continue-on-error: true
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - { target: stm32,    chip: STM32F405RGTx, bin: mrs-benchmark-stm32,    probe_var: HIL_PROBE_STM32,    speed: "4000",  profiles: "release lto size xlto" }
-          - { target: nrf52840, chip: nRF52840_xxAA, bin: mrs-benchmark-nrf52840, probe_var: HIL_PROBE_NRF52840, speed: "4000",  profiles: "release lto size xlto" }
-          - { target: rp2040,   chip: RP2040,        bin: mrs-benchmark-rp2040,   probe_var: HIL_PROBE_RP2040,   speed: "10000", profiles: "release lto size" }
-          - { target: rp2350,   chip: RP235x,        bin: mrs-benchmark-rp2350,   probe_var: HIL_PROBE_RP2350,   speed: "10000", profiles: "release lto size xlto" }
-          - { target: esp32s3,  chip: esp32s3,       bin: mrs-benchmark-esp32s3,  probe_var: HIL_PROBE_ESP32S3,  speed: "",      profiles: "release lto size" }
-    name: run-firmware (${{ matrix.target }})
-    env:
-      PROBE: ${{ vars[matrix.probe_var] }}
-      SPEED: ${{ matrix.speed }}
-    steps:
-      # No checkout here (artifact-only), so probe-rs needs putting on PATH.
-      - run: echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
-      # The workspace persists across runs; a stale ELF here would be flashed and collected as a fresh result.
-      - run: rm -rf fw
-      - uses: actions/download-artifact@v8
-        with:
-          pattern: fw-${{ matrix.target }}-*
-          merge-multiple: true
-          path: fw
-      # RUNNER_TEMP is emptied per job; the workspace is not, and this job never checks out.
-      - name: Flash and capture
-        run: |
-          set -o pipefail
-          mkdir -p "$RUNNER_TEMP/logs"
-          for prof in ${{ matrix.profiles }}; do
-            elf="fw/${{ matrix.bin }}-$prof"
-            log="$RUNNER_TEMP/logs/${{ matrix.target }}-$prof.log"
-            echo "=== Flashing $elf on ${{ matrix.chip }} ==="
-            # probe-rs often fails the first flash after a fresh attach, see docs/hil-setup.md
-            for attempt in 1 2 3; do
-              timeout 240s probe-rs run --chip "${{ matrix.chip }}" \
-                ${PROBE:+--probe "$PROBE"} ${SPEED:+--speed "$SPEED"} "$elf" | tee "$log" && break
-              [ "$attempt" -eq 3 ] && exit 1
-              echo "flash attempt $attempt failed, retrying..." >&2
-            done
-          done
-      - uses: actions/upload-artifact@v7
-        if: always()
-        with:
-          name: logs-${{ matrix.target }}
-          path: ${{ runner.temp }}/logs/*.log
-          retention-days: 90
+  # One job per target, each calling flash-target.yml with needs: build-<target> instead of
+  # needs: build, so it starts as soon as its own target's build finishes. Each call is still a
+  # single job, so a given board is only ever touched by one job at a time (see flash-target.yml).
+  run-firmware-stm32:
+    needs: build-stm32
+    if: ${{ !cancelled() }} # a build failure for this target must not skip flashing what did build
+    uses: ./.github/workflows/flash-target.yml
+    with:
+      target: stm32
+      chip: STM32F405RGTx
+      bin: mrs-benchmark-stm32
+      probe_var: HIL_PROBE_STM32
+      speed: "4000"
+      profiles: "release lto size xlto"
+
+  run-firmware-nrf52840:
+    needs: build-nrf52840
+    if: ${{ !cancelled() }} # a build failure for this target must not skip flashing what did build
+    uses: ./.github/workflows/flash-target.yml
+    with:
+      target: nrf52840
+      chip: nRF52840_xxAA
+      bin: mrs-benchmark-nrf52840
+      probe_var: HIL_PROBE_NRF52840
+      speed: "4000"
+      profiles: "release lto size xlto"
+
+  run-firmware-rp2040:
+    needs: build-rp2040
+    if: ${{ !cancelled() }} # a build failure for this target must not skip flashing what did build
+    uses: ./.github/workflows/flash-target.yml
+    with:
+      target: rp2040
+      chip: RP2040
+      bin: mrs-benchmark-rp2040
+      probe_var: HIL_PROBE_RP2040
+      speed: "10000"
+      profiles: "release lto size"
+
+  run-firmware-rp2350:
+    needs: build-rp2350
+    if: ${{ !cancelled() }} # a build failure for this target must not skip flashing what did build
+    uses: ./.github/workflows/flash-target.yml
+    with:
+      target: rp2350
+      chip: RP235x
+      bin: mrs-benchmark-rp2350
+      probe_var: HIL_PROBE_RP2350
+      speed: "10000"
+      profiles: "release lto size xlto"
+
+  run-firmware-esp32s3:
+    needs: build-esp32s3
+    if: ${{ !cancelled() }} # a build failure for this target must not skip flashing what did build
+    uses: ./.github/workflows/flash-target.yml
+    with:
+      target: esp32s3
+      chip: esp32s3
+      bin: mrs-benchmark-esp32s3
+      probe_var: HIL_PROBE_ESP32S3
+      speed: ""
+      profiles: "release lto size"
 
   collect:
-    needs: [image, run-host, run-firmware]
+    needs:
+      - image
+      - run-host
+      - run-firmware-stm32
+      - run-firmware-nrf52840
+      - run-firmware-rp2040
+      - run-firmware-rp2350
+      - run-firmware-esp32s3
     # merge whatever logs exist even if a flash leg died, but host rows are not optional
     if: ${{ !cancelled() && needs.image.result == 'success' && needs.run-host.result == 'success' }}
     runs-on: [self-hosted, mrsbench, build]

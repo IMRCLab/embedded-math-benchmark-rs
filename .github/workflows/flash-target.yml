@@ -1,0 +1,75 @@
+# Reusable workflow: flash and capture one board across its profiles, sequentially (same probe,
+# so profiles within a target must never run in parallel; the sequential loop below guarantees
+# that regardless of which flash-pool runner picks up the job, since it's the only job that ever
+# touches this board). Called once per target from ci.yml so it can start as soon as that
+# target's own build-target.yml job finishes, without waiting on other targets' builds.
+name: flash-target
+
+on:
+  workflow_call:
+    inputs:
+      target:
+        required: true
+        type: string
+      chip:
+        required: true
+        type: string
+      bin:
+        required: true
+        type: string
+      probe_var:
+        description: Name of the repo variable holding this board's probe selector
+        required: true
+        type: string
+      speed:
+        description: probe-rs SWD/JTAG speed in kHz; empty for esp32s3's USB JTAG bridge
+        required: false
+        type: string
+        default: ""
+      profiles:
+        description: Space-separated profile names, flashed in order
+        required: true
+        type: string
+
+jobs:
+  flash:
+    runs-on: [self-hosted, mrsbench, flash]
+    timeout-minutes: 60 # worst case is 4 profiles x 3 attempts x the 240s capture
+    continue-on-error: true
+    name: run-firmware (${{ inputs.target }})
+    env:
+      PROBE: ${{ vars[inputs.probe_var] }}
+      SPEED: ${{ inputs.speed }}
+    steps:
+      # No checkout here (artifact-only), so probe-rs needs putting on PATH.
+      - run: echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+      # The workspace persists across runs; a stale ELF here would be flashed and collected as a fresh result.
+      - run: rm -rf fw
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: fw-${{ inputs.target }}-*
+          merge-multiple: true
+          path: fw
+      # RUNNER_TEMP is emptied per job; the workspace is not, and this job never checks out.
+      - name: Flash and capture
+        run: |
+          set -o pipefail
+          mkdir -p "$RUNNER_TEMP/logs"
+          for prof in ${{ inputs.profiles }}; do
+            elf="fw/${{ inputs.bin }}-$prof"
+            log="$RUNNER_TEMP/logs/${{ inputs.target }}-$prof.log"
+            echo "=== Flashing $elf on ${{ inputs.chip }} ==="
+            # probe-rs often fails the first flash after a fresh attach, see docs/hil-setup.md
+            for attempt in 1 2 3; do
+              timeout 240s probe-rs run --chip "${{ inputs.chip }}" \
+                ${PROBE:+--probe "$PROBE"} ${SPEED:+--speed "$SPEED"} "$elf" | tee "$log" && break
+              [ "$attempt" -eq 3 ] && exit 1
+              echo "flash attempt $attempt failed, retrying..." >&2
+            done
+          done
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: logs-${{ inputs.target }}
+          path: ${{ runner.temp }}/logs/*.log
+          retention-days: 90

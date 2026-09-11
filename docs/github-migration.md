@@ -150,20 +150,24 @@ service:
 | GitLab                                             | GitHub Actions                                         | Notes                                |
 | -------------------------------------------------- | ------------------------------------------------------ | ------------------------------------ |
 | `image` stage, kaniko, `rules: changes:`           | `image` job, `docker build`, content-hash tag          | no kaniko: the runner can run docker |
-| `.cargo-build` + `parallel: matrix`                | `build` job, one matrix leg per (target, profile)      | `cargo make` still owns the flags    |
+| `.cargo-build` + `parallel: matrix`                | one `build-<target>` job per target, calling the reusable `build-target.yml` (matrix leg per profile) | `cargo make` still owns the flags |
 | `check` stage, `allow_failure: true`               | `check` job, `continue-on-error: true`                 |                                      |
-| `.firmware-flash`, `hil` tag, `GIT_STRATEGY: none` | `run-firmware` job, `flash` runners, no checkout       | one matrix leg per board             |
+| `.firmware-flash`, `hil` tag, `GIT_STRATEGY: none` | one `run-firmware-<target>` job per board, calling the reusable `flash-target.yml` | `flash` runners, no checkout |
 | `run-host`                                         | `run-host` job, in the container                       | glibc parity with the build          |
 | `collect-results`, optional `needs:`               | `collect` job, `if: ${{ !cancelled() }}`               | tolerates failed flash legs          |
 | `report-pdf`, `allow_failure: true`                | `report` job, `continue-on-error: true`                |                                      |
 | `expire_in: 1 year` artifact                       | `retention-days: 90` (public repo max) + `publish` job | see below                            |
 
-The DAG is the same shape: `build` fans out, each flash leg starts when `build` finishes,
-`collect` fans in, `report` and `publish` follow.
+The DAG is the same shape: builds fan out, each flash leg starts when its own target's build
+finishes, `collect` fans in, `report` and `publish` follow.
 
-- **Flash waits for the whole `build` matrix.** GitHub's `needs:` is per job, not per matrix
-  leg, so stm32 can't flash until the esp32s3 build is done. Moot with one `build` runner (the
-  legs run serially anyway); split `build` into one job per target if that changes.
+- **`build` and `run-firmware` are split one job per target**, not one matrix job for every
+  target, because GitHub's `needs:` is per job, not per matrix leg: a single matrixed `build`
+  job would make `run-firmware-stm32` wait for the esp32s3 build too. Splitting means
+  `run-firmware-<target>` needs only `build-<target>`, so a board starts flashing as soon as its
+  own target is built, in parallel with every other target still building on the single `build`
+  runner. Each job's actual steps live in one place, the reusable workflows `build-target.yml`
+  and `flash-target.yml`; `ci.yml` itself only carries a short per-target call site.
 - **A new run cancels the previous one** (`concurrency: cancel-in-progress: true`, keyed on the
   workflow only, not the ref, so the whole repo serialises). Two refs must never flash
   concurrently, they'd contend for the same physical probes.
