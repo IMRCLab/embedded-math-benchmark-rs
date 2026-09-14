@@ -30,6 +30,14 @@ pub const CRAZYFLIE_FW_SUBMODULE_PATH: &str = "benchmarks/vendor/crazyflie-firmw
 /// crazyflie-firmware's own CMSIS_5 pin, which had been frozen at 5.7.0 since 2020).
 pub const CMSIS_SUBMODULE_PATH: &str = "benchmarks/vendor/CMSIS-DSP";
 
+/// (JSON key, binary, args) for build toolchain binaries with no semver of their
+/// own -- their `--version` banner is the closest thing to one.
+const TRACKED_TOOLCHAIN_VERSIONS: &[(&str, &str, &[&str])] = &[
+    ("rustc", "rustc", &["--version"]),
+    ("clang", "clang", &["--version"]),
+    ("gcc-arm-none-eabi", "arm-none-eabi-gcc", &["--version"]),
+];
+
 /// Anything that can go wrong while collecting rows.
 #[derive(Debug)]
 pub enum CollectError {
@@ -126,9 +134,26 @@ fn checked_out_submodule_version(submodule_dir: &Path) -> Option<String> {
     Some(String::from_utf8(rev_parse.stdout).ok()?.trim().to_string())
 }
 
+/// First line of `<program> <args>`'s stdout, trimmed. Toolchain binaries have no
+/// semver of their own, so their `--version` banner stands in for one.
+fn command_version_line(program: &str, args: &[&str]) -> Option<String> {
+    let output = Command::new(program).args(args).output().ok()?;
+    if !output.status.success() {
+        return None;
+    }
+    String::from_utf8(output.stdout)
+        .ok()?
+        .lines()
+        .next()
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .map(str::to_string)
+}
+
 /// Best-effort snapshot of each math library's version: the four Rust crates
 /// (from `benchmarks/Cargo.lock`) plus `crazyflie-fw` and `cmsis-dsp`'s pinned
-/// submodule commits/tags. Never fails -- a missing/unreadable source just
+/// submodule commits/tags, plus the build toolchain (`rustc`, `clang`,
+/// `arm-none-eabi-gcc`). Never fails -- a missing/unreadable source just
 /// leaves that one library out of the returned map, with a human-readable line
 /// in the returned warnings instead.
 pub fn library_versions(repo_root: &Path) -> (BTreeMap<String, String>, Vec<String>) {
@@ -167,6 +192,15 @@ pub fn library_versions(repo_root: &Path) -> (BTreeMap<String, String>, Vec<Stri
         None => warnings.push(format!(
             "could not resolve the checked-out version at {CMSIS_SUBMODULE_PATH}"
         )),
+    }
+
+    for &(key, program, args) in TRACKED_TOOLCHAIN_VERSIONS {
+        match command_version_line(program, args) {
+            Some(version) => {
+                versions.insert(key.to_string(), version);
+            }
+            None => warnings.push(format!("could not read `{program} --version`")),
+        }
     }
 
     (versions, warnings)
