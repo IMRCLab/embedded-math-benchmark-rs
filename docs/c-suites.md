@@ -42,7 +42,14 @@ carry. Its own `#ifndef` fallbacks suffice, so `c_src/stub_autoconf/autoconf.h` 
 
 ## Submodules in CI
 
-`GIT_SUBMODULE_STRATEGY: normal` plus `GIT_SUBMODULE_DEPTH: 1` fetch only the two top-level
-submodules this repo declares. It does not recurse into crazyflie-firmware's own nested submodules,
-none of which these suites touch. CMSIS-DSP is vendored as our own top-level submodule rather than
-reusing crazyflie-firmware's nested and long-frozen CMSIS_5 copy, so `normal` already covers it.
+`actions/checkout`'s `submodules: recursive` also pulls crazyflie-firmware's own nested submodules
+(CMSIS, FreeRTOS, cmock, libdw1000, unity), unlike GitLab's old `GIT_SUBMODULE_STRATEGY: normal`.
+Unused by these suites, just extra clone time.
+
+Two gotchas for anything reading git state after checkout (e.g. `mrs-benchmark-collect`'s
+`library_versions.json`, see [lib.rs](../benchmarks/mrs-benchmark-collect/src/lib.rs)):
+- `--depth=1` fetches no tags, so resolving a submodule's tag needs its own `git fetch --tags` first.
+- The self-hosted runner's workspace is owned by the runner account, not the container's root user,
+  which trips git's "dubious ownership" check once the checkout step's own (temp-`$HOME`-scoped)
+  `safe.directory` fix falls out of scope. Pass `-c safe.directory=<dir>` per invocation instead of
+  relying on global config.

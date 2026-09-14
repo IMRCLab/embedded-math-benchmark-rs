@@ -63,11 +63,23 @@ fn parse_ls_tree_sha(output: &str) -> Option<String> {
     (sha.len() >= 7).then(|| sha[..7].to_string())
 }
 
+/// `-c safe.directory=<dir>` scoped to one invocation: on the GitHub Actions
+/// self-hosted runners, the checked-out workspace is owned by the runner
+/// service account, not the container's root user that `cargo run` executes
+/// as, so plain `git` calls hit "detected dubious ownership". `actions/checkout`
+/// papers over this for its own git calls via a throwaway `$HOME`, which does not
+/// carry over to later steps. Passing the exception inline avoids depending on
+/// global gitconfig state (CI or a developer's machine) altogether.
+fn safe_directory_arg(dir: &Path) -> String {
+    format!("safe.directory={}", dir.display())
+}
+
 /// Reads a git submodule's pinned commit via `git ls-tree` -- works even when the
 /// submodule itself isn't checked out, since the pin lives in the parent repo's
 /// own tree object.
 fn submodule_commit(repo_root: &Path, submodule_path: &str) -> Option<String> {
     let output = Command::new("git")
+        .args(["-c", &safe_directory_arg(repo_root)])
         .args(["ls-tree", "HEAD", "--", submodule_path])
         .current_dir(repo_root)
         .output()
@@ -80,7 +92,20 @@ fn submodule_commit(repo_root: &Path, submodule_path: &str) -> Option<String> {
 
 /// Version checked out at `submodule_dir`: nearest reachable tag, else a short SHA. Needs an actual checkout, unlike `submodule_commit`.
 fn checked_out_submodule_version(submodule_dir: &Path) -> Option<String> {
+    let safe_dir = safe_directory_arg(submodule_dir);
+
+    // A `--depth=1` submodule checkout (actions/checkout's default) fetches no tag
+    // refs, so `describe` below finds nothing even when the pin is exactly on a
+    // tag. Best-effort backfill them; a fully-cloned submodule or an offline run
+    // just no-ops or fails harmlessly here.
+    let _ = Command::new("git")
+        .args(["-c", &safe_dir])
+        .args(["fetch", "--tags", "--depth=1", "origin"])
+        .current_dir(submodule_dir)
+        .output();
+
     let describe = Command::new("git")
+        .args(["-c", &safe_dir])
         .args(["describe", "--tags"])
         .current_dir(submodule_dir)
         .output()
@@ -90,6 +115,7 @@ fn checked_out_submodule_version(submodule_dir: &Path) -> Option<String> {
     }
 
     let rev_parse = Command::new("git")
+        .args(["-c", &safe_dir])
         .args(["rev-parse", "--short=7", "HEAD"])
         .current_dir(submodule_dir)
         .output()
