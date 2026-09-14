@@ -1,15 +1,20 @@
 # Benchmark report
 
 `viz/plot.py` renders `results.csv` into a multipage `report.pdf`, comparing platform x library x
-task x input on the latest run. CI publishes it as a pipeline artifact.
+task x input on the latest run. CI publishes it as a release asset on every `main` build.
 
 Stable "latest `main`" link:
-https://git.tu-berlin.de/imrc/teaching/multi-robot-systems-project/2026/mrs-microbenchmarks/-/jobs/artifacts/main/raw/report.pdf?job=report-pdf
+https://github.com/IMRCLab/embedded-math-benchmark-rs/releases/latest/download/report.pdf
+
+This resolves via the `latest` release tag, which `publish` marks `prerelease: false` and
+`make_latest: true` specifically so `/releases/latest/download/...` finds it — that URL form
+resolves the newest **non**-prerelease release, and 404s against the per-commit `build-<sha>`
+releases (which stay `prerelease: true` on purpose, so they don't compete for "Latest release").
 
 ```bash
 uv run --project viz viz/plot.py results.csv report.pdf   # same command locally and in CI
 cargo make report                                          # wrapper for the above
-glab job artifact $(git branch --show-current) report-pdf  # fetch CI's copy
+gh release download latest --pattern report.pdf            # fetch CI's copy
 ```
 
 ## Report structure
@@ -63,7 +68,7 @@ rows plus resolved library versions to stderr. Three conventions differ from the
 
 ## CI
 
-Job `report-pdf` in [.gitlab/ci/report.yml](../.gitlab/ci/report.yml) runs in its own `report`
-stage between `collect` and `check`, with `allow_failure: true` so a plotting bug cannot block a
-merge and can be retried alone. The CI image carries the `uv` binary, with `UV_CACHE_DIR` and
-`UV_PYTHON_INSTALL_DIR` on `/persist` next to `CARGO_HOME`.
+The `report` job in [`ci.yml`](../.github/workflows/ci.yml) runs after `collect`, with
+`continue-on-error: true` so a plotting bug cannot block a merge and can be retried alone. The CI
+image carries the `uv` binary, with `UV_CACHE_DIR` and `UV_PYTHON_INSTALL_DIR` on `/persist` next
+to `CARGO_HOME`.

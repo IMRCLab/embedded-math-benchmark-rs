@@ -1,4 +1,4 @@
-# Port of the GitLab pipeline. Setup and rationale: docs/draft/github-migration.md
+# Port of the GitLab pipeline. Setup and rationale: docs/hil-setup.md
 name: CI
 
 # Never add pull_request/pull_request_target: fork code would run on the docker-group HIL runners.
@@ -79,7 +79,7 @@ jobs:
 
   # One job per target, each calling build-target.yml: run-firmware-<target> can then need only
   # its own target's build job, so it starts as soon as that target is built instead of waiting
-  # for every target. See docs/github-migration.md.
+  # for every target. See docs/hil-setup.md.
   build-host:
     needs: image
     uses: ./.github/workflows/build-target.yml

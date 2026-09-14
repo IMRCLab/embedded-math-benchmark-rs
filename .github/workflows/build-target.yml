@@ -1,6 +1,6 @@
 # Reusable workflow: build one firmware/host target across its profiles. Called once per
 # target from ci.yml, so each target's build is its own job in the dependency graph and
-# run-firmware-<target> can start the moment this one job finishes (see docs/github-migration.md).
+# run-firmware-<target> can start the moment this one job finishes (see docs/hil-setup.md).
 name: build-target
 
 on:

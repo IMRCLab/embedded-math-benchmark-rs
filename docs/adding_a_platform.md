@@ -30,17 +30,18 @@ Checklist for bringing up a new hardware target (or new architecture on existing
    already handle it. Flip `default-features = false` on the new crate's
    `mrs-benchmark-core` dependency.
 
-4. **CI** (`.gitlab/ci/`):
-   - `Dockerfile.ci`: `rustup target add`, or a separate toolchain if not upstream Rust.
-   - `build.yml`: `build-<platform>` extending `.cargo-build` (`BIN`, `TARGET`). Automatically
-     builds `release`, `lto`, and `size` profiles via parallel matrix.
-   - `check.yml`: `clippy-<platform>`, mirroring the build job.
-   - `run.yml`: `run-<platform>` extending `.firmware-flash` (`CHIP`, `BIN`, `TARGET_NAME`,
-     `PROBE`), once flashing works over `probe-rs`. Runs all 3 profiles sequentially.
-   - `collect.yml`: add `- job: run-<platform>` / `optional: true` to `collect-results`.
-   - A `HIL_PROBE_<PLATFORM>` project variable holding the probe's selector from
-     `probe-rs list`, referenced as `PROBE` by the run job. See
-     [hil-setup.md](hil-setup.md#probe-selection).
+4. **CI** (`.github/workflows/`):
+   - `docker/Dockerfile.ci`: `rustup target add`, or a separate toolchain if not upstream Rust.
+   - `ci.yml`: `build-<platform>` job calling the reusable `build-target.yml` (`target`, `bin`,
+     `triple`, `profiles`). One job per target, not a matrix leg, so `run-firmware-<platform>`
+     can `needs:` only this target's build.
+   - `ci.yml`'s `check` job: add a `clippy-<platform>` row to its matrix.
+   - `ci.yml`: `run-firmware-<platform>` job calling the reusable `flash-target.yml` (`target`,
+     `chip`, `bin`, `probe_var`, `speed`, `profiles`), once flashing works over `probe-rs`.
+   - `ci.yml`'s `collect` job: add `run-firmware-<platform>` to its `needs:`.
+   - A `HIL_PROBE_<PLATFORM>` repo Actions variable (Settings, Secrets and variables, Actions,
+     Variables) holding the probe's selector from `probe-rs list`, referenced via `probe_var` in
+     the `run-firmware-<platform>` call. See [hil-setup.md](hil-setup.md#probe-selection).
 
 5. **Local dev** (`Makefile.toml`): `build-<alias>` and `bench-<alias>` tasks mirroring the
    CI jobs.
