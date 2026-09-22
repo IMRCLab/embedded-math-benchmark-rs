@@ -59,9 +59,7 @@
     [],
   )
   #v(6pt)
-  #abi-class-row("vec", [3 floats], ("x", "y", "z", ""), [in registers])
-  #v(6pt)
-  #abi-class-row("quat", [4 floats], ("w", "x", "y", "z"), [in registers])
+  #abi-class-row("vec / quat", [3-4 floats], ("x", "y", "z", "w"), [in registers])
   #v(6pt)
   #abi-class-row("mat33", [9 floats], ("nine members, five too many",), [to the stack], note-fill: rgb("#fbe3df"))
   #v(6pt)
@@ -74,7 +72,7 @@
   caption: caption[STM32F405 #sym.dot.c Cortex-M4F, 168 MHz],
 ))[
   #text(size: 26pt)[
-    When we account for how the operands are passed, the actual difference stays small. All register- and pointer-passed primitives sit between #text(fill: accent, weight: 700)[0.94x] and #text(fill: accent, weight: 700)[1.47x].
+    When we account for how the operands are passed between C and rust, the difference stays small. All register- and pointer-passed primitives sit between #text(fill: accent, weight: 700)[0.94x] and #text(fill: accent, weight: 700)[1.47x].
   ]
   #v(16pt)
 
@@ -86,23 +84,21 @@
       #v(6pt)
       #legend()
       #v(4pt)
-      #caption[C time / fastest Rust time, each read at the profile where it is valid]
+      #caption[C time / fastest Rust time, each read at the profile where it is _valid_]
     ],
     [
       #subheading("Why: the ABI sorts every task into three classes")
       #abi-classes-diagram()
       #v(12pt)
       #text(size: 22pt)[
-        ARM hands a struct over in floating-point registers on one condition: every member is a float, and there
-        are at most four of them. A 3x3 matrix is copied to the stack going in and returned through a hidden
-        `sret` pointer coming out; traffic Rust never pays. Big operands cost nothing at the boundary, but the
+        ARM hands a struct over in floating-point registers only if there are at most 4 float. A 3x3 matrix is copied to the stack going in and returned through a hidden
+        `sret` pointer coming out. This is a overhead that Rust doesn't have. Big operands (passed by pointer) cost nothing at the boundary, but the
         optimiser treats them differently again.
       ]
       #v(10pt)
       #accent-note[
         #text(size: 22pt)[
-          These three classes are why the chart on the left cannot be read at one profile. Each class is a
-          language comparison only where both sides get equivalent compiler treatment; that is *02*.
+          These three classes are why the chart on the left compares only _valid_ profiles. Valid as in each side gets equivalent compiler treatment.
         ]
       ]
     ],

@@ -1,4 +1,4 @@
-#import "../theme.typ": accent, panel, sec-heading, caption, bar-chart, subheading
+#import "../theme.typ": accent, accent-dark, bar-chart, caption, panel, sec-heading, subheading
 
 // Only MatMul9x9's four values are given verbatim in the source mockup;
 // the other three tasks' bars are illustrative estimates for this pass,
@@ -24,17 +24,33 @@
     columns: (auto, auto),
     column-gutter: 8pt,
     align: horizon,
-    box(width: 15pt, height: 15pt, fill: s.at(1), stroke: 0.6pt + black),
-    text(size: 18pt)[#s.at(0)],
+    box(width: 15pt, height: 15pt, fill: s.at(1), stroke: 0.6pt + black), text(size: 18pt)[#s.at(0)],
   ))
 )
 
-#let class-box(title, tasks, value, note) = box(width: 100%, inset: 18pt, stroke: 0.8pt + rgb("#ccc"))[
+#let profile-pill(profile) = box(fill: accent-dark, inset: (x: 10pt, y: 5pt), radius: 3pt)[
+  #text(fill: white, weight: 800, size: 17pt, tracking: 0.03em)[#upper(profile)]
+]
+
+#let class-box(title, tasks, value, profile) = box(width: 100%, height: 5.9cm, inset: 18pt, stroke: 0.8pt + rgb("#ccc"))[
   #text(weight: 700, size: 20pt)[#title]
   #v(4pt)
   #text(size: 18pt, fill: rgb("#444"))[#tasks]
-  #v(8pt)
-  #align(center)[#text(fill: accent, weight: 900, size: 32pt)[#value] #text(size: 18pt, fill: rgb("#333"))[ #note]]
+  #v(1fr)
+  #align(center)[
+    #grid(
+      columns: (auto, auto),
+      column-gutter: 8pt,
+      align: horizon,
+      text(fill: accent, weight: 900, size: 32pt)[#value#text(size: 22pt)[x]], profile-pill(profile),
+    )
+    #v(3pt)
+    #text(size: 14pt, fill: rgb("#777"))[C time / fastest Rust time]
+  ]
+]
+
+#let profile-note(label, body) = block(width: 100%, below: 8pt)[
+  #text(size: 20pt, weight: 700)[#label] #text(size: 20pt)[#body]
 ]
 
 #let build-profile-panel() = panel(sec-heading(
@@ -55,23 +71,25 @@
       #align(center)[#bar-chart(groups, series, height: 12, parity: 1.0, captions: sublabels)]
       #v(6pt)
       #align(center)[#legend()]
+      #v(4pt)
+      #align(center)[#caption[C time / fastest Rust time, per build profile #sym.dot.c dashed line = parity (1x)]]
     ],
     [
       #subheading("Why: each class of operands has one fair profile")
       #grid(
         columns: (1fr, 1fr, 1fr),
         column-gutter: 14pt,
-        class-box("All in registers", "CrossProduct, QuatMul, RotateVector, UnitQuatMul", "1.19", "at lto"),
-        class-box("A 3x3 matrix by value", "MatMul3x3, QuatToRotMatrix", "1.16", "at xlto"),
-        class-box("A pointer to a big buffer", "MatMul9x9, MatInverse9x9, DotProduct64D", "0.98", "at xlto"),
+        class-box("All in registers", "CrossProduct, QuatMul, RotateVector, UnitQuatMul", "1.19", "lto"),
+        class-box("A 3x3 matrix by value", "MatMul3x3, QuatToRotMatrix", "1.16", "xlto"),
+        class-box("A pointer to a big buffer", "MatMul9x9, MatInverse9x9, DotProduct64D", "0.98", "xlto"),
       )
       #v(12pt)
-      #text(size: 20pt)[
-        Every other profile is unfair to one side. For register-passed operands, `release` leaves Rust's own
-        scaffolding un-inlined (2.70x) and `xlto` slows C's call site by 26%. For a 3x3 by value, `lto` bills C
-        for AAPCS struct copies (2.76x). For pointer operands, `lto` gives Rust fat LTO and the C object nothing
-        (2.21x), and `size` throws away nalgebra's unrolling (0.63x).
-      ]
+      #v(8pt)
+      #profile-note("All in registers.", [`release` leaves Rust's own scaffolding un-inlined (2.70x); `xlto`'s
+        ThinLTO costs the un-inlined C call site 26% on its own codegen, no inlining payoff to offset it.])
+      #profile-note("A 3x3 matrix by value.", [`lto` bills C for AAPCS struct copies (2.76x).])
+      #profile-note("A pointer to a big buffer.", [`lto` gives Rust fat LTO and the C object nothing (2.21x);
+        `size` throws away nalgebra's unrolling (0.63x).])
       #v(6pt)
       #caption[`lto` and `xlto` are this project's own names. Full 4x3 matrix behind the QR.]
     ],

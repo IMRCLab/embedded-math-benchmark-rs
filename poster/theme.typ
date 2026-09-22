@@ -66,6 +66,7 @@
     grid(
       columns: (auto,),
       align: center,
+      row-gutter: 14pt,
       text(fill: white, weight: 900, size: 84pt)[#stat],
       block(width: 11cm)[#text(fill: white, size: 17pt)[#stat-note]],
     ),

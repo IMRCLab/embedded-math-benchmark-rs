@@ -37,7 +37,10 @@ profiles real memory traffic.
 On stm32 this closes the two rows it can inline, `MatMul3x3` from 2.76x to 1.16x and
 `QuatToRotMatrix` from 1.76x to 1.22x, and widens the rest, because Rust gets inlined under the
 same regime while the C stays behind a call. `CrossProduct` shows a second effect: `crazyflie-fw`'s
-own call site gets 26% slower under `xlto`, not just relatively behind a faster glam.
+own call site gets 26% slower under `xlto`, not just relatively behind a faster glam. This is
+ThinLTO's own codegen cost, not the gcc-to-clang swap: the fat-LTO spike below holds clang and
+cross-language joining fixed and only flips thin to fat, which recovers nearly all of it (1315 ->
+1046 cycles, against 1044 at plain `lto`/gcc).
 
 ## `xlto` is not a strict win
 
@@ -66,3 +69,17 @@ flip: reach for it only when profiling shows the workload sits in a row it actua
 Swapping gcc for clang is worth 1.05x (`CrossProduct`) to 1.33x (`MatMul3x3`) on its own, measured
 at `lto` with no cross-LTO. gcc was never a deliberate choice; it is the `cc` crate's default for
 `thumb*-none-eabi*`.
+
+## Fat LTO spike (not merged)
+
+Swapping `-flto=thin`/`lto` unset for `-flto`/`lto = "fat"` on stm32: broad win (22/60 pairs >3%
+faster, 10 regressed) but `MatInverse9x9`/nalgebra, `EkfStep`/crazyflie-fw and `MatMul9x9`/cmsis-dsp
+roughly double. Cause: fat's inliner has no importer budget, so it fully merges big routines
+(`kalmanCorePredict`, `cmsis_matmul_9x9`) into their caller and blows past Cortex-M4's 8
+D-registers. `cf_ekf_step` spill/reload instructions go 16 -> 189, despite total binary text
+shrinking 5.6%. Not merged; see the `xlto-fat-lto-spike` worktree.
+
+`CrossProduct`/crazyflie-fw is one of the wins, and the one that matters for the 26% figure above:
+1315 cycles under thin drops to 1046 under fat, clang held fixed both times, landing almost exactly
+on the 1044 cycles measured at plain `lto`/gcc. That is what isolates the regression to ThinLTO's
+own codegen rather than the compiler swap.
