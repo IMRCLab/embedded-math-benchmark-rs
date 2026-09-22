@@ -49,7 +49,7 @@ fn clang_lto_flags(target: &str) -> Option<Vec<String>> {
         format!("-mcpu={cpu}"),
         format!("-mfpu={fpu}"),
         "-mfloat-abi=hard".to_string(),
-        "-flto=thin".to_string(),
+        "-flto".to_string(),
     ])
 }
 

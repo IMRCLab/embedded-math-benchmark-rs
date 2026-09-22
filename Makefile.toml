@@ -61,7 +61,7 @@ category = "Firmware Build"
 extend = "build-stm32"
 args = ["build", "--profile", "xlto"]
 [tasks.build-stm32-xlto.env]
-RUSTFLAGS = "-C linker-plugin-lto -C target-cpu=cortex-m4 -C link-arg=-Tlink.x -C link-arg=--lto-O3 -C link-arg=--mllvm=-import-instr-limit=500"
+RUSTFLAGS = "-C linker-plugin-lto -C target-cpu=cortex-m4 -C link-arg=-Tlink.x -C link-arg=--lto-O3"
 
 [tasks.bench-stm32-xlto]
 description = "Build and run STM32 benchmarks with cross-language LTO over ST-Link"
@@ -106,7 +106,7 @@ category = "Firmware Build"
 extend = "build-nrf52840"
 args = ["build", "--profile", "xlto"]
 [tasks.build-nrf52840-xlto.env]
-RUSTFLAGS = "-C linker-plugin-lto -C target-cpu=cortex-m4 -C link-arg=-Tlink.x -C link-arg=--lto-O3 -C link-arg=--mllvm=-import-instr-limit=500"
+RUSTFLAGS = "-C linker-plugin-lto -C target-cpu=cortex-m4 -C link-arg=-Tlink.x -C link-arg=--lto-O3"
 
 [tasks.bench-nrf52840-xlto]
 description = "Build and run nRF52840 benchmarks with cross-language LTO over a J-Link"
@@ -178,7 +178,7 @@ category = "Firmware Build"
 extend = "build-rp2350"
 args = ["build", "--profile", "xlto"]
 [tasks.build-rp2350-xlto.env]
-RUSTFLAGS = "-C linker-plugin-lto -C target-cpu=cortex-m33 -C link-arg=--nmagic -C link-arg=-Tlink.x -C link-arg=--lto-O3 -C link-arg=--mllvm=-import-instr-limit=500"
+RUSTFLAGS = "-C linker-plugin-lto -C target-cpu=cortex-m33 -C link-arg=--nmagic -C link-arg=-Tlink.x -C link-arg=--lto-O3"
 
 [tasks.bench-rp2350-xlto]
 description = "Build and run RP2350 benchmarks with cross-language LTO over SWD"

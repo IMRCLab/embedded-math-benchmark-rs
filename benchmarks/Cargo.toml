@@ -40,6 +40,7 @@ codegen-units = 1
 # link, so cross-LTO silently does nothing there. See docs/task-categories.md.
 [profile.xlto]
 inherits = "release"
+lto = "fat"
 
 [profile.size]
 inherits = "release"

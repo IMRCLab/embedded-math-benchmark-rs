@@ -66,3 +66,12 @@ flip: reach for it only when profiling shows the workload sits in a row it actua
 Swapping gcc for clang is worth 1.05x (`CrossProduct`) to 1.33x (`MatMul3x3`) on its own, measured
 at `lto` with no cross-LTO. gcc was never a deliberate choice; it is the `cc` crate's default for
 `thumb*-none-eabi*`.
+
+## Fat LTO spike (not merged)
+
+Swapping `-flto=thin`/`lto` unset for `-flto`/`lto = "fat"` on stm32: broad win (22/60 pairs >3%
+faster, 10 regressed) but `MatInverse9x9`/nalgebra, `EkfStep`/crazyflie-fw and `MatMul9x9`/cmsis-dsp
+roughly double. Cause: fat's inliner has no importer budget, so it fully merges big routines
+(`kalmanCorePredict`, `cmsis_matmul_9x9`) into their caller and blows past Cortex-M4's 8
+D-registers. `cf_ekf_step` spill/reload instructions go 16 -> 189, despite total binary text
+shrinking 5.6%. Not merged; see the `xlto-fat-lto-spike` worktree.
