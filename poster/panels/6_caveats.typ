@@ -1,28 +1,29 @@
 #import "../theme.typ": accent
 
 #let caveat(title, body) = block(width: 100%)[
-  #text(weight: 700, size: 21pt)[#title]
-  #v(6pt)
+  #text(weight: 800, size: 21pt)[#title]
+  #v(5pt)
   #text(size: 19pt)[#body]
 ]
 
-#let caveats-panel() = block(width: 100%, fill: rgb("#fbe9e6"), inset: 26pt)[
+#let caveats-panel() = block(width: 100%, fill: rgb("#fbe9e6"), inset: (x: 28pt, y: 22pt))[
   #grid(
-    columns: (auto, 1fr, 1fr, 1fr),
+    columns: (10.5cm, 1fr, 1fr, 1fr),
     column-gutter: 30pt,
-    align: (left + top, left + top, left + top, left + top),
-    text(fill: accent, weight: 900, size: 27pt, tracking: 0.02em)[#upper("where it") \ #upper("reverses")],
-    caveat("xlto is not a strict win", [
-      Of 60 task x library pairs: 20 faster, 26 unchanged, 14 slower. Pure-Rust rows regress too:
-      micromath SinCos +31%.
+    align: (left + horizon, left + top, left + top, left + top),
+    [
+      #text(fill: accent, weight: 900, size: 28pt, tracking: 0.02em)[#upper("where it") \ #upper("reverses")]
+      #v(6pt)
+      #text(size: 17pt, fill: rgb("#666"))[Nuances and counter-examples across the benchmark grid]
+    ],
+    caveat("XLTO is not a universal win", [
+      Across 60 benchmark pairs: 21 faster, 17 unchanged, 22 slower. Cross-language ThinLTO perturbs pure-Rust inlining thresholds, causing regressions like micromath SinCos (+31%).
     ]),
-    caveat("libm wins three of the five transcendentals", [
-      Median ns, libm vs. newlib: Exp 598/1,106 #sym.dot.c Ln 566/1,007 #sym.dot.c Atan2 1,091/1,456. The f64
-      penalty is not uniform.
+    caveat("libm leads 3 of 5 transcendentals", [
+      The f64 penalty is not uniform: when generic series avoid heavy 64-bit emulation, Rust libm outperforms C newlib on Exp (1.85x), Ln (1.78x), and Atan2 (1.33x).
     ]),
-    caveat("Both directions are represented", [
-      Two of the nine arithmetic primitives land below parity, and the 3x3-by-value class reaches 2.76x at
-      the wrong profile. Nothing here is a clean sweep for either language.
+    caveat("Soft-float flips the gap", [
+      On Cortex-M0+ (RP2040, no hardware FPU), both languages run soft-float. Rust libm runs SinCos 14% faster than C (9.8k vs 11.3k cycles). The 10x penalty is strictly an FPU artifact.
     ]),
   )
 ]
