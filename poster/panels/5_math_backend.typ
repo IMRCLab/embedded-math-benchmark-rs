@@ -70,9 +70,10 @@
       ]
       #v(10pt)
       #accent-note[
-        #text(size: 22pt)[
-          Other tests inherit this, e.g. `QuatSlerp` calls sine and cosine three times, so
-          cmath3d runs #text(fill: accent, weight: 700)[10.35x] faster than glam.
+        #text(size: 21pt)[
+          Other workloads inherit this: in `QuatSlerp`, cmath3d runs #text(fill: accent, weight: 700)[10.3x]
+          faster than glam by evaluating three sines. nalgebra uses a different algorithm that trades
+          one sine for a sqrt, narrowing C's lead to #text(fill: accent, weight: 700)[6.8x].
         ]
       ]
     ],
