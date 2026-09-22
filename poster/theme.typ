@@ -8,47 +8,66 @@
 #let panel-gray = rgb("#e8e8e8")
 #let rule-gray = rgb("#999")
 
-// Numbered section heading: "01  TITLE" - accent number badge, black uppercase title.
-#let sec-heading(num, title) = [
-  #box(fill: accent, inset: (x: 13pt, y: 8pt))[
-    #text(fill: white, weight: 900, size: 34pt)[#num]
-  ]
-  #h(0.4em)
-  #text(weight: 800, size: 34pt, tracking: 0.04em)[#upper(title)]
-]
+// Numbered section heading with an optional right-aligned caption on the same row.
+#let sec-heading(num, title, caption: none) = grid(
+  columns: (1fr, auto),
+  align: (left + horizon, right + horizon),
+  [
+    #box(fill: accent, inset: (x: 13pt, y: 8pt))[
+      #text(fill: white, weight: 900, size: 34pt)[#num]
+    ]
+    #h(0.4em)
+    #text(weight: 800, size: 34pt, tracking: 0.04em)[#upper(title)]
+  ],
+  if caption != none { caption } else { [] },
+)
 
 // A section panel: numbered heading + body.
 #let panel(heading, body) = block(width: 100%)[
-  #block(width: 100%, below: 16pt)[#heading]
+  #block(width: 100%, below: 24pt)[#heading]
   #body
 ]
 
 // Full-width divider between major sections.
-#let divider() = block(width: 100%, above: 18pt, below: 13pt)[
+#let divider() = block(width: 100%, above: 30pt, below: 22pt)[
   #line(length: 100%, stroke: 2.4pt + black)
 ]
 
 // Small caption/attribution line under a chart or panel.
 #let caption(body) = text(size: 17pt, fill: rgb("#555"))[#body]
 
+// Subsection label with a thin gray rule underneath, e.g. a "WHY: ..." blurb.
+#let subheading(title, color: ink) = block(width: 100%, below: 12pt)[
+  #text(fill: color, weight: 800, size: 22pt, tracking: 0.03em)[#upper(title)]
+  #v(4pt)
+  #line(length: 100%, stroke: 0.8pt + rgb("#aaa"))
+]
+
+// Paragraph with a left accent bar, for the one sentence worth setting apart.
+#let accent-note(body) = block(
+  width: 100%,
+  inset: (left: 16pt),
+  stroke: (left: 4pt + accent),
+)[#body]
+
 // Colored hero banner: big headline stat on the right, supporting claim on
 // the left. Used directly under the header for the paper's single loudest
 // number ("1.5x" etc).
-#let hero-banner(claim, stat, stat-note) = box(
+#let hero-banner(claim, stat, stat-note) = block(
   width: 100%,
   fill: accent,
-  inset: 22pt,
+  inset: 32pt,
 )[
   #grid(
-    columns: (1fr, auto),
-    column-gutter: 30pt,
+    columns: (1fr, 13cm),
+    column-gutter: 40pt,
     align: (left + horizon, right + horizon),
-    text(fill: white, weight: 800, size: 32pt)[#claim],
+    text(fill: white, weight: 800, size: 40pt)[#claim],
     grid(
       columns: (auto,),
       align: center,
-      text(fill: white, weight: 900, size: 76pt)[#stat],
-      block(width: 11cm)[#text(fill: white, size: 16pt)[#stat-note]],
+      text(fill: white, weight: 900, size: 84pt)[#stat],
+      block(width: 11cm)[#text(fill: white, size: 17pt)[#stat-note]],
     ),
   )
 ]
@@ -104,7 +123,7 @@
     let y = -i * row-h
     let col = if hi-lit { accent } else { black }
     content((-0.4, y), text(size: 16pt)[#label], anchor: "east")
-    line((x-of(lo), y), (x-of(value), y), stroke: 1pt + rgb("#ccc"))
+    line((x-of(parity), y), (x-of(value), y), stroke: 1pt + rgb("#ccc"))
     circle((x-of(value), y), radius: 0.17, fill: col, stroke: none)
     content((x-of(value) + 0.5, y), text(size: 16pt, fill: col, weight: 700)[#vlabel], anchor: "west")
   }
@@ -113,7 +132,7 @@
 // Grouped vertical bar chart. `groups` is an array of group-label; `series`
 // is an array of (series-label, color, values-array-matching-groups).
 // `captions`, if given, is one gray subcaption per group, drawn as a second
-// line under the group name -- kept inside the canvas (rather than a
+// line under the group name, kept inside the canvas (rather than a
 // separate Typst grid below it) so it lines up with the bars regardless of
 // how wide the surrounding container is.
 #let bar-chart(groups, series, height: 10, bar-w: 0.85, gap: 0.3, parity: none, captions: none) = canvas(length: 1cm, {

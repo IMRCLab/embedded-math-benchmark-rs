@@ -15,7 +15,7 @@
 )
 
 #let guidance-panel() = block(width: 100%)[
-  #text(weight: 800, size: 30pt, tracking: 0.03em)[IF YOU ARE CHOOSING A MATH LIBRARY TODAY]
+  #text(weight: 800, size: 30pt, tracking: 0.03em)[#upper("if you are choosing a math library today")]
   #v(14pt)
   #grid(
     columns: (1fr, 1fr, 1fr),

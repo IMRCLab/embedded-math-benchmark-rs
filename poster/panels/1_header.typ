@@ -7,20 +7,20 @@
     align: (left, right),
     [
       #text(fill: accent, weight: 800, size: 22pt, tracking: 0.08em)[
-        IROS 2026 / WORKSHOP ON RUST FOR ROBOTICS
+        #upper("IROS 2026 / workshop on Rust for robotics")
       ]
       #v(8pt)
       #text(weight: 800, size: 74pt)[Benchmarking Rust and C Math Libraries for Embedded Robotics]
       #v(14pt)
       #text(size: 28pt)[
-        Pascal Harprecht* #h(0.5em) #sym.dot.c #h(0.5em) Thomas Lübbehüsen* #h(0.5em) #sym.dot.c #h(0.5em) Wolfgang Honig
-        #h(0.8em) #sym.dot.c #h(0.8em) Technical University of Berlin #h(0.5em) #sym.dot.c #h(0.5em) *equal contribution*
+        Pascal Harprecht#text(fill: accent)[\*] #h(0.5em) #sym.dot.c #h(0.5em) Thomas Lübbehüsen#text(fill: accent)[\*] #h(0.5em) #sym.dot.c #h(0.5em) Wolfgang Hönig
+        #h(0.8em) #sym.dot.c #h(0.8em) Technical University of Berlin #h(0.5em) #sym.dot.c #h(0.5em) #text(fill: accent)[\*]equal contribution
       ]
     ],
     [
       #qr-code("https://github.com/IMRCLab/embedded-math-benchmark-rs", size: 9cm)
       #v(8pt)
-      #align(center)[#text(fill: accent, weight: 800, size: 18pt)[PAPER, CODE \& FULL TABLES]]
+      #align(center)[#text(fill: accent, weight: 800, size: 18pt)[#upper("paper, code & full tables")]]
     ],
   )
   #v(20pt)

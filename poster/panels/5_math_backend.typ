@@ -1,4 +1,4 @@
-#import "../theme.typ": accent, panel, sec-heading, caption, scaled-bars, placeholder-box
+#import "../theme.typ": accent, accent-note, panel, sec-heading, caption, scaled-bars, placeholder-box, subheading
 
 #let sincos-rows = (
   ("libm (Rust)", 21802, "21,802", accent),
@@ -27,8 +27,11 @@
 // hand-drawn here. Swap this placeholder for that exported figure.
 #let accuracy-scatter-placeholder() = placeholder-box(100%, 8cm, "speed-vs-accuracy scatter (viz/, log-log, dashed connectors)")
 
-#let math-backend-panel() = panel(sec-heading("03", "The math backend swings 10x"))[
-  #align(right)[#caption[lto profile #sym.dot.c median ns]]
+#let math-backend-panel() = panel(sec-heading(
+  "03",
+  "The math backend swings 10x",
+  caption: caption[lto profile #sym.dot.c median ns],
+))[
   #text(size: 26pt)[
     Same operation, three implementations, a #text(fill: accent, weight: 700)[10x] spread, and the gap
     tracks the library, not the language.
@@ -50,8 +53,7 @@
       #caption[Each group is scaled to its own slowest bar. newlib is the ARM GCC toolchain's C math library.]
     ],
     [
-      #text(weight: 800, size: 22pt, tracking: 0.03em)[AND THE FAST ROUTE IS PAID FOR IN ACCURACY]
-      #v(10pt)
+      #subheading("And the fast route is paid for in accuracy")
       #text(fill: accent, weight: 900, size: 54pt)[120,517]
       #text(size: 19pt)[ mean ULP error on micromath's Sqrt, against 0.07 for the routine it replaces]
       #v(12pt)
@@ -60,21 +62,21 @@
       #caption[up and to the left is faster and less accurate; dashed lines join a fast-math routine to the one it replaces]
     ],
     [
-      #text(weight: 800, size: 22pt, tracking: 0.03em)[WHY: THE FPU IS 32 BITS WIDE]
-      #v(12pt)
+      #subheading("Why: the FPU is 32 bits wide")
       #text(size: 22pt)[
         newlib works in f32, which the FPU runs in hardware. libm evaluates the same polynomials in f64, which
         it has to emulate in software. That is the whole 10x.
       ]
       #v(10pt)
       #text(size: 22pt)[
-        Sqrt is the same story: newlib emits one `vsqrt.f32` instruction; libm has no 32-bit ARM backend at
-        all. Real code inherits whichever way its function went.
+        Sqrt is the same story: newlib emits one `vsqrt.f32` instruction; libm has no 32-bit ARM backend at all.
       ]
       #v(10pt)
-      #text(size: 22pt)[
-        QuatSlerp calls sine and cosine three times, so cmath3d runs #text(fill: accent, weight: 700)[10.35x]
-        faster than glam.
+      #accent-note[
+        #text(size: 22pt)[
+          Real code inherits whichever way its function went. QuatSlerp calls sine and cosine three times, so
+          cmath3d runs #text(fill: accent, weight: 700)[10.35x] faster than glam.
+        ]
       ]
     ],
   )

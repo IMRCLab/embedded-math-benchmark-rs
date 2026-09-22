@@ -1,4 +1,4 @@
-#import "../theme.typ": accent, panel, sec-heading, caption, lollipop-chart
+#import "../theme.typ": accent, accent-note, caption, lollipop-chart, panel, sec-heading, subheading
 
 #let parity-rows = (
   ("DotProduct64D", 0.94, "0.94", true),
@@ -13,11 +13,14 @@
 )
 
 #let legend() = grid(
-  columns: (auto, auto, auto, auto),
+  columns: (auto, auto, auto, auto, auto),
   column-gutter: 12pt,
   align: horizon,
-  box(width: 15pt, height: 15pt, fill: black), text(size: 18pt)[Rust ahead],
-  h(20pt), box(width: 15pt, height: 15pt, fill: accent), text(size: 18pt)[C ahead],
+  box(width: 15pt, height: 15pt, fill: black),
+  text(size: 18pt)[Rust ahead],
+  h(20pt),
+  box(width: 15pt, height: 15pt, fill: accent),
+  text(size: 18pt)[C ahead],
 )
 
 // S0-S3 ABI-class diagram: how many float members, and where they travel.
@@ -30,18 +33,30 @@
     columns: cells.len() * (1fr,),
     column-gutter: 4pt,
     ..cells.map(c => box(
-      width: 100%, height: 1.7cm, fill: if note-fill != none { note-fill } else { rgb("#eee") },
+      width: 100%,
+      height: 1.7cm,
+      fill: if note-fill != none { note-fill } else { rgb("#eee") },
       stroke: 0.8pt + rgb("#999"),
     )[#align(center + horizon)[#text(size: 19pt)[#c]]]),
   ),
-  text(size: 18pt, fill: if note-fill != none { accent } else { rgb("#333") }, weight: if note-fill != none { 700 } else { 400 })[#note],
+  text(
+    size: 18pt,
+    fill: if note-fill != none { accent } else { rgb("#333") },
+    weight: if note-fill != none { 700 } else { 400 },
+  )[#note],
 )
 
 #let abi-classes-diagram() = block(width: 100%)[
   #grid(
     columns: (6.5cm, 1fr, 8.5cm),
     column-gutter: 14pt,
-    [], grid(columns: (1fr, 1fr, 1fr, 1fr), column-gutter: 4pt, [S0], [S1], [S2], [S3]), [],
+    [],
+    grid(
+      columns: (1fr, 1fr, 1fr, 1fr),
+      column-gutter: 4pt,
+      [S0], [S1], [S2], [S3],
+    ),
+    [],
   )
   #v(6pt)
   #abi-class-row("vec", [3 floats], ("x", "y", "z", ""), [in registers])
@@ -53,11 +68,13 @@
   #abi-class-row("9x9 buf", [81 floats], ("one address, the data never moves",), [by pointer])
 ]
 
-#let abi-shape-panel() = panel(sec-heading("01", "The shape of the data costs more than the language"))[
-  #align(right)[#caption[STM32F405 #sym.dot.c Cortex-M4F, 168 MHz]]
+#let abi-shape-panel() = panel(sec-heading(
+  "01",
+  "The shape of the data costs more than the language",
+  caption: caption[STM32F405 #sym.dot.c Cortex-M4F, 168 MHz],
+))[
   #text(size: 26pt)[
-    Account for how the operands are passed and arithmetic is a tie: all nine register- and pointer-passed
-    primitives sit between #text(fill: accent, weight: 700)[0.94x] and #text(fill: accent, weight: 700)[1.47x].
+    When we account for how the operands are passed, the actual difference stays small. All register- and pointer-passed primitives sit between #text(fill: accent, weight: 700)[0.94x] and #text(fill: accent, weight: 700)[1.47x].
   ]
   #v(16pt)
 
@@ -72,8 +89,7 @@
       #caption[C time / fastest Rust time, each read at the profile where it is valid]
     ],
     [
-      #text(weight: 800, size: 22pt, tracking: 0.03em)[WHY: THE ABI SORTS EVERY TASK INTO THREE CLASSES]
-      #v(12pt)
+      #subheading("Why: the ABI sorts every task into three classes")
       #abi-classes-diagram()
       #v(12pt)
       #text(size: 22pt)[
@@ -83,9 +99,11 @@
         optimiser treats them differently again.
       ]
       #v(10pt)
-      #text(size: 22pt)[
-        These three classes are why the chart on the left cannot be read at one profile. Each class is a
-        language comparison only where both sides get equivalent compiler treatment; that is *02*.
+      #accent-note[
+        #text(size: 22pt)[
+          These three classes are why the chart on the left cannot be read at one profile. Each class is a
+          language comparison only where both sides get equivalent compiler treatment; that is *02*.
+        ]
       ]
     ],
   )

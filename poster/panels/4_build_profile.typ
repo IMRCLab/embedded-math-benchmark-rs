@@ -1,4 +1,4 @@
-#import "../theme.typ": accent, panel, sec-heading, caption, bar-chart
+#import "../theme.typ": accent, panel, sec-heading, caption, bar-chart, subheading
 
 // Only MatMul9x9's four values are given verbatim in the source mockup;
 // the other three tasks' bars are illustrative estimates for this pass,
@@ -29,7 +29,7 @@
   ))
 )
 
-#let class-box(title, tasks, value, note) = box(width: 100%, inset: 18pt, fill: rgb("#f2f2f2"), stroke: 0.8pt + rgb("#ccc"))[
+#let class-box(title, tasks, value, note) = box(width: 100%, inset: 18pt, stroke: 0.8pt + rgb("#ccc"))[
   #text(weight: 700, size: 20pt)[#title]
   #v(4pt)
   #text(size: 18pt, fill: rgb("#444"))[#tasks]
@@ -37,8 +37,11 @@
   #align(center)[#text(fill: accent, weight: 900, size: 32pt)[#value] #text(size: 18pt, fill: rgb("#333"))[ #note]]
 ]
 
-#let build-profile-panel() = panel(sec-heading("02", "The build profile picks the winner"))[
-  #align(right)[#caption[one representative task per class of operands]]
+#let build-profile-panel() = panel(sec-heading(
+  "02",
+  "The build profile picks the winner",
+  caption: caption[one representative task per class of operands],
+))[
   #text(size: 26pt)[
     9x9 matrix multiplication travels from #text(fill: accent, weight: 700)[2.21x] in Rust's favour to
     #text(fill: accent, weight: 700)[0.63x] in C's on nothing but the link strategy.
@@ -54,8 +57,7 @@
       #align(center)[#legend()]
     ],
     [
-      #text(weight: 800, size: 22pt, tracking: 0.03em)[WHY: EACH CLASS OF OPERANDS HAS ONE FAIR PROFILE]
-      #v(12pt)
+      #subheading("Why: each class of operands has one fair profile")
       #grid(
         columns: (1fr, 1fr, 1fr),
         column-gutter: 14pt,

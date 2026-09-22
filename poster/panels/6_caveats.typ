@@ -11,7 +11,7 @@
     columns: (auto, 1fr, 1fr, 1fr),
     column-gutter: 30pt,
     align: (left + top, left + top, left + top, left + top),
-    text(fill: accent, weight: 900, size: 27pt, tracking: 0.02em)[WHERE IT \ REVERSES],
+    text(fill: accent, weight: 900, size: 27pt, tracking: 0.02em)[#upper("where it") \ #upper("reverses")],
     caveat("xlto is not a strict win", [
       Of 60 task x library pairs: 20 faster, 26 unchanged, 14 slower. Pure-Rust rows regress too:
       micromath SinCos +31%.

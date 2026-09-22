@@ -15,7 +15,7 @@
 #set block(spacing: 0.55em)
 
 #header-panel()
-#v(10pt)
+#v(24pt)
 #infrastructure-panel()
 #divider()
 #abi-shape-panel()
@@ -23,7 +23,7 @@
 #build-profile-panel()
 #divider()
 #math-backend-panel()
-#v(10pt)
+#v(24pt)
 #caveats-panel()
 #divider()
 #guidance-panel()
