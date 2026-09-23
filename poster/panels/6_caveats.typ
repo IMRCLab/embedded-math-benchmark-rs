@@ -13,8 +13,6 @@
     align: (left + horizon, left + top, left + top, left + top),
     [
       #text(fill: accent, weight: 900, size: 28pt, tracking: 0.02em)[#upper("open") \ #upper("questions")]
-      #v(6pt)
-      #text(size: 17pt, fill: rgb("#666"))[What we are testing next]
     ],
     question("One C compiler for every profile?", [
       `xlto` swaps gcc for clang as well as the linking. clang alone makes the C 1.05x to 1.33x faster at `lto`, so part of the `xlto` gain is the compiler.
@@ -22,8 +20,8 @@
     question("Fat LTO instead of ThinLTO for xlto?", [
       `xlto` is not always a win: of 60 pairs on the STM32, 20 got faster, 17 slower. A fat-LTO prototype recovers the C's 26% loss on CrossProduct but doubles three large routines, which run out of registers.
     ]),
-    question("Why is the RP2350 slow on the EKF step?", [
-      It needs 2.1x the STM32's cycles on the EKF step, yet it is the fastest chip on the Lee controller. The cause is still open.
+    question("Hypothesis: flash caching slows the RP2350's EKF step", [
+      The RP2350 runs code from flash through a small cache, and the EKF step's large code keeps missing it. Built for `size`, the code shrinks and the RP2350 beats the STM32.
     ]),
   )
 ]

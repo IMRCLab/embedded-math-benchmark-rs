@@ -1,4 +1,4 @@
-#import "../theme.typ": accent, accent-dark, accent-note, caption, diverging-bars, diverging-lollipop, panel, sec-heading, subheading
+#import "../theme.typ": accent, accent-note, caption, diverging-bars, diverging-lollipop, panel, profile-pill, sec-heading, subheading
 
 // Paper data (STM32F405): C time / fastest of glam and nalgebra.
 #let fair-rows = (
@@ -40,11 +40,7 @@
   )),
 )
 
-#let profile-pill(profile) = box(fill: accent-dark, inset: (x: 10pt, y: 5pt), radius: 3pt)[
-  #text(fill: white, weight: 800, size: 17pt, tracking: 0.03em)[#upper(profile)]
-]
-
-#let kind-card(title, tasks, body, profile) = box(width: 100%, height: 4.4cm, inset: 18pt, stroke: 0.8pt + rgb("#ccc"))[
+#let kind-card(title, tasks, body, profile) = [
   #grid(
     columns: (1fr, auto),
     align: (left + horizon, right + horizon),
@@ -58,7 +54,7 @@
 
 #let fair-comparison-panel() = panel(sec-heading(
   "01",
-  "Compare like with like and it's a tie",
+  "Linear algebra: near parity when built fairly",
   caption: caption[STM32F405 #sym.dot.c Cortex-M4F, 168 MHz],
 ))[
   #text(size: 26pt)[
@@ -66,14 +62,14 @@
     With the fair one, C is at most #text(fill: accent, weight: 700)[1.06x] faster and Rust at most
     #text(fill: accent, weight: 700)[1.47x] faster.
   ]
-  #v(6pt)
-  #text(size: 21pt)[Every ratio compares the faster C library (cmath3d or CMSIS-DSP) with the faster Rust crate (glam or nalgebra).]
   #v(16pt)
 
   #subheading("The fairest build profile depends on the operand")
   #grid(
     columns: (1fr, 1fr, 1fr),
     column-gutter: 20pt,
+    inset: (x: 18pt, top: 18pt, bottom: 26pt),
+    stroke: 0.8pt + rgb("#ccc"),
     kind-card(
       "A few floats",
       "vectors, quaternions: CrossProduct, QuatMul, UnitQuatMul, RotateVector",
@@ -94,6 +90,8 @@
     ),
   )
   #v(18pt)
+  #text(size: 21pt)[Every ratio below compares the faster C library (cmath3d or CMSIS-DSP) with the faster Rust crate (glam or nalgebra).]
+  #v(14pt)
 
   #grid(
     columns: (1.1fr, 1fr),

@@ -56,23 +56,18 @@
     [
       #subheading("Fast approximations cost accuracy")
       #text(size: 21pt)[
-        micromath's sqrt is only 1.1x faster than newlib's, but off by #text(fill: accent, weight: 700)[2.0%]
-        on average and #text(fill: accent, weight: 700)[5.7%] at worst.
+        micromath's sqrt is off by #text(fill: accent, weight: 700)[2.0%] on average and
+        #text(fill: accent, weight: 700)[5.7%] at worst.
       ]
       #v(10pt)
-      #let hd(t) = text(size: 17pt, fill: rgb("#666"))[#t]
-      #let big(t, fill: black) = text(fill: fill, weight: 900, size: 30pt)[#t]
       #grid(
-        columns: (auto, 1fr, 1fr, 1fr),
+        columns: (auto, 1fr),
         column-gutter: 16pt,
         row-gutter: 8pt,
-        align: (left + horizon, right + horizon, right + horizon, right + horizon),
-        hd[mean ULP], hd[micromath], hd[Rust libm], hd[newlib],
-        text(weight: 700, size: 21pt)[Sqrt], big(fill: accent)[120,517], big[0.07], big[0.07],
-        text(weight: 700, size: 21pt)[SinCos], big(fill: accent)[6,030], big[0.72], big[0.80],
+        align: (right + horizon, left + horizon),
+        text(fill: accent, weight: 900, size: 32pt)[120,517], text(size: 19pt)[ULP mean error, micromath sqrt],
+        text(weight: 900, size: 32pt)[0.07], text(size: 19pt)[ULP, Rust libm and newlib (identical results)],
       )
-      #v(8pt)
-      #text(size: 19pt)[Linear algebra is accurate in both languages: every C and Rust library stays within 15 mean ULP.]
       #v(10pt)
       #block(width: 100%, fill: rgb("#f2f2f2"), inset: 14pt)[
         #text(size: 18pt)[
@@ -81,12 +76,7 @@
         ]
       ]
       #v(10pt)
-      #accent-note[
-        #text(size: 21pt)[
-          Tolerable for high-rate attitude estimation where sensor fusion averages per-step noise,
-          but prohibitive for dead-reckoning or kinematic integration.
-        ]
-      ]
+      #text(size: 21pt)[Linear algebra is accurate in both languages: every C and Rust library stays within 15 ULP on average.]
     ],
     [
       #subheading("Why Rust libm loses on sin/cos and sqrt")

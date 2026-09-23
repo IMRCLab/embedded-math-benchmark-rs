@@ -29,9 +29,9 @@
     [Should Rust firmware wrap existing C math libraries, or use pure-Rust crates?],
     [For embedded math speed, Rust vs C matters least. The math library you link and the build profile matter more.],
     (
-      ([10#sym.times], [gap from the math library]),
-      ([2.8#sym.times], [gap from the build profile]),
-      ([1.47#sym.times], [gap from the language, built fairly]),
+      ([10#sym.times], [max gap from the math library]),
+      ([2.8#sym.times], [max gap from the build profile]),
+      ([1.47#sym.times], [max gap from the language, built fairly]),
     ),
   )
 ]

@@ -46,7 +46,7 @@
 // Paragraph with a left accent bar, for the one sentence worth setting apart.
 #let accent-note(body) = block(
   width: 100%,
-  inset: (left: 16pt),
+  inset: (left: 16pt, y: 8pt),
   stroke: (left: 4pt + accent),
 )[#body]
 
@@ -77,6 +77,11 @@
       )).flatten(),
     ),
   )
+]
+
+// Dark pill with a build profile name, e.g. XLTO.
+#let profile-pill(profile) = box(fill: accent-dark, inset: (x: 10pt, y: 5pt), radius: 3pt)[
+  #text(fill: white, weight: 800, size: 17pt, tracking: 0.03em)[#upper(profile)]
 ]
 
 // Small stat block used in a row (infrastructure panel): label above,

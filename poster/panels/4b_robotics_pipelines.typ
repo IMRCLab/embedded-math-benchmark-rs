@@ -1,4 +1,4 @@
-#import "../theme.typ": accent, accent-dark, accent-note, caption, panel, sec-heading, subheading
+#import "../theme.typ": accent, accent-note, caption, panel, sec-heading, subheading
 #import "@preview/cetz:0.3.4": canvas, draw
 
 #let stm32-col = accent
@@ -32,10 +32,6 @@
   }
 })
 
-#let new-pill = box(fill: accent-dark, inset: (x: 10pt, y: 5pt), radius: 3pt)[
-  #text(fill: white, weight: 800, size: 17pt, tracking: 0.03em)[EXTENDED RESULTS]
-]
-
 #let point(title, body) = block(width: 100%, below: 12pt)[
   #text(weight: 800, size: 19pt)[#title]
   #v(3pt)
@@ -44,8 +40,8 @@
 
 #let robotics-pipelines-panel() = panel(sec-heading(
   "03",
-  "Full control steps: the FPU matters most, then the clock",
-  caption: [#new-pill #h(8pt) #caption[`lto` profile #sym.dot.c median time per step]],
+  "Extended results: full control steps across chips",
+  caption: caption[`lto` profile #sym.dot.c median time per step],
 ))[
   #text(size: 26pt)[
     Two complete control-loop steps built from the primitives above: a Lee geometric controller and a
@@ -84,14 +80,14 @@
       #caption[The Crazyflie C versions are different algorithms, so this section compares chips, not languages.]
     ],
     [
-      #subheading("Reading the chips")
+      #subheading("How the chips compare")
       #point("Same core, different clock", [
         nRF52840 and STM32F405 are both Cortex-M4F and land within 6% in cycles. At 64 MHz the nRF takes 2.5 to 2.8x as long.
       ])
       #point("Clock can beat cycles", [
         The ESP32-S3 needs 13% more cycles than the STM32 on the EKF step, but its 240 MHz clock makes it the fastest.
       ])
-      #point("No FPU, no contest", [
+      #point("Without an FPU", [
         The RP2040 computes floats in software and takes 41 to 49x as long as the fastest chip.
       ])
       #point("RP2350 splits", [
