@@ -35,6 +35,8 @@ One chip, two cores sharing the same flash: Cortex-M33 (`rp2350-arm`, running) a
 (`rp2350-riscv`, planned). Which one executes is decided at every power-on by an `IMAGE_DEF`
 block the boot ROM scans for in flash. `rp2350-arm` has a DWT and times like STM32.
 
+Code executes in place from QSPI flash through a 16 KB, 2-way XIP cache. The firmware keeps the bootrom's flash clock (CLKDIV 3, 50 MHz at 150 MHz `clk_sys`), where a warm cache miss costs about 70 to 85 cycles. Small kernels hit above 99.4% and match or beat STM32. `EkfStep` does not: its execute bodies are 9 to 13 KB at `release`/`lto`/`xlto`, the hit rate falls to 96.5 to 98.4%, and misses take 34 to 43% of its cycles (XIP `CTR_HIT`/`CTR_ACC` counters, `release` and `lto`, 2026-09-23). At `size` the bodies shrink to about 2 KB and RP2350 beats STM32. Large tasks are layout-sensitive here: one extra linker veneer tripled `crazyflie-fw` `EkfStep` misses, so profile and C-vs-Rust gaps on large tasks partly measure code placement.
+
 The RISC-V target has no FPU and reuses the same `rp235x-hal` crate: `rp235x_hal::entry` and
 `ImageDef::secure_exe()` are architecture-aware, so only the linker script changes
 (`rp235x_riscv.x`, vendored from `rp-hal`'s examples, in place of `link.x`). Not implemented as a
