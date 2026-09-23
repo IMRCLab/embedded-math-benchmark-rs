@@ -11,6 +11,8 @@ Checklist for bringing up a new hardware target (or new architecture on existing
      `--nmagic`, ISA/CPU flags). Crate-local, so it doesn't leak into the workspace build.
    - Linker script plus a `build.rs` copying it into `OUT_DIR`, if needed beyond what the
      runtime crate ships.
+     On ARM with the C suites, append the `.ccmbss` stanza from any existing `memory.x`, see
+     [c-suites.md](c-suites.md#ccmbss-statics).
    - `src/main.rs`: implement `BenchmarkPlatform` (`id()`, `setup()`, `now()`/`elapsed()`,
      `unit()`, `log_result()`); pass `mrs_benchmark_core::PROFILE` as the profile field in
      `log_result()`. Pick a timing source, see [platforms.md](platforms.md). Add

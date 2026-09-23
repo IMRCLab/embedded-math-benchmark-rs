@@ -149,7 +149,7 @@ CLI end-to-end test in `tests/cli.rs`) — core/host/macros have none yet.
   and `ln`. See
   [docs/task-categories.md](docs/task-categories.md#which-transcendental-provider-you-link-decides-the-cost).
 - **Never quote `crazyflie-fw` composite ULP as accuracy.** The f64 reference follows the Rust
-  operation order, so `EkfStep`'s 789,913 ULP is divergence from a different filter, not error.
+  operation order, so `EkfStep`'s 814,137 ULP is divergence from a different filter, not error.
   See [docs/accuracy_evaluation.md](docs/accuracy_evaluation.md#the-composite-reference-is-not-neutral).
 - **On RP2040 the C suites' transcendental calls resolve to `compiler_builtins`, not newlib.**
   Read those rows as two software implementations. See

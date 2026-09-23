@@ -21,6 +21,14 @@ wrapped `math3d.h` functions are textbook formulas cited to their sources in com
 Quake fast-inverse-sqrt (`sensfusion6.c`'s `invSqrt`) is never compiled into this crate, so every
 sqrt path here resolves to plain `sqrtf`.
 
+## `.ccmbss` statics
+
+`kalman_core.c` keeps its scratch matrices (`A`, `K`, `tmpNN*`) as statics in a `.ccmbss` section
+(`static_mem.h`'s `NO_DMA_CCM_SAFE_ZERO_INIT`), which the Crazyflie's own startup code zeroes.
+`cortex-m-rt` only zeroes `.bss`, so every ARM platform's `memory.x` places `.ccmbss` with
+`INSERT AFTER .bss`, which pushes `__ebss` past it. Without that, `EkfStep` reads leftover RAM
+and its `crazyflie-fw` results change from one binary to the next.
+
 ## Naming
 
 `Sqrt`, `SinCos`, `Atan2`, `Exp` and `Ln` are the exception: they call `sinf`/`cosf`/etc.
