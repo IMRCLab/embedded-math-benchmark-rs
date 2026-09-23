@@ -117,6 +117,9 @@ fn main() -> ! {
     // reference, so the fixed 64 MHz cycle-to-ns conversion in viz/config.py is exact.
     let _clocks = Clocks::new(dp.CLOCK).enable_ext_hfosc();
 
+    // Flash instruction cache resets disabled; enable it to match the STM32's ART.
+    dp.NVMC.icachecnf.write(|w| w.cacheen().enabled());
+
     let cp = cortex_m::Peripherals::take().unwrap();
     let mut platform = Nrf52840Platform::new(cp.DWT);
     platform.setup();

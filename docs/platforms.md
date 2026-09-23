@@ -54,17 +54,17 @@ see [HIL setup](hil-setup.md#probes).
 Cortex-M4F, hardware FPU, same core family and target triple (`thumbv7em-none-eabihf`) as the
 STM32F405, so it shares the STM32's toolchain, DWT timing, and both C suites with no
 target-specific plumbing. Core clock is fixed at 64 MHz; `main.rs` selects the external HFXO
-crystal as the HFCLK source so the cycle-to-ns conversion in `viz/config.py` is exact.
+crystal as the HFCLK source so the cycle-to-ns conversion in `viz/config.py` is exact, and
+enables the flash instruction cache (`NVMC.ICACHECNF`), which resets disabled.
 
 **DWT on nRF52 needs a debugger attached** to count, which the HIL setup always has. A
 no-debugger run would read zero cycles.
 
 Numeric results are bit-identical to the STM32 (same core, FPU, and linked libm), but cycle
-counts are not: nRF runs 0.9x to 1.6x the STM32's cycles for the same work, median ~1.14x. The
-STM32F405's ART flash accelerator hides flash latency that the nRF52840's small instruction
-cache does not, so the gap is near zero on tight FPU loops (matrix mul) and widest on branchy
-libm transcendentals (`Exp`, `Atan2`, `SinCos`) and the `size` profile. A caveat for any
-cross-MCU cycle comparison, even between identical cores.
+counts are not. With the cache on, nRF needs 0.72x to 1.30x the STM32's cycles, median 0.92x
+(`release`), 0.95x (`lto`), 0.97x (`size`). Matrix and quaternion tasks take 2 to 15% fewer
+cycles than on the STM32; libm transcendentals (`Exp`, `Ln`, `SinCos`) stay up to 1.17x slower.
+Without the cache the nRF is 1.06x to 1.19x slower (median per profile), up to 1.58x.
 
 Runs on hardware over a standalone J-Link (`1366:1020:000802013924`) at 4 MHz SWD. Recent
 nRF52840 silicon ships with APPROTECT locked; `probe-rs` clears it with a full-erase unlock over
