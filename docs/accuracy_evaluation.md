@@ -44,10 +44,10 @@ tasks, where no firmware code runs, see [c-suites.md](c-suites.md#naming).
 
 | Task | nalgebra | glam | micromath | crazyflie-fw |
 | ---- | -------- | ---- | --------- | ------------ |
-| `EkfStep` | 0.46 | n/a | 5,624 | 789,913 |
+| `EkfStep` | 0.46 | n/a | 5,624 | 814,137 |
 | `LeeController` | 0.15 | 0.16 | 1,305 | 4,183 |
 
-nalgebra's sub-1 ULP is not evidence of accuracy; it means the reference and nalgebra were written from the same reading of the algorithm. `crazyflie-fw`'s number measures **divergence from that algorithm, not error**. Its 5.7% relative error on `EkfStep` is a genuinely different filter rather than bad arithmetic.
+nalgebra's sub-1 ULP is not evidence of accuracy; it means the reference and nalgebra were written from the same reading of the algorithm. `crazyflie-fw`'s number measures **divergence from that algorithm, not error**. Its 5.5% relative error on `EkfStep` is a genuinely different filter rather than bad arithmetic.
 
 The C path calls `kalmanCoreFinalize` three times, uses `kalmanCoreDefaultParams` process noise, carries a 3-DOF attitude *error* state folded into the quaternion at each finalize, and clamps/symmetrizes the covariance. `tasks.py` models none of that. Matching it means porting `kalmanCorePredict`/`ScalarUpdate`/`Finalize` to f64 Python and re-syncing on every submodule bump, and it would only move the asymmetry onto nalgebra.
 

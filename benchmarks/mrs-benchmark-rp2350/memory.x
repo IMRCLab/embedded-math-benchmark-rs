@@ -54,3 +54,11 @@ SECTIONS {
 
 PROVIDE(start_to_end = __end_block_addr - __start_block_addr);
 PROVIDE(end_to_start = __start_block_addr - __end_block_addr);
+/* crazyflie-fw kalman_core statics; placed after .bss so cortex-m-rt zeroes them, see docs/c-suites.md */
+SECTIONS {
+  .ccmbss (NOLOAD) : ALIGN(4)
+  {
+    *(.ccmbss .ccmbss.*);
+    . = ALIGN(4);
+  } > RAM
+} INSERT AFTER .bss;

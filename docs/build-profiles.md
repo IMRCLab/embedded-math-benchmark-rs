@@ -54,7 +54,7 @@ not confined to C wrappers that fail to inline. Pure-Rust rows regress too, so p
 | `QuatMul`/`UnitQuatMul` | crazyflie-fw                | +14-15%         |
 | `LeeController`         | glam / nalgebra / micromath | +5-12%          |
 
-Against that, the big wins outside the table above are `EkfStep` crazyflie-fw (2.06x) and
+Against that, the big wins outside the table above are `EkfStep` crazyflie-fw (1.46x) and
 CMSIS-DSP's own `MatMul9x9` (1.88x) and `DotProduct64D` (1.78x). Both call real library routines
 with pointer ABI, so they benefit from the same ThinLTO without any struct-marshalling story.
 
