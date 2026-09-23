@@ -1,29 +1,29 @@
 #import "../theme.typ": accent
 
-#let caveat(title, body) = block(width: 100%)[
+#let question(title, body) = block(width: 100%)[
   #text(weight: 800, size: 21pt)[#title]
   #v(5pt)
   #text(size: 19pt)[#body]
 ]
 
-#let caveats-panel() = block(width: 100%, fill: rgb("#fbe9e6"), inset: (x: 28pt, y: 22pt))[
+#let open-questions-panel() = block(width: 100%, fill: rgb("#fbe9e6"), inset: (x: 28pt, y: 22pt))[
   #grid(
     columns: (10.5cm, 1fr, 1fr, 1fr),
     column-gutter: 30pt,
     align: (left + horizon, left + top, left + top, left + top),
     [
-      #text(fill: accent, weight: 900, size: 28pt, tracking: 0.02em)[#upper("where it") \ #upper("reverses")]
+      #text(fill: accent, weight: 900, size: 28pt, tracking: 0.02em)[#upper("open") \ #upper("questions")]
       #v(6pt)
-      #text(size: 17pt, fill: rgb("#666"))[Nuances and counter-examples across the benchmark grid]
+      #text(size: 17pt, fill: rgb("#666"))[What we are testing next]
     ],
-    caveat("xlto is not always a win", [
-      Of 60 task and library pairs on the STM32, `xlto` made 20 faster, 17 slower and left 23 unchanged (within 3%). micromath's SinCos got 31% slower.
+    question("One C compiler for every profile?", [
+      `xlto` swaps gcc for clang as well as the linking. clang alone makes the C 1.05x to 1.33x faster at `lto`, so part of the `xlto` gain is the compiler.
     ]),
-    caveat("Rust libm wins 3 of 5", [
-      Rust libm is faster than newlib on exp (1.85x), ln (1.78x) and atan2 (1.33x). Which library you link decides each function, not the language.
+    question("Fat LTO instead of ThinLTO for xlto?", [
+      `xlto` is not always a win: of 60 pairs on the STM32, 20 got faster, 17 slower. A fat-LTO prototype recovers the C's 26% loss on CrossProduct but doubles three large routines, which run out of registers.
     ]),
-    caveat("Building for size favors C", [
-      At `size`, C is 1.59x faster on MatMul9x9 and 1.56x on MatInverse9x9. Optimizing for size drops the loop unrolling nalgebra relies on.
+    question("Why is the RP2350 slow on the EKF step?", [
+      It needs 2.1x the STM32's cycles on the EKF step, yet it is the fastest chip on the Lee controller. The cause is still open.
     ]),
   )
 ]

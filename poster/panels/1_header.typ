@@ -26,8 +26,12 @@
   #v(20pt)
 
   #hero-banner(
-    [Across 18 primitives, 6 libraries and 4 build profiles, the language was the weakest predictor in the grid.],
-    [1.5#sym.times],
-    [Built fairly for each kind of operand, C is at most 1.06x faster and Rust at most 1.47x faster.],
+    [Should Rust firmware wrap existing C math libraries, or use pure-Rust crates?],
+    [For embedded math speed, Rust vs C matters least. The math library you link and the build profile matter more.],
+    (
+      ([10#sym.times], [gap from the math library]),
+      ([2.8#sym.times], [gap from the build profile]),
+      ([1.47#sym.times], [gap from the language, built fairly]),
+    ),
   )
 ]

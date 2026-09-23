@@ -50,25 +50,31 @@
   stroke: (left: 4pt + accent),
 )[#body]
 
-// Colored hero banner: big headline stat on the right, supporting claim on
-// the left. Used directly under the header for the paper's single loudest
-// number ("1.5x" etc).
-#let hero-banner(claim, stat, stat-note) = block(
+// Colored hero banner: the question on top, the claim on the left, and a
+// column of (value, label) stats on the right.
+#let hero-banner(question, claim, stats) = block(
   width: 100%,
   fill: accent,
   inset: 32pt,
 )[
   #grid(
-    columns: (1fr, 13cm),
-    column-gutter: 40pt,
-    align: (left + horizon, right + horizon),
-    text(fill: white, weight: 800, size: 40pt)[#claim],
+    columns: (1fr, auto),
+    column-gutter: 50pt,
+    align: (left + horizon, left + horizon),
+    [
+      #text(fill: white, size: 26pt)[#question]
+      #v(10pt)
+      #text(fill: white, weight: 800, size: 40pt)[#claim]
+    ],
     grid(
-      columns: (auto,),
-      align: center,
-      row-gutter: 14pt,
-      text(fill: white, weight: 900, size: 84pt)[#stat],
-      block(width: 11cm)[#text(fill: white, size: 17pt)[#stat-note]],
+      columns: (auto, auto),
+      column-gutter: 16pt,
+      row-gutter: 10pt,
+      align: (right + horizon, left + horizon),
+      ..stats.map(((value, label)) => (
+        text(fill: white, weight: 900, size: 46pt)[#value],
+        text(fill: white, size: 21pt)[#label],
+      )).flatten(),
     ),
   )
 ]
@@ -149,9 +155,7 @@
 
 // Grouped vertical bars of C/Rust time ratios on a log axis around parity:
 // up = Rust faster, down = C faster. `series` is an array of
-// (label, fill, ratios-per-group, index-of-highlighted-group-or-none); the
-// highlighted bar gets an accent-dark outline. `captions` is one gray
-// subcaption per group.
+// (label, fill, ratios-per-group). `captions` is one gray subcaption per group.
 #let diverging-bars(groups, series, up: 8, max-ratio: 3.0, min-ratio: 0.6, bar-w: 0.85, gap: 0.3, captions: none) = canvas(length: 1cm, {
   import draw: *
   let y-of(r) = calc.ln(r) / calc.ln(max-ratio) * up
@@ -166,11 +170,10 @@
   for (gi, gname) in groups.enumerate() {
     let x0 = gi * group-w
     for (si, s) in series.enumerate() {
-      let (_, color, values, fair) = s
+      let (_, color, values) = s
       let v = values.at(gi)
       let x = x0 + gap + si * (bar-w + gap)
-      let stroke = if fair == gi { 3pt + accent-dark } else { 0.6pt + black }
-      rect((x, 0), (x + bar-w, y-of(v)), fill: color, stroke: stroke)
+      rect((x, 0), (x + bar-w, y-of(v)), fill: color, stroke: 0.6pt + black)
       if v >= 1 {
         content((x + bar-w / 2, y-of(v) + 0.35), text(size: 14pt, weight: 700)[#fmt2(v)], anchor: "south")
       } else {

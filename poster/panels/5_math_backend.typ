@@ -33,7 +33,7 @@
   #text(size: 26pt)[
     `sqrt`, `sin`/`cos` and `exp` are not in Rust's core library, so embedded Rust crates get them from
     the Rust `libm` crate. Against C's newlib it is up to #text(fill: accent, weight: 700)[10x] slower
-    on some functions and faster on others.
+    on sin/cos, but faster on exp, ln and atan2.
   ]
   #v(16pt)
 
@@ -60,14 +60,19 @@
         on average and #text(fill: accent, weight: 700)[5.7%] at worst.
       ]
       #v(10pt)
+      #let hd(t) = text(size: 17pt, fill: rgb("#666"))[#t]
+      #let big(t, fill: black) = text(fill: fill, weight: 900, size: 30pt)[#t]
       #grid(
-        columns: (auto, 1fr),
+        columns: (auto, 1fr, 1fr, 1fr),
         column-gutter: 16pt,
         row-gutter: 8pt,
-        align: (right + horizon, left + horizon),
-        text(fill: accent, weight: 900, size: 32pt)[120,517], text(size: 19pt)[ULP mean error, micromath sqrt],
-        text(weight: 900, size: 32pt)[0.07], text(size: 19pt)[ULP, Rust libm and newlib (identical results)],
+        align: (left + horizon, right + horizon, right + horizon, right + horizon),
+        hd[mean ULP], hd[micromath], hd[Rust libm], hd[newlib],
+        text(weight: 700, size: 21pt)[Sqrt], big(fill: accent)[120,517], big[0.07], big[0.07],
+        text(weight: 700, size: 21pt)[SinCos], big(fill: accent)[6,030], big[0.72], big[0.80],
       )
+      #v(8pt)
+      #text(size: 19pt)[Linear algebra is accurate in both languages: every C and Rust library stays within 15 mean ULP.]
       #v(10pt)
       #block(width: 100%, fill: rgb("#f2f2f2"), inset: 14pt)[
         #text(size: 18pt)[

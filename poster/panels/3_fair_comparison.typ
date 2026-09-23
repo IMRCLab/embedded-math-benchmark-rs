@@ -13,13 +13,13 @@
   ("MatInverse9x9", 1.47),
 )
 
-// Paper Fig. 2. Last field is the index of the task's fair profile.
+// Paper Fig. 2.
 #let groups = ("release", "lto", "xlto", "size")
 #let series = (
-  ("CrossProduct", rgb("#1a1a1a"), (2.70, 1.19, 1.45, 1.11), 1),
-  ("MatMul3x3", rgb("#888"), (1.97, 2.76, 1.16, 1.45), 2),
-  ("MatMul9x9", rgb("#cfcfcf"), (1.99, 2.21, 0.98, 0.63), 2),
-  ("DotProduct64D", white, (1.41, 1.37, 0.94, 1.53), 2),
+  ("CrossProduct", rgb("#1a1a1a"), (2.70, 1.19, 1.45, 1.11)),
+  ("MatMul3x3", rgb("#888"), (1.97, 2.76, 1.16, 1.45)),
+  ("MatMul9x9", rgb("#cfcfcf"), (1.99, 2.21, 0.98, 0.63)),
+  ("DotProduct64D", white, (1.41, 1.37, 0.94, 1.53)),
 )
 #let sublabels = (
   "each crate on its own",
@@ -29,7 +29,7 @@
 )
 
 #let legend() = grid(
-  columns: 5 * (auto,),
+  columns: 4 * (auto,),
   column-gutter: 20pt,
   align: horizon,
   ..series.map(s => grid(
@@ -38,23 +38,17 @@
     align: horizon,
     box(width: 15pt, height: 15pt, fill: s.at(1), stroke: 0.6pt + black), text(size: 17pt)[#s.at(0)],
   )),
-  grid(
-    columns: (auto, auto),
-    column-gutter: 8pt,
-    align: horizon,
-    box(width: 15pt, height: 15pt, stroke: 3pt + accent-dark), text(size: 17pt)[fair profile],
-  ),
 )
 
 #let profile-pill(profile) = box(fill: accent-dark, inset: (x: 10pt, y: 5pt), radius: 3pt)[
   #text(fill: white, weight: 800, size: 17pt, tracking: 0.03em)[#upper(profile)]
 ]
 
-#let kind-card(title, tasks, body, profile) = box(width: 100%, height: 4.9cm, inset: 18pt, stroke: 0.8pt + rgb("#ccc"))[
+#let kind-card(title, tasks, body, profile) = box(width: 100%, height: 4.4cm, inset: 18pt, stroke: 0.8pt + rgb("#ccc"))[
   #grid(
     columns: (1fr, auto),
     align: (left + horizon, right + horizon),
-    text(weight: 800, size: 21pt)[#title], [#text(size: 15pt, fill: rgb("#666"))[fair at] #profile-pill(profile)],
+    text(weight: 800, size: 21pt)[#title], [#text(size: 15pt, fill: rgb("#666"))[fairest at] #profile-pill(profile)],
   )
   #v(2pt)
   #text(size: 16pt, fill: rgb("#666"))[#tasks]
@@ -72,16 +66,18 @@
     With the fair one, C is at most #text(fill: accent, weight: 700)[1.06x] faster and Rust at most
     #text(fill: accent, weight: 700)[1.47x] faster.
   ]
+  #v(6pt)
+  #text(size: 21pt)[Every ratio compares the faster C library (cmath3d or CMSIS-DSP) with the faster Rust crate (glam or nalgebra).]
   #v(16pt)
 
-  #subheading("Each kind of operand has one fair build profile")
+  #subheading("The fairest build profile depends on the operand")
   #grid(
     columns: (1fr, 1fr, 1fr),
     column-gutter: 20pt,
     kind-card(
       "A few floats",
       "vectors, quaternions: CrossProduct, QuatMul, UnitQuatMul, RotateVector",
-      [Passed in registers, nothing to copy. Under `xlto` the C side gets slower on its own, so `lto` is fair.],
+      [Passed in registers, nothing to copy. No profile is perfect: at `lto` the C sits behind a call, at `xlto` its own code gets 26% slower. We use `lto`.],
       "lto",
     ),
     kind-card(
@@ -104,7 +100,7 @@
     column-gutter: 40pt,
     [
       #subheading("Any profile: the winner flips")
-      #align(center)[#diverging-bars(groups, series, up: 10, bar-w: 1.25, gap: 0.35, captions: sublabels)]
+      #align(center)[#diverging-bars(groups, series, up: 9, bar-w: 1.25, gap: 0.35, captions: sublabels)]
       #v(6pt)
       #align(center)[#legend()]
       #v(10pt)
@@ -116,7 +112,7 @@
       ]
     ],
     [
-      #subheading("Fair profile: a tie")
+      #subheading("Fairest profile: a tie")
       #v(6pt)
       #diverging-lollipop(fair-rows, domain: (0.85, 1.6), width: 24, row-h: 1.2)
       #v(8pt)
@@ -128,6 +124,4 @@
       ]
     ],
   )
-  #v(4pt)
-  #caption[Rust = the faster of glam and nalgebra. `lto` and `xlto` are this project's names for its build profiles.]
 ]

@@ -1,7 +1,7 @@
-#import "../theme.typ": accent
+#import "../theme.typ": accent, panel, sec-heading
 
 #let statements = (
-  ("01", [glam and nalgebra are not the bottleneck: built fairly, they match or beat C on linear algebra.]),
+  ("01", [In our tests, glam and nalgebra kept pace with C on linear algebra when both were built fairly.]),
   ("02", [Wrapping C that takes 3x3 matrices by value? Build with cross-language LTO, or pass pointers.]),
   ("03", [Check which library provides sqrt and sin/cos. On a 32-bit FPU, Rust libm's sin/cos is 10x slower than newlib.]),
   ("04", [Use fast-math crates like micromath only if your error budget allows percent-level error.]),
@@ -15,9 +15,7 @@
   text(size: 22pt)[#body],
 )
 
-#let guidance-panel() = block(width: 100%)[
-  #text(weight: 800, size: 30pt, tracking: 0.03em)[#upper("if you write robot firmware in Rust")]
-  #v(14pt)
+#let guidance-panel() = panel(sec-heading("04", "Early takeaways"))[
   #grid(
     columns: (1fr, 1fr, 1fr, 1fr),
     column-gutter: 34pt,

@@ -33,7 +33,7 @@
 })
 
 #let new-pill = box(fill: accent-dark, inset: (x: 10pt, y: 5pt), radius: 3pt)[
-  #text(fill: white, weight: 800, size: 17pt, tracking: 0.03em)[NEW SINCE THE PAPER]
+  #text(fill: white, weight: 800, size: 17pt, tracking: 0.03em)[EXTENDED RESULTS]
 ]
 
 #let point(title, body) = block(width: 100%, below: 12pt)[
@@ -44,7 +44,7 @@
 
 #let robotics-pipelines-panel() = panel(sec-heading(
   "03",
-  "Beyond primitives: full control steps",
+  "Full control steps: the FPU matters most, then the clock",
   caption: [#new-pill #h(8pt) #caption[`lto` profile #sym.dot.c median time per step]],
 ))[
   #text(size: 26pt)[
@@ -70,7 +70,7 @@
     ],
     [
       #subheading("Fast math in a full step")
-      #text(size: 19pt)[Swapping nalgebra for micromath on the STM32:]
+      #text(size: 19pt)[The same steps built on micromath's fast approximations, on the STM32:]
       #v(10pt)
       #point("Lee controller", [#text(fill: accent, weight: 700)[1.82x] faster, 0.17% mean error (1.8% worst).])
       #point("EKF step", [#text(fill: accent, weight: 700)[1.23x] faster, 0.04% mean error.])
@@ -90,6 +90,9 @@
       ])
       #point("Clock can beat cycles", [
         The ESP32-S3 needs 13% more cycles than the STM32 on the EKF step, but its 240 MHz clock makes it the fastest.
+      ])
+      #point("No FPU, no contest", [
+        The RP2040 computes floats in software and takes 41 to 49x as long as the fastest chip.
       ])
       #point("RP2350 splits", [
         Fastest on Lee, but it needs 2.1x the STM32's cycles on the EKF step.
