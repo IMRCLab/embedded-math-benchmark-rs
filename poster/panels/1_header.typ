@@ -28,6 +28,6 @@
   #hero-banner(
     [Across 18 primitives, 6 libraries and 4 build profiles, the language was the weakest predictor in the grid.],
     [1.5#sym.times],
-    [Matched on ABI class and build profile, C and Rust land within 1.5x of each other in both directions.],
+    [Built fairly for each kind of operand, C is at most 1.06x faster and Rust at most 1.47x faster.],
   )
 ]

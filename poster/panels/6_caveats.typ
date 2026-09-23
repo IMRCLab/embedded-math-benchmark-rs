@@ -16,14 +16,14 @@
       #v(6pt)
       #text(size: 17pt, fill: rgb("#666"))[Nuances and counter-examples across the benchmark grid]
     ],
-    caveat("XLTO is not a universal win", [
-      Across 60 benchmark pairs: 21 faster, 17 unchanged, 22 slower. Cross-language ThinLTO perturbs pure-Rust inlining thresholds, causing regressions like micromath SinCos (+31%).
+    caveat("xlto is not always a win", [
+      Of 60 task and library pairs on the STM32, `xlto` made 20 faster, 17 slower and left 23 unchanged (within 3%). micromath's SinCos got 31% slower.
     ]),
-    caveat("libm leads 3 of 5 transcendentals", [
-      The f64 penalty is not uniform: when generic series avoid heavy 64-bit emulation, Rust libm outperforms C newlib on Exp (1.85x), Ln (1.78x), and Atan2 (1.33x).
+    caveat("Rust libm wins 3 of 5", [
+      Rust libm is faster than newlib on exp (1.85x), ln (1.78x) and atan2 (1.33x). Which library you link decides each function, not the language.
     ]),
-    caveat("Soft-float flips the gap", [
-      On Cortex-M0+ (RP2040, no hardware FPU), both languages run soft-float. Rust libm runs SinCos 14% faster than C (9.8k vs 11.3k cycles). The 10x penalty is strictly an FPU artifact.
+    caveat("Building for size favors C", [
+      At `size`, C is 1.59x faster on MatMul9x9 and 1.56x on MatInverse9x9. Optimizing for size drops the loop unrolling nalgebra relies on.
     ]),
   )
 ]

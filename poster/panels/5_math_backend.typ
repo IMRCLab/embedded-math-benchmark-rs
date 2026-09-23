@@ -1,61 +1,79 @@
 #import "../theme.typ": accent, accent-note, caption, panel, scaled-bars, sec-heading, subheading
 
 #let sincos-rows = (
-  ("libm (Rust)", 21802, "21,802", accent),
+  ("Rust libm", 21802, "21,802", accent),
   ("newlib (C)", 2154, "2,154", black),
-  ("micromath", 373, "373", rgb("#bbb")),
+  ("micromath (Rust)", 373, "373", rgb("#bbb")),
 )
 #let sqrt-rows = (
-  ("libm (Rust)", 423, "423", accent),
+  ("Rust libm", 423, "423", accent),
   ("newlib (C)", 233, "233", black),
-  ("micromath", 209, "209", rgb("#bbb")),
+  ("micromath (Rust)", 209, "209", rgb("#bbb")),
 )
 #let exp-rows = (
-  ("libm (Rust)", 598, "598", accent),
+  ("Rust libm", 598, "598", accent),
   ("newlib (C)", 1106, "1,106", black),
-  ("micromath", 696, "696", rgb("#bbb")),
+  ("micromath (Rust)", 696, "696", rgb("#bbb")),
 )
 
-#let bar-group(title, mult, rows, mult-color: accent) = block(width: 100%)[
+#let bar-group(title, verdict, rows) = block(width: 100%)[
   #grid(
     columns: (1fr, auto),
-    text(weight: 700, size: 21pt)[#title], text(fill: mult-color, weight: 900, size: 24pt)[#mult],
+    text(weight: 700, size: 21pt)[#title], text(weight: 900, size: 21pt)[#verdict],
   )
   #v(4pt)
-  #scaled-bars(rows, width: 17, bar-h: 0.58, gap: 0.2)
+  #scaled-bars(rows, width: 14, bar-h: 0.58, gap: 0.2)
 ]
 
 #let math-backend-panel() = panel(sec-heading(
-  "03",
-  "Transcendental backend creates a 10x gap",
-  caption: caption[lto profile #sym.dot.c median ns],
+  "02",
+  "The linked math library opens a 10x gap",
+  caption: caption[STM32F405 #sym.dot.c `lto` profile #sym.dot.c median ns],
 ))[
   #text(size: 26pt)[
-    Identical operations diverge by up to #text(fill: accent, weight: 700)[10x] across math backends. The
-    performance gap tracks library architecture, not language syntax.
+    `sqrt`, `sin`/`cos` and `exp` are not in Rust's core library, so embedded Rust crates get them from
+    the Rust `libm` crate. Against C's newlib it is up to #text(fill: accent, weight: 700)[10x] slower
+    on some functions and faster on others.
   ]
   #v(16pt)
 
   #grid(
-    columns: (1fr, 1.25fr, 1.15fr),
-    column-gutter: 26pt,
+    columns: (1fr, 1.1fr, 1.15fr),
+    column-gutter: 30pt,
     [
-      #bar-group("SinCos", [10.1#sym.times C], sincos-rows)
+      #bar-group("SinCos", [C #text(fill: accent)[10.1x] faster], sincos-rows)
       #v(10pt)
-      #bar-group("Sqrt", [1.82#sym.times C], sqrt-rows)
+      #bar-group("Sqrt", [C #text(fill: accent)[1.82x] faster], sqrt-rows)
       #v(10pt)
-      #bar-group("Exp", [1.85#sym.times Rust], exp-rows, mult-color: black)
-      #v(4pt)
-      #caption[Each group scaled to its own slowest bar. newlib is the standard C math runtime in arm-none-eabi-gcc.]
+      #bar-group("Exp", [Rust #text(fill: accent)[1.85x] faster], exp-rows)
+      #v(6pt)
+      #caption[
+        *Rust libm*: pure-Rust math crate that glam and nalgebra call for sqrt, sin, exp.
+        *newlib*: the C math library shipped with the Arm GCC toolchain.
+        *micromath*: Rust crate of fast approximations. Each group scaled to its slowest bar.
+      ]
     ],
     [
-      #subheading("Fast-math precision tradeoff")
-      #text(fill: accent, weight: 900, size: 54pt)[120,517]
-      #text(size: 19pt)[ mean ULP error on micromath's Sqrt]
-      #v(14pt)
+      #subheading("Fast approximations cost accuracy")
       #text(size: 21pt)[
-        Yields a #text(fill: accent, weight: 700)[2.0%] mean and #text(fill: accent, weight: 700)[5.7%]
-        peak relative error; Rust libm and C newlib achieve bit-exact parity (0.07 mean ULP).
+        micromath's sqrt is only 1.1x faster than newlib's, but off by #text(fill: accent, weight: 700)[2.0%]
+        on average and #text(fill: accent, weight: 700)[5.7%] at worst.
+      ]
+      #v(10pt)
+      #grid(
+        columns: (auto, 1fr),
+        column-gutter: 16pt,
+        row-gutter: 8pt,
+        align: (right + horizon, left + horizon),
+        text(fill: accent, weight: 900, size: 32pt)[120,517], text(size: 19pt)[ULP mean error, micromath sqrt],
+        text(weight: 900, size: 32pt)[0.07], text(size: 19pt)[ULP, Rust libm and newlib (identical results)],
+      )
+      #v(10pt)
+      #block(width: 100%, fill: rgb("#f2f2f2"), inset: 14pt)[
+        #text(size: 18pt)[
+          *ULP* (unit in the last place): the step between two neighboring f32 values. 0 ULP is the exact
+          answer; plain rounding stays within 1 to 2.
+        ]
       ]
       #v(10pt)
       #accent-note[
@@ -66,21 +84,30 @@
       ]
     ],
     [
-      #subheading("Root cause: generic f64 fallback on a 32-bit FPU")
+      #subheading("Why Rust libm loses on sin/cos and sqrt")
       #text(size: 21pt)[
-        The microcontroller's FPU only accelerates single precision (f32) in hardware. C newlib provides
-        target-optimized 32-bit routines. Rust's libm lacks ARM FPU specialization for these operations
-        and falls back to a generic portable implementation in 64-bit float (f64), forcing costly
-        software emulation on 32-bit hardware.
+        *sin/cos:* Rust libm computes in 64-bit doubles. This FPU only handles 32-bit floats, so every
+        double operation runs in software. That is the whole 10x.
+      ]
+      #v(8pt)
+      #text(size: 21pt)[
+        *sqrt:* the chip has a sqrt instruction and newlib uses it. Rust libm has no 32-bit ARM path to it
+        and falls back to a table lookup plus integer iterations.
       ]
       #v(10pt)
       #accent-note[
         #text(size: 21pt)[
-          Compound workloads inherit this: in `QuatSlerp`, cmath3d runs #text(fill: accent, weight: 700)[10.3x]
-          faster than glam by evaluating three sines. nalgebra cuts C's lead to #text(fill: accent, weight: 700)[6.8x]
-          by trading one sine for a fast sqrt.
+          Composite operations inherit this. In `QuatSlerp` (acos plus three sines), cmath3d is
+          #text(fill: accent, weight: 700)[10.3x] faster than glam. nalgebra swaps one sine for a sqrt
+          and gets that down to #text(fill: accent, weight: 700)[6.8x].
         ]
       ]
     ],
   )
+  #v(12pt)
+  #text(size: 20pt)[
+    *Other chips:* C's sqrt is 2.24x faster on the Cortex-M33 (RP2350). The ESP32-S3 links no C math
+    library; there micromath's sqrt is 2.72x faster than Rust libm's. The RP2040 has no FPU, and its C
+    build ends up calling a Rust software routine instead of newlib, so it gives no C-vs-Rust number.
+  ]
 ]

@@ -1,8 +1,7 @@
 #import "theme.typ": divider
 #import "panels/1_header.typ": header-panel
 #import "panels/2_infrastructure.typ": infrastructure-panel
-#import "panels/3_abi_shape.typ": abi-shape-panel
-#import "panels/4_build_profile.typ": build-profile-panel
+#import "panels/3_fair_comparison.typ": fair-comparison-panel
 #import "panels/5_math_backend.typ": math-backend-panel
 #import "panels/6_caveats.typ": caveats-panel
 #import "panels/4b_robotics_pipelines.typ": robotics-pipelines-panel
@@ -18,9 +17,7 @@
 #v(24pt)
 #infrastructure-panel()
 #divider()
-#abi-shape-panel()
-#divider()
-#build-profile-panel()
+#fair-comparison-panel()
 #divider()
 #math-backend-panel()
 #v(20pt)

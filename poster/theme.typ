@@ -106,59 +106,80 @@
 
 #import "@preview/cetz:0.3.4": canvas, draw
 
-// Horizontal lollipop (dot) chart. `rows` is an array of (label, value, str-label, highlight).
-// `domain` is (min, max) for the x axis; `parity` draws a dashed vline at 1.0.
-#let lollipop-chart(rows, domain: (0.8, 1.6), width: 24, parity: 1.0) = canvas(length: 1cm, {
+// Ratio as a fixed two-decimal string, e.g. 1.5 -> "1.50".
+#let fmt2(x) = {
+  let s = str(calc.round(x, digits: 2))
+  if not s.contains(".") { s + ".00" } else if s.split(".").at(1).len() == 1 { s + "0" } else { s }
+}
+
+// How many times faster the winner is, given r = C time / Rust time.
+#let speedup(r) = if r >= 1 { r } else { 1 / r }
+
+// Horizontal dot chart of C/Rust time ratios on a log axis, so "C 1.1x faster"
+// and "Rust 1.1x faster" sit at equal distance from parity. `rows` is an array of
+// (label, ratio); dots inside +-`band` are drawn gray as a tie.
+#let diverging-lollipop(rows, domain: (0.85, 1.6), width: 24, row-h: 1.0, band: 1.1) = canvas(length: 1cm, {
   import draw: *
   let (lo, hi) = domain
   let n = rows.len()
-  let row-h = 1.0
-  let x-of(v) = (v - lo) / (hi - lo) * width
+  let x-of(r) = (calc.ln(r) - calc.ln(lo)) / (calc.ln(hi) - calc.ln(lo)) * width
+  let top = 0.55
+  let bottom = -(n - 1) * row-h - 0.55
 
-  // parity gridline
-  line((x-of(parity), 0.4), (x-of(parity), -(n) * row-h - 0.3), stroke: (paint: rule-gray, dash: "dashed", thickness: 1.2pt))
-  content((x-of(parity), 0.9), text(size: 15pt, fill: rule-gray)[#parity#sym.times])
+  rect((x-of(1 / band), top), (x-of(band), bottom), fill: rgb("#f0f0f0"), stroke: none)
+  line((x-of(1), top), (x-of(1), bottom), stroke: (paint: rule-gray, dash: "dashed", thickness: 1.2pt))
+  content((x-of(1) - 0.3, top + 0.45), text(size: 16pt, weight: 700)[C faster], anchor: "east")
+  content((x-of(1) + 0.3, top + 0.45), text(size: 16pt, weight: 700)[Rust faster], anchor: "west")
 
   for (i, row) in rows.enumerate() {
-    let (label, value, vlabel, hi-lit) = row
+    let (label, r) = row
     let y = -i * row-h
-    let col = if hi-lit { accent } else { black }
+    let col = if speedup(r) < band { rgb("#999") } else { ink }
     content((-0.4, y), text(size: 16pt)[#label], anchor: "east")
-    line((x-of(parity), y), (x-of(value), y), stroke: 1pt + rgb("#ccc"))
-    circle((x-of(value), y), radius: 0.17, fill: col, stroke: none)
-    content((x-of(value) + 0.5, y), text(size: 16pt, fill: col, weight: 700)[#vlabel], anchor: "west")
+    line((x-of(1), y), (x-of(r), y), stroke: 1pt + rgb("#bbb"))
+    circle((x-of(r), y), radius: 0.17, fill: col, stroke: none)
+    let side = if r >= 1 { 1 } else { -1 }
+    content(
+      (x-of(r) + side * 0.4, y),
+      text(size: 16pt, fill: col, weight: 700)[#fmt2(speedup(r))#sym.times],
+      anchor: if r >= 1 { "west" } else { "east" },
+    )
   }
 })
 
-// Grouped vertical bar chart. `groups` is an array of group-label; `series`
-// is an array of (series-label, color, values-array-matching-groups).
-// `captions`, if given, is one gray subcaption per group, drawn as a second
-// line under the group name, kept inside the canvas (rather than a
-// separate Typst grid below it) so it lines up with the bars regardless of
-// how wide the surrounding container is.
-#let bar-chart(groups, series, height: 10, bar-w: 0.85, gap: 0.3, parity: none, captions: none) = canvas(length: 1cm, {
+// Grouped vertical bars of C/Rust time ratios on a log axis around parity:
+// up = Rust faster, down = C faster. `series` is an array of
+// (label, fill, ratios-per-group, index-of-highlighted-group-or-none); the
+// highlighted bar gets an accent-dark outline. `captions` is one gray
+// subcaption per group.
+#let diverging-bars(groups, series, up: 8, max-ratio: 3.0, min-ratio: 0.6, bar-w: 0.85, gap: 0.3, captions: none) = canvas(length: 1cm, {
   import draw: *
-  let max-v = calc.max(..series.map(s => calc.max(..s.at(2))))
-  let y-of(v) = v / max-v * height
+  let y-of(r) = calc.ln(r) / calc.ln(max-ratio) * up
+  let bottom = y-of(min-ratio)
   let group-w = series.len() * (bar-w + gap) + gap * 2
+  let total-w = groups.len() * group-w
 
-  if parity != none {
-    line((-0.5, y-of(parity)), (groups.len() * group-w, y-of(parity)), stroke: (paint: rule-gray, dash: "dashed", thickness: 1.2pt))
-    content((-0.9, y-of(parity)), text(size: 15pt, fill: rule-gray)[#parity], anchor: "east")
-  }
+  line((-0.3, 0), (total-w, 0), stroke: (paint: rule-gray, dash: "dashed", thickness: 1.2pt))
+  content((-0.5, y-of(max-ratio) * 0.85), text(size: 16pt, weight: 700)[Rust \ faster], anchor: "east")
+  content((-0.5, bottom * 0.7), text(size: 16pt, weight: 700)[C \ faster], anchor: "east")
 
   for (gi, gname) in groups.enumerate() {
     let x0 = gi * group-w
     for (si, s) in series.enumerate() {
-      let (_, color, values) = s
+      let (_, color, values, fair) = s
       let v = values.at(gi)
       let x = x0 + gap + si * (bar-w + gap)
-      rect((x, 0), (x + bar-w, y-of(v)), fill: color, stroke: 0.6pt + black)
-      content((x + bar-w / 2, y-of(v) + 0.45), text(size: 15pt, weight: 700)[#v], anchor: "south")
+      let stroke = if fair == gi { 3pt + accent-dark } else { 0.6pt + black }
+      rect((x, 0), (x + bar-w, y-of(v)), fill: color, stroke: stroke)
+      if v >= 1 {
+        content((x + bar-w / 2, y-of(v) + 0.35), text(size: 14pt, weight: 700)[#fmt2(v)], anchor: "south")
+      } else {
+        content((x + bar-w / 2, y-of(v) - 0.35), text(size: 14pt, weight: 700)[#fmt2(1 / v)], anchor: "north")
+      }
     }
-    content((x0 + group-w / 2, -0.6), text(size: 16pt, weight: 700)[#gname], anchor: "north")
+    content((x0 + group-w / 2, bottom - 0.9), text(size: 16pt, weight: 700)[#gname], anchor: "north")
     if captions != none {
-      content((x0 + group-w / 2, -1.15), text(size: 13pt, fill: rule-gray)[#captions.at(gi)], anchor: "north")
+      content((x0 + group-w / 2, bottom - 1.5), text(size: 13pt, fill: rgb("#666"))[#captions.at(gi)], anchor: "north")
     }
   }
 })

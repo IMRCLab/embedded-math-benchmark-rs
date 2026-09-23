@@ -1,20 +1,23 @@
-#import "../theme.typ": accent, caption, panel, sec-heading, subheading
+#import "../theme.typ": accent, accent-dark, accent-note, caption, panel, sec-heading, subheading
 #import "@preview/cetz:0.3.4": canvas, draw
 
 #let stm32-col = accent
+#let rp2350-col = rgb("#555")
 #let esp-col = black
-#let nrf-col = rgb("#888")
+#let nrf-col = rgb("#aaa")
 
 #let lee-rows = (
-  ("STM32F405 (168 MHz)", 8.95, "9.0 µs  (1,503 cyc)", stm32-col),
-  ("ESP32-S3 (240 MHz)", 9.58, "9.6 µs  (2,299 cyc)", esp-col),
-  ("nRF52840 (64 MHz)", 24.84, "24.8 µs (1,590 cyc)", nrf-col),
+  ("RP2350 (M33, 150 MHz)", 8.77, "8.8 µs  (1,316 cyc)", rp2350-col),
+  ("STM32F405 (M4F, 168 MHz)", 8.95, "9.0 µs  (1,503 cyc)", stm32-col),
+  ("ESP32-S3 (Xtensa, 240 MHz)", 9.58, "9.6 µs  (2,299 cyc)", esp-col),
+  ("nRF52840 (M4F, 64 MHz)", 24.84, "24.8 µs (1,590 cyc)", nrf-col),
 )
 
 #let ekf-rows = (
-  ("ESP32-S3 (240 MHz)", 153.68, "153.7 µs (36,884 cyc)", esp-col),
-  ("STM32F405 (168 MHz)", 193.45, "193.5 µs (32,499 cyc)", stm32-col),
-  ("nRF52840 (64 MHz)", 490.10, "490.1 µs (31,367 cyc)", nrf-col),
+  ("ESP32-S3 (Xtensa, 240 MHz)", 153.68, "154 µs (36,884 cyc)", esp-col),
+  ("STM32F405 (M4F, 168 MHz)", 193.44, "193 µs (32,498 cyc)", stm32-col),
+  ("RP2350 (M33, 150 MHz)", 462.37, "462 µs (69,356 cyc)", rp2350-col),
+  ("nRF52840 (M4F, 64 MHz)", 490.10, "490 µs (31,367 cyc)", nrf-col),
 )
 
 #let pipeline-bars(rows, max-scale: 500, width: 14.5, bar-h: 0.58, gap: 0.22) = canvas(length: 1cm, {
@@ -29,82 +32,68 @@
   }
 })
 
-#let platform-card(name, arch, clock, role, color) = box(
-  width: 100%,
-  inset: (x: 14pt, y: 11pt),
-  stroke: 0.8pt + rgb("#ddd"),
-  fill: rgb("#fafafa"),
-)[
-  #grid(
-    columns: (auto, 1fr),
-    column-gutter: 10pt,
-    align: (left + horizon, left + horizon),
-    box(width: 10pt, height: 26pt, fill: color),
-    [
-      #text(weight: 800, size: 19pt)[#name]
-      #h(0.4em)
-      #text(fill: rgb("#666"), size: 16pt)[#arch @ #clock]
-      #v(2pt)
-      #text(size: 15pt, fill: rgb("#555"))[#role]
-    ],
-  )
+#let new-pill = box(fill: accent-dark, inset: (x: 10pt, y: 5pt), radius: 3pt)[
+  #text(fill: white, weight: 800, size: 17pt, tracking: 0.03em)[NEW SINCE THE PAPER]
+]
+
+#let point(title, body) = block(width: 100%, below: 12pt)[
+  #text(weight: 800, size: 19pt)[#title]
+  #v(3pt)
+  #text(size: 18pt)[#body]
 ]
 
 #let robotics-pipelines-panel() = panel(sec-heading(
-  "04",
-  "Real-world robotics pipelines across architectures",
-  caption: caption[nalgebra · lto profile · median bare-metal execution time],
+  "03",
+  "Beyond primitives: full control steps",
+  caption: [#new-pill #h(8pt) #caption[`lto` profile #sym.dot.c median time per step]],
 ))[
   #text(size: 26pt)[
-    End-to-end SE(3) attitude control and 24-state EKF propagation on bare metal: clock frequency compensates instruction set efficiency.
+    Two complete control-loop steps built from the primitives above: a Lee geometric controller and a
+    9-state EKF step. Written once in nalgebra and run on four chips.
   ]
   #v(14pt)
 
   #grid(
-    columns: (1.3fr, 1fr, 1.15fr),
-    column-gutter: 26pt,
+    columns: (1.45fr, 1fr, 1fr),
+    column-gutter: 30pt,
     [
-      #subheading("End-to-end latency in microseconds")
-      #v(4pt)
-      #text(weight: 700, size: 19pt)[Lee Attitude Controller]
+      #subheading("Time per step, nalgebra")
+      #text(weight: 700, size: 19pt)[Lee controller]
       #v(3pt)
-      #pipeline-bars(lee-rows, max-scale: 26, width: 14)
+      #pipeline-bars(lee-rows, max-scale: 26, width: 15.5)
       #v(12pt)
-      #text(weight: 700, size: 19pt)[EKF 24-State Covariance Propagation]
+      #text(weight: 700, size: 19pt)[EKF step (predict + range update)]
       #v(3pt)
-      #pipeline-bars(ekf-rows, max-scale: 520, width: 14)
+      #pipeline-bars(ekf-rows, max-scale: 520, width: 15.5)
       #v(4pt)
-      #caption[Evaluated with identical nalgebra code to isolate hardware throughput.]
+      #caption[RP2040 (no FPU) is off the scale: 428 µs for Lee, 6.3 ms for the EKF step.]
     ],
     [
-      #subheading("Evaluated hardware targets")
+      #subheading("Fast math in a full step")
+      #text(size: 19pt)[Swapping nalgebra for micromath on the STM32:]
+      #v(10pt)
+      #point("Lee controller", [#text(fill: accent, weight: 700)[1.82x] faster, 0.17% mean error (1.8% worst).])
+      #point("EKF step", [#text(fill: accent, weight: 700)[1.23x] faster, 0.04% mean error.])
       #v(4pt)
-      #platform-card("STM32F405", "ARM Cortex-M4F", "168 MHz", "Crazyflie reference flight controller", stm32-col)
-      #v(8pt)
-      #platform-card("ESP32-S3", "Xtensa LX7", "240 MHz", "Dual-core Wi-Fi & Bluetooth SoC", esp-col)
-      #v(8pt)
-      #platform-card("nRF52840", "ARM Cortex-M4F", "64 MHz", "Ultra-low-power Bluetooth SoC", nrf-col)
+      #accent-note[
+        #text(size: 18pt)[
+          The speed-for-accuracy trade from section 02 carries over to a full step.
+        ]
+      ]
+      #v(6pt)
+      #caption[The Crazyflie C versions are different algorithms, so this section compares chips, not languages.]
     ],
     [
-      #subheading("Key takeaways")
-      #v(4pt)
-      #text(weight: 800, size: 19pt)[Why identical cores differ]
-      #v(3pt)
-      #text(size: 17pt)[
-        Despite identical Cortex-M4F cores, cycle counts diverge slightly (1,503 vs 1,590 on Lee) due to flash wait states and prefetching: STM32's ART accelerator vs. nRF52's instruction cache.
-      ]
-      #v(10pt)
-      #text(weight: 800, size: 19pt)[Clock frequency vs. IPC]
-      #v(3pt)
-      #text(size: 17pt)[
-        Xtensa needs 17% more cycles on 24-state EKF propagation, but its 240 MHz clock achieves the lowest wall-clock latency (154 µs).
-      ]
-      #v(10pt)
-      #text(weight: 800, size: 19pt)[Sub-10 µs geometric control]
-      #v(3pt)
-      #text(size: 17pt)[
-        Stack allocation and contiguous register passing keep SE(3) attitude control under 10 µs on bare metal with zero heap allocation.
-      ]
+      #subheading("Reading the chips")
+      #point("Same core, different clock", [
+        nRF52840 and STM32F405 are both Cortex-M4F and land within 6% in cycles. At 64 MHz the nRF takes 2.5 to 2.8x as long.
+      ])
+      #point("Clock can beat cycles", [
+        The ESP32-S3 needs 13% more cycles than the STM32 on the EKF step, but its 240 MHz clock makes it the fastest.
+      ])
+      #point("RP2350 splits", [
+        Fastest on Lee, but it needs 2.1x the STM32's cycles on the EKF step.
+      ])
     ],
   )
 ]

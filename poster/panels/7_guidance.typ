@@ -1,9 +1,10 @@
 #import "../theme.typ": accent
 
 #let statements = (
-  ("01", [A C-versus-Rust number is tied to the build profile that produced it.]),
-  ("02", [A slow sqrt or sin/cos in Rust points at the linked math backend, not the language.]),
-  ("03", [Fast-math crates trade orders of magnitude of accuracy for a few times the speed.]),
+  ("01", [glam and nalgebra are not the bottleneck: built fairly, they match or beat C on linear algebra.]),
+  ("02", [Wrapping C that takes 3x3 matrices by value? Build with cross-language LTO, or pass pointers.]),
+  ("03", [Check which library provides sqrt and sin/cos. On a 32-bit FPU, Rust libm's sin/cos is 10x slower than newlib.]),
+  ("04", [Use fast-math crates like micromath only if your error budget allows percent-level error.]),
 )
 
 #let numbered-statement(num, body) = grid(
@@ -15,10 +16,10 @@
 )
 
 #let guidance-panel() = block(width: 100%)[
-  #text(weight: 800, size: 30pt, tracking: 0.03em)[#upper("if you are choosing a math library today")]
+  #text(weight: 800, size: 30pt, tracking: 0.03em)[#upper("if you write robot firmware in Rust")]
   #v(14pt)
   #grid(
-    columns: (1fr, 1fr, 1fr),
+    columns: (1fr, 1fr, 1fr, 1fr),
     column-gutter: 34pt,
     ..statements.map(s => numbered-statement(s.at(0), s.at(1))),
   )
