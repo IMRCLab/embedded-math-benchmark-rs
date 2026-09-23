@@ -5,10 +5,10 @@
 #import "panels/4_build_profile.typ": build-profile-panel
 #import "panels/5_math_backend.typ": math-backend-panel
 #import "panels/6_caveats.typ": caveats-panel
+#import "panels/4b_robotics_pipelines.typ": robotics-pipelines-panel
 #import "panels/7_guidance.typ": guidance-panel
-#import "panels/8_footer.typ": footer-panel
 
-#set page("a0", margin: (x: 3cm, top: 3cm, bottom: 1.4cm))
+#set page("a0", margin: (x: 3cm, top: 3cm, bottom: 3cm))
 #set text(size: 22pt, font: "Noto Sans")
 #set par(spacing: 0.5em, leading: 0.42em)
 #set list(spacing: 0.5em)
@@ -23,9 +23,11 @@
 #build-profile-panel()
 #divider()
 #math-backend-panel()
-#v(24pt)
+#v(20pt)
 #caveats-panel()
 #divider()
-#guidance-panel()
+#robotics-pipelines-panel()
 #divider()
-#footer-panel()
+#guidance-panel()
+
+

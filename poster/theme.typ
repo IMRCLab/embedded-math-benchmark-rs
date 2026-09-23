@@ -29,7 +29,7 @@
 ]
 
 // Full-width divider between major sections.
-#let divider() = block(width: 100%, above: 30pt, below: 22pt)[
+#let divider() = block(width: 100%, above: 24pt, below: 18pt)[
   #line(length: 100%, stroke: 2.4pt + black)
 ]
 
