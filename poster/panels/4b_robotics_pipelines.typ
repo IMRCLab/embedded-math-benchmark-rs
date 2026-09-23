@@ -62,7 +62,7 @@
       #v(3pt)
       #pipeline-bars(ekf-rows, max-scale: 520, width: 15.5)
       #v(4pt)
-      #caption[RP2040 (no FPU) is off the scale: 428 µs for Lee, 6.3 ms for the EKF step.]
+      #caption[RP2040 (no FPU) is off the scale: 428 µs for Lee, 6.3 ms for the EKF step. nRF52840 numbers are preliminary.]
     ],
     [
       #subheading("Fast math in a full step")

@@ -73,7 +73,7 @@
     kind-card(
       "A few floats",
       "vectors, quaternions: CrossProduct, QuatMul, UnitQuatMul, RotateVector",
-      [Passed in registers, nothing to copy. No profile is perfect: at `lto` the C sits behind a call, at `xlto` its own code gets 26% slower. We use `lto`.],
+      [Passed in registers, so calling C costs little. `xlto` would make C's own code 26% slower, so `lto` is fairer.],
       "lto",
     ),
     kind-card(

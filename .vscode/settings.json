@@ -1,3 +1,4 @@
 {
-  "markdown.marp.themes": ["slides/themes/project.css"]
+  "markdown.marp.themes": ["slides/themes/project.css"],
+  "cmake.ignoreCMakeListsMissing": true
 }
