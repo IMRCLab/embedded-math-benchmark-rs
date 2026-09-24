@@ -185,9 +185,9 @@
         content((x + bar-w / 2, y-of(v) - 0.35), text(size: 14pt, weight: 700)[#fmt2(1 / v)], anchor: "north")
       }
     }
-    content((x0 + group-w / 2, bottom - 0.9), text(size: 16pt, weight: 700)[#gname], anchor: "north")
+    content((x0 + group-w / 2, bottom - 1.1), text(size: 16pt, weight: 700)[#gname], anchor: "north")
     if captions != none {
-      content((x0 + group-w / 2, bottom - 1.5), text(size: 13pt, fill: rgb("#666"))[#captions.at(gi)], anchor: "north")
+      content((x0 + group-w / 2, bottom - 1.7), text(size: 13pt, fill: rgb("#666"))[#captions.at(gi)], anchor: "north")
     }
   }
 })
