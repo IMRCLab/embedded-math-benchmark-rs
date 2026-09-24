@@ -29,27 +29,27 @@
   }
 })
 
-#let point(title, body) = block(width: 100%, below: 8pt)[
-  #text(weight: 800, size: 18pt)[#title]
+#let point(title, body) = block(width: 100%, below: 7pt)[
+  #text(weight: 800, size: 17.5pt)[#title]
   #v(2pt)
-  #text(size: 17pt)[#body]
+  #text(size: 16.5pt)[#body]
 ]
 
 #let chip-card(name, arch, detail) = block(
   width: 100%,
   stroke: 0.8pt + rgb("#ccc"),
-  inset: (x: 12pt, y: 7pt),
+  inset: (x: 10pt, y: 4.5pt),
   radius: 3pt,
-  below: 6pt,
+  below: 4.5pt,
 )[
   #grid(
     columns: (1fr, auto),
     align: (left + horizon, right + horizon),
-    text(weight: 800, size: 17pt)[#name],
-    text(size: 14pt, fill: rgb("#666"))[#arch],
+    text(weight: 800, size: 16.5pt)[#name],
+    text(size: 13.5pt, fill: rgb("#666"))[#arch],
   )
   #v(2pt)
-  #text(size: 15pt)[#detail]
+  #text(size: 14pt)[#detail]
 ]
 
 #let robotics-pipelines-panel() = panel(sec-heading(
@@ -59,9 +59,9 @@
 ))[
   #text(size: 26pt)[
     Two complete control loops built with nalgebra: an SE(3) Lee attitude controller and a
-    9-state EKF propagation step, measured on bare metal across four chips.
+    9-state EKF propagation step, measured on bare metal across five MCU architectures.
   ]
-  #v(8pt)
+  #v(6pt)
 
   #grid(
     columns: (1.45fr, 1fr, 1fr),
@@ -71,20 +71,20 @@
       #text(weight: 700, size: 19pt)[Lee controller]
       #v(2pt)
       #pipeline-bars(lee-rows, max-scale: 26, width: 15.5)
-      #v(8pt)
+      #v(6pt)
       #text(weight: 700, size: 19pt)[EKF step (predict + range update)]
       #v(2pt)
       #pipeline-bars(ekf-rows, max-scale: 520, width: 15.5)
       #v(3pt)
-      #caption[RP2040 (no FPU) is off the scale: 428 µs for Lee, 6.3 ms for the EKF step.]
+      #caption[All five chips run identical nalgebra algorithms on the same inputs. RP2040 (no FPU) is off the scale: 428 µs for Lee, 6.3 ms for the EKF step.]
     ],
     [
       #subheading("Evaluated MCU architectures")
-      #chip-card("STM32F405RG", "M4F #sym.dot.c 168 MHz", [Internal flash with ART accelerator (prefetch buffer and branch cache). Reference flight MCU.])
-      #chip-card("ESP32-S3", "Xtensa #sym.dot.c 240 MHz", [Dual-core LX7 with single-precision FPU, external flash with 32 KB instruction cache.])
-      #chip-card("RP2350 (Pico 2)", "M33 #sym.dot.c 150 MHz", [ARM Cortex-M33 with FPv5-SP, external QSPI flash with 16 KB XIP cache.])
-      #chip-card("nRF52840", "M4F #sym.dot.c 64 MHz", [Cortex-M4F with FPv4-SP, internal flash with conventional wait states.])
-      #caption[All four chips evaluate identical Rust (nalgebra) algorithms across the same inputs.]
+      #chip-card("STM32F405RG", [M4F #sym.dot.c 168 MHz], [Internal flash with ART accelerator (prefetch buffer and branch cache). Reference flight MCU.])
+      #chip-card("ESP32-S3", [Xtensa #sym.dot.c 240 MHz], [Dual-core LX7 with single-precision FPU, external flash with 32 KB instruction cache.])
+      #chip-card("RP2350 (Pico 2)", [M33 #sym.dot.c 150 MHz], [ARM Cortex-M33 with FPv5-SP, external QSPI flash with 16 KB XIP cache.])
+      #chip-card("nRF52840", [M4F #sym.dot.c 64 MHz], [Cortex-M4F with FPv4-SP, internal flash with conventional wait states.])
+      #chip-card("RP2040 (Pico 1)", [M0+ #sym.dot.c 125 MHz], [Dual Cortex-M0+, no hardware FPU (pure software float). Baseline for soft-float penalty.])
     ],
     [
       #subheading("How the chips compare")
@@ -98,7 +98,7 @@
         Without an FPU, the RP2040 (Cortex-M0+) executes floats in software, taking 41 to 49x longer than the fastest chip.
       ])
       #point("RP2350 cache dynamics", [
-        Fastest on Lee (1,316 cycles), but needs 2.1x the STM32's cycles on the EKF step (69.4k cycles). See Open Questions below.
+        Fastest on Lee (1,316 cycles), but incurs 2.1x the cycle count of STM32 on the EKF step (69.4k cycles). See Open Questions below.
       ])
     ],
   )
