@@ -1,23 +1,20 @@
-#import "../theme.typ": accent, accent-note, caption, panel, sec-heading, subheading
+#import "../theme.typ": accent, accent-note, caption, ink, panel, sec-heading, subheading
 #import "@preview/cetz:0.3.4": canvas, draw
 
-#let stm32-col = accent
-#let rp2350-col = rgb("#555")
-#let esp-col = black
-#let nrf-col = rgb("#aaa")
+#let bar-col = ink
 
 #let lee-rows = (
-  ("RP2350 (M33, 150 MHz)", 8.77, "8.8 µs  (1,316 cyc)", rp2350-col),
-  ("STM32F405 (M4F, 168 MHz)", 8.95, "9.0 µs  (1,503 cyc)", stm32-col),
-  ("ESP32-S3 (Xtensa, 240 MHz)", 9.58, "9.6 µs  (2,299 cyc)", esp-col),
-  ("nRF52840 (M4F, 64 MHz)", 24.84, "24.8 µs (1,590 cyc)", nrf-col),
+  ("RP2350 (M33, 150 MHz)", 8.77, "8.8 µs (1,316 cyc)", bar-col),
+  ("STM32F405 (M4F, 168 MHz)", 8.95, "9.0 µs (1,503 cyc)", bar-col),
+  ("ESP32-S3 (Xtensa, 240 MHz)", 9.58, "9.6 µs (2,299 cyc)", bar-col),
+  ("nRF52840 (M4F, 64 MHz)", 24.84, "24.8 µs (1,590 cyc)", bar-col),
 )
 
 #let ekf-rows = (
-  ("ESP32-S3 (Xtensa, 240 MHz)", 153.68, "154 µs (36,884 cyc)", esp-col),
-  ("STM32F405 (M4F, 168 MHz)", 193.44, "193 µs (32,498 cyc)", stm32-col),
-  ("RP2350 (M33, 150 MHz)", 462.37, "462 µs (69,356 cyc)", rp2350-col),
-  ("nRF52840 (M4F, 64 MHz)", 490.10, "490 µs (31,367 cyc)", nrf-col),
+  ("ESP32-S3 (Xtensa, 240 MHz)", 153.68, "154 µs (36,884 cyc)", bar-col),
+  ("STM32F405 (M4F, 168 MHz)", 193.44, "193 µs (32,498 cyc)", bar-col),
+  ("RP2350 (M33, 150 MHz)", 462.37, "462 µs (69,356 cyc)", bar-col),
+  ("nRF52840 (M4F, 64 MHz)", 490.10, "490 µs (31,367 cyc)", bar-col),
 )
 
 #let pipeline-bars(rows, max-scale: 500, width: 14.5, bar-h: 0.58, gap: 0.22) = canvas(length: 1cm, {
@@ -32,22 +29,39 @@
   }
 })
 
-#let point(title, body) = block(width: 100%, below: 12pt)[
-  #text(weight: 800, size: 19pt)[#title]
-  #v(3pt)
-  #text(size: 18pt)[#body]
+#let point(title, body) = block(width: 100%, below: 8pt)[
+  #text(weight: 800, size: 18pt)[#title]
+  #v(2pt)
+  #text(size: 17pt)[#body]
+]
+
+#let chip-card(name, arch, detail) = block(
+  width: 100%,
+  stroke: 0.8pt + rgb("#ccc"),
+  inset: (x: 12pt, y: 7pt),
+  radius: 3pt,
+  below: 6pt,
+)[
+  #grid(
+    columns: (1fr, auto),
+    align: (left + horizon, right + horizon),
+    text(weight: 800, size: 17pt)[#name],
+    text(size: 14pt, fill: rgb("#666"))[#arch],
+  )
+  #v(2pt)
+  #text(size: 15pt)[#detail]
 ]
 
 #let robotics-pipelines-panel() = panel(sec-heading(
   "03",
-  "Extended results: full control steps across chips",
+  "Real-world flight control pipelines across architectures",
   caption: caption[`lto` profile #sym.dot.c median time per step],
 ))[
   #text(size: 26pt)[
-    Two complete control-loop steps built from the primitives above: a Lee geometric controller and a
-    9-state EKF step. Written once in nalgebra and run on four chips.
+    Two complete control loops built with nalgebra: an SE(3) Lee attitude controller and a
+    9-state EKF propagation step, measured on bare metal across four chips.
   ]
-  #v(14pt)
+  #v(8pt)
 
   #grid(
     columns: (1.45fr, 1fr, 1fr),
@@ -55,43 +69,36 @@
     [
       #subheading("Time per step, nalgebra")
       #text(weight: 700, size: 19pt)[Lee controller]
-      #v(3pt)
+      #v(2pt)
       #pipeline-bars(lee-rows, max-scale: 26, width: 15.5)
-      #v(12pt)
+      #v(8pt)
       #text(weight: 700, size: 19pt)[EKF step (predict + range update)]
-      #v(3pt)
+      #v(2pt)
       #pipeline-bars(ekf-rows, max-scale: 520, width: 15.5)
-      #v(4pt)
-      #caption[RP2040 (no FPU) is off the scale: 428 µs for Lee, 6.3 ms for the EKF step. nRF52840 numbers are preliminary.]
+      #v(3pt)
+      #caption[RP2040 (no FPU) is off the scale: 428 µs for Lee, 6.3 ms for the EKF step.]
     ],
     [
-      #subheading("Fast math in a full step")
-      #text(size: 19pt)[The same steps built on micromath's fast approximations, on the STM32:]
-      #v(10pt)
-      #point("Lee controller", [#text(fill: accent, weight: 700)[1.82x] faster, 0.17% mean error (1.8% worst).])
-      #point("EKF step", [#text(fill: accent, weight: 700)[1.23x] faster, 0.04% mean error.])
-      #v(4pt)
-      #accent-note[
-        #text(size: 18pt)[
-          The speed-for-accuracy trade from section 02 carries over to a full step.
-        ]
-      ]
-      #v(6pt)
-      #caption[The Crazyflie C versions are different algorithms, so this section compares chips, not languages.]
+      #subheading("Evaluated MCU architectures")
+      #chip-card("STM32F405RG", "M4F #sym.dot.c 168 MHz", [Internal flash with ART accelerator (prefetch buffer and branch cache). Reference flight MCU.])
+      #chip-card("ESP32-S3", "Xtensa #sym.dot.c 240 MHz", [Dual-core LX7 with single-precision FPU, external flash with 32 KB instruction cache.])
+      #chip-card("RP2350 (Pico 2)", "M33 #sym.dot.c 150 MHz", [ARM Cortex-M33 with FPv5-SP, external QSPI flash with 16 KB XIP cache.])
+      #chip-card("nRF52840", "M4F #sym.dot.c 64 MHz", [Cortex-M4F with FPv4-SP, internal flash with conventional wait states.])
+      #caption[All four chips evaluate identical Rust (nalgebra) algorithms across the same inputs.]
     ],
     [
       #subheading("How the chips compare")
-      #point("Same core, different clock", [
-        nRF52840 and STM32F405 are both Cortex-M4F and land within 6% in cycles. At 64 MHz the nRF takes 2.5 to 2.8x as long.
+      #point("Flash architecture dictates cycles", [
+        Identical Cortex-M4F cores diverge by up to 6% because STM32's ART accelerator eliminates flash wait states, whereas nRF52840 incurs branch stalls. Wall time scales with the clock (64 vs 168 MHz).
       ])
-      #point("Clock can beat cycles", [
-        The ESP32-S3 needs 13% more cycles than the STM32 on the EKF step, but its 240 MHz clock makes it the fastest.
+      #point("Clock frequency overcomes IPC", [
+        The ESP32-S3 takes 13% more cycles than the STM32 on the EKF step, but its 240 MHz clock achieves the lowest absolute latency (154 µs).
       ])
-      #point("Without an FPU", [
-        The RP2040 computes floats in software and takes 41 to 49x as long as the fastest chip.
+      #point("Software float penalty", [
+        Without an FPU, the RP2040 (Cortex-M0+) executes floats in software, taking 41 to 49x longer than the fastest chip.
       ])
-      #point("RP2350 splits", [
-        Fastest on Lee, but it needs 2.1x the STM32's cycles on the EKF step.
+      #point("RP2350 cache dynamics", [
+        Fastest on Lee (1,316 cycles), but needs 2.1x the STM32's cycles on the EKF step (69.4k cycles). See Open Questions below.
       ])
     ],
   )
