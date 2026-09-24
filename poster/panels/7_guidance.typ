@@ -4,7 +4,7 @@
   ("Linear algebra", [Use glam or nalgebra with confidence: built fairly, they match C baselines across all tested platforms.]),
   ("FFI boundaries", [Avoid by-value copies for structs exceeding register capacity: use cross-language ThinLTO (`xlto`) or pass by pointer.]),
   ("Transcendental math", [Audit sqrt and trigonometric providers on single-precision FPUs to avoid soft-float emulation.]),
-  ("Approximations", [Restrict fast-math crates (`micromath`) to noise-tolerant attitude loops with validated error budgets.]),
+  ("Approximations", [Restrict fast-math crates (`micromath`) to noise-tolerant control loops with validated error budgets.]),
 )
 
 #let rule-statement(header, body) = block(width: 100%)[
