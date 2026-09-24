@@ -2,8 +2,8 @@
 
 // Paper data (STM32F405): C time / fastest of glam and nalgebra.
 #let fair-rows = (
-  ("DotProduct64D", 0.94),
-  ("MatMul9x9", 0.98),
+  ("MatMul9x9", 0.97),
+  ("DotProduct64D", 0.99),
   ("UnitQuatMul", 1.07),
   ("QuatMul", 1.11),
   ("MatMul3x3", 1.16),
@@ -18,8 +18,8 @@
 #let series = (
   ("CrossProduct", rgb("#1a1a1a"), (2.70, 1.19, 1.45, 1.11)),
   ("MatMul3x3", rgb("#888"), (1.97, 2.76, 1.16, 1.45)),
-  ("MatMul9x9", rgb("#cfcfcf"), (1.99, 2.21, 0.98, 0.63)),
-  ("DotProduct64D", white, (1.41, 1.37, 0.94, 1.53)),
+  ("MatMul9x9", rgb("#cfcfcf"), (1.99, 2.21, 0.97, 0.63)),
+  ("DotProduct64D", white, (1.41, 1.37, 0.99, 1.53)),
 )
 #let sublabels = (
   "each crate on its own",
@@ -59,7 +59,7 @@
 ))[
   #text(size: 26pt)[
     With the wrong build profile, either language wins by up to #text(fill: accent, weight: 700)[2.8x].
-    With the fair one, C is at most #text(fill: accent, weight: 700)[1.06x] faster and Rust at most
+    With the fair one, C is at most #text(fill: accent, weight: 700)[1.03x] faster and Rust at most
     #text(fill: accent, weight: 700)[1.47x] faster.
   ]
   #v(16pt)
