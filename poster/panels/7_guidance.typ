@@ -1,26 +1,22 @@
 #import "../theme.typ": accent, panel, sec-heading
 
 #let statements = (
-  ("01", [In our tests, glam and nalgebra kept pace with C on linear algebra when both were built fairly.]),
-  ("02", [Wrapping C that takes 3x3 matrices by value? Build with cross-language LTO, or pass pointers.]),
-  (
-    "03",
-    [Check which library provides sqrt and sin/cos. On a 32-bit FPU, Rust libm's sin/cos is 10x slower than newlib.],
-  ),
-  ("04", [Use fast-math crates like micromath if your error budget allows percent-level error.]),
+  ("Linear algebra", [Use glam or nalgebra with confidence: built fairly, they match C baselines across all tested platforms.]),
+  ("FFI boundaries", [Eliminate 3#sym.times 3 struct copying via cross-language ThinLTO (`xlto`) or explicit pointer passing.]),
+  ("Transcendental math", [Audit sqrt and trigonometric providers on single-precision FPUs to avoid soft-float emulation.]),
+  ("Approximations", [Restrict fast-math crates (`micromath`) to noise-tolerant attitude loops with validated error budgets.]),
 )
 
-#let numbered-statement(num, body) = grid(
-  columns: (auto, 1fr),
-  column-gutter: 14pt,
-  align: (left + top, left + top),
-  text(fill: accent, weight: 900, size: 30pt)[#num], text(size: 22pt)[#body],
-)
+#let rule-statement(header, body) = block(width: 100%)[
+  #text(fill: accent, weight: 800, size: 21pt, tracking: 0.02em)[#upper(header)]
+  #v(6pt)
+  #text(size: 20pt)[#body]
+]
 
-#let guidance-panel() = panel(sec-heading("04", "Early takeaways"))[
+#let guidance-panel() = panel(sec-heading("04", "Key takeaways"))[
   #grid(
     columns: (1fr, 1fr, 1fr, 1fr),
     column-gutter: 34pt,
-    ..statements.map(s => numbered-statement(s.at(0), s.at(1))),
+    ..statements.map(s => rule-statement(s.at(0), s.at(1))),
   )
 ]
