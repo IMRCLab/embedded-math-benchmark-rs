@@ -20,14 +20,14 @@
   #v(16pt)
   #text(fill: accent, weight: 800, size: 16pt, tracking: 0.03em)[#upper("4 build profiles")]
   #h(10pt)
-  #text(size: 19pt)[The C is always called from Rust through FFI, as when firmware wraps a C library. What the optimizer can see across that call decides the result.]
+  #text(size: 19pt)[C code is always called from Rust through FFI, as when firmware wraps a C library. What the optimizer can see across that call decides the result.]
   #v(10pt)
   #grid(
     columns: (1fr, 1.25fr, 1.25fr, 1.2fr),
     column-gutter: 30pt,
-    profile-def("release", [Each crate optimized on its own. The C is built by gcc.]),
-    profile-def("lto", [All Rust optimized together (LTO). The gcc-built C stays a closed box behind a call.]),
-    profile-def("xlto", [C built by clang, then one ThinLTO pass over Rust and C together, so C calls can be inlined.]),
+    profile-def("release", [Each crate optimized on its own; C code is built with GCC.]),
+    profile-def("lto", [All Rust optimized together (LTO); GCC-compiled C code remains an opaque call boundary.]),
+    profile-def("xlto", [C compiled with Clang, followed by ThinLTO across Rust and C so calls can be inlined.]),
     profile-def("size", [Optimized for the smallest binary: Rust `opt-level=z`, C `-Os`.]),
   )
 ]

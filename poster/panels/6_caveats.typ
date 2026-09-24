@@ -15,13 +15,13 @@
       #text(fill: accent, weight: 900, size: 28pt, tracking: 0.02em)[#upper("open") \ #upper("questions")]
     ],
     question("One C compiler for every profile?", [
-      `xlto` swaps gcc for clang as well as the linking. clang alone makes the C 1.05x to 1.33x faster at `lto`, so part of the `xlto` gain is the compiler.
+      `xlto` swaps GCC for Clang in addition to linking. Clang alone speeds up C code by 1.05x to 1.33x at `lto`, so part of the `xlto` gain stems from the compiler.
     ]),
     question("Fat LTO instead of ThinLTO for xlto?", [
-      `xlto` is not always a win: of 60 pairs on the STM32, 20 got faster, 17 slower. A fat-LTO prototype recovers the C's 26% loss on CrossProduct but doubles three large routines, which run out of registers.
+      `xlto` is not always a win: of 60 pairs on the STM32, 20 got faster, 17 slower. A fat-LTO prototype recovers C's 26% regression on CrossProduct but doubles three large routines, which run out of registers.
     ]),
     question("Hypothesis: flash caching slows the RP2350's EKF step", [
-      The RP2350 runs code from flash through a small cache, and the EKF step's large code keeps missing it. Built for `size`, the code shrinks and the RP2350 beats the STM32.
+      The RP2350 runs code from flash through a small cache; the large EKF kernel incurs frequent misses. Built for `size`, the code shrinks and the RP2350 beats the STM32.
     ]),
   )
 ]

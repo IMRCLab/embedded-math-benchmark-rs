@@ -93,8 +93,8 @@
       #accent-note[
         #text(size: 21pt)[
           Composite operations inherit this. In `QuatSlerp` (acos plus three sines), cmath3d is
-          #text(fill: accent, weight: 700)[10.3x] faster than glam. nalgebra swaps one sine for a sqrt
-          and gets that down to #text(fill: accent, weight: 700)[6.8x].
+          #text(fill: accent, weight: 700)[10.3x] faster than glam. nalgebra substitutes one sine with a sqrt,
+          reducing the gap to #text(fill: accent, weight: 700)[6.8x].
         ]
       ]
     ],
