@@ -8,7 +8,7 @@
 )
 
 #let infrastructure-panel() = block(width: 100%)[
-  #subheading("open hardware-in-the-loop bench", color: accent)
+  #subheading("open hardware-in-the-loop bench", color: accent, caption: [All cycle counts from automated hardware-in-the-loop CI runs])
   #grid(
     columns: (1fr, 1.25fr, 1.25fr, 1.2fr),
     column-gutter: 30pt,

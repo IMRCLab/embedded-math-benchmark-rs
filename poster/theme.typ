@@ -37,8 +37,13 @@
 #let caption(body) = text(size: 17pt, fill: rgb("#555"))[#body]
 
 // Subsection label with a thin gray rule underneath, e.g. a "WHY: ..." blurb.
-#let subheading(title, color: ink) = block(width: 100%, below: 12pt)[
-  #text(fill: color, weight: 800, size: 22pt, tracking: 0.03em)[#upper(title)]
+#let subheading(title, color: ink, caption: none) = block(width: 100%, below: 12pt)[
+  #grid(
+    columns: (1fr, auto),
+    align: (left + bottom, right + bottom),
+    text(fill: color, weight: 800, size: 22pt, tracking: 0.03em)[#upper(title)],
+    if caption != none { text(size: 16pt, fill: rgb("#666"))[#caption] } else { [] },
+  )
   #v(4pt)
   #line(length: 100%, stroke: 0.8pt + rgb("#aaa"))
 ]
