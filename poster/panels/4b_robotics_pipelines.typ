@@ -89,7 +89,7 @@
     [
       #subheading("How the chips compare")
       #point("Flash architecture dictates cycles", [
-        Identical Cortex-M4F cores diverge by up to 6% because STM32's ART accelerator eliminates flash wait states, whereas nRF52840 incurs branch stalls. Wall time scales with the clock (64 vs 168 MHz).
+        Identical Cortex-M4F cores diverge by up to 6% in cycle count because STM32's ART accelerator eliminates flash wait states, whereas nRF52840 incurs branch stalls. Wall time scales with the clock (64 vs 168 MHz).
       ])
       #point("Clock frequency overcomes IPC", [
         The ESP32-S3 takes 13% more cycles than the STM32 on the EKF step, but its 240 MHz clock achieves the lowest absolute latency (154 µs).
