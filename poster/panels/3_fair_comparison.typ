@@ -73,7 +73,7 @@
     kind-card(
       "A few floats",
       "vectors, quaternions: CrossProduct, QuatMul, UnitQuatMul, RotateVector",
-      [Passed in registers, so calling C costs little. `xlto` would make C's own code 26% slower, so `lto` is fairer.],
+      [Passed directly in floating-point registers (s0-s3) with zero memory copy. Under `xlto`, ThinLTO's cross-boundary inlining degrades C call sites by 26%, making `lto` the fair baseline.],
       "lto",
     ),
     kind-card(
