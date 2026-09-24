@@ -8,7 +8,7 @@
 #import "panels/7_guidance.typ": guidance-panel
 
 #set page("a0", margin: (x: 3cm, top: 2.2cm, bottom: 2.2cm))
-#set text(size: 22pt, font: "Noto Sans")
+#set text(size: 22pt)
 #set par(spacing: 0.5em, leading: 0.42em)
 #set list(spacing: 0.5em)
 #set block(spacing: 0.55em)
