@@ -43,7 +43,7 @@ Each ABI class is only a language comparison at the profile where both sides get
 
 `MatVecMul3x3` has no valid profile: its vector return keeps the C behind a call even at `xlto`, see [build-profiles.md](build-profiles.md#cross-language-lto-xlto).
 
-**At matched ABI and profile, C and Rust land close together, in both directions.** A large gap is a profile or ABI artifact rather than a language result.
+**At matched ABI and profile, C and Rust land close together, in both directions.** A large gap is a profile or ABI artifact rather than a language result. On the short free-ABI rows, part of that closeness comes from the timing harness ([platforms.md](platforms.md#timing)).
 
 `size` inverts the linalg rows: C wins both 9x9 tasks, because `opt-level="z"` throws away nalgebra's compile-time unrolling.
 

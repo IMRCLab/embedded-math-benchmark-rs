@@ -16,7 +16,14 @@ CI builds with the toolchains in [`Dockerfile.ci`](../.github/docker/Dockerfile.
 
 ## Timing
 
-Every platform runs the same harness. Each input is timed over `repetitions` calls of `execute` (see [io-format.md](io-format.md)); `prepare` and `finalize` stay outside the timed region. Each call goes through a non-inlined step. Otherwise LTO could hoist a Rust library's constants across repetitions, which precompiled C cannot do. Every library pays the same call overhead.
+Every platform runs the same harness. Each input is timed over `repetitions` calls of `execute` (see [io-format.md](io-format.md)); `prepare` and `finalize` stay outside the timed region. Each call goes through a non-inlined step. Otherwise LTO could hoist a Rust library's constants across repetitions, which precompiled C cannot do.
+
+**The step skews short rows.** Every library runs the same call and stack-frame instructions around its body. On tasks that cost little more than a call, that has two effects:
+
+- The shared cost pulls C/Rust ratios toward 1 without changing the absolute gap. Compare cycle differences on those rows, not ratios.
+- The added instructions cost a few cycles more or less depending on the code around them. The sign changes between tasks and chips, and it shows up on bodies with no constants, so it is not hoisting.
+
+Subtracting an empty-step baseline per build would remove the shared part. The harness does not do that yet.
 
 ## RP2040 (Pico 1)
 

@@ -79,7 +79,7 @@ macro_rules! export_tasks {
     };
 }
 
-// Out of line so LTO cannot hoist library constants across repetitions.
+// Out of line so LTO can't hoist constants across reps. Skews short rows: docs/platforms.md#timing
 #[inline(never)]
 fn timed_step<Task: BenchmarkTask, I: TaskImplementation<Task>>(
     implementation: &I,
