@@ -153,8 +153,7 @@ reports `Part: 0x1002` with no CPUID.
 
 ### Probe speed
 
-`probe-rs` picks a conservative SWD clock, and it gates flashing and RTT reads both, so raising it
-roughly halves a run job. Each target's `run-firmware-<target>` call in `ci.yml` sets a `speed`
+`probe-rs` picks a conservative SWD clock, and it gates flashing and RTT reads both, so raising it noticeably shortens a run job. Each target's `run-firmware-<target>` call in `ci.yml` sets a `speed`
 input (kHz), passed through to `flash-target.yml` as `--speed`: 4000 is the fastest step the
 J-Link accepts, and the Debug Probes take 10000. Left empty for esp32s3, whose USB JTAG is a
 bridge with no settable clock.

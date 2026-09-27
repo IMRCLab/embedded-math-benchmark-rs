@@ -32,6 +32,8 @@ prose, one line per decision, no padded "why X over Y" justification. Always run
 `humanizer` skill over doc prose before finishing (strip em-dash overuse, rule-of-three,
 restatement, AI vocabulary). Long draft prose is scaffolding, not the deliverable.
 
+**No measured numbers in docs.** Ratios, cycle counts, percentages and ULP values go stale with every harness or toolchain change. State the mechanism and the direction of an effect, and point to `report.pdf`, `results.csv` or `viz/paper_figures.py` for current values. Configuration facts (clock rates, cache sizes, probe serials, SWD speeds, versions) are fine.
+
 **Use auto-memory proactively.** Maintain the project auto-memory without being asked — when
 you learn a durable fact about how the user works or a cross-session convention, save/update
 a memory in that same task. Reserve memory for `user`/`feedback`/`reference`; project,
@@ -142,14 +144,14 @@ CLI end-to-end test in `tests/cli.rs`) — core/host/macros have none yet.
   [docs/build-profiles.md](docs/build-profiles.md).
 - **The valid profile for a C-vs-Rust number depends on the task's ABI class**: free-ABI at `lto`,
   `mat33` by-value and pointer-ABI at `xlto`. At matched ABI and profile the two languages land
-  within ~25%, both directions. Cite the profile with every cross-language claim. Table in
+  close together, in both directions. Cite the profile with every cross-language claim. Table in
   [docs/task-categories.md](docs/task-categories.md#which-profile-makes-a-c-vs-rust-number-valid).
 - **A task touching a transcendental measures the linked math provider, not the language.** The
-  Rust `libm` crate loses to newlib on `sqrt` (1.8x) and `sincos` (10x) and wins on `atan2`, `exp`
+  Rust `libm` crate loses to newlib on `sqrt` and badly on `sincos`, and wins on `atan2`, `exp`
   and `ln`. See
   [docs/task-categories.md](docs/task-categories.md#which-transcendental-provider-you-link-decides-the-cost).
 - **Never quote `crazyflie-fw` composite ULP as accuracy.** The f64 reference follows the Rust
-  operation order, so `EkfStep`'s 814,137 ULP is divergence from a different filter, not error.
+  operation order, so its huge `EkfStep` ULP is divergence from a different filter, not error.
   See [docs/accuracy_evaluation.md](docs/accuracy_evaluation.md#the-composite-reference-is-not-neutral).
 - **On RP2040 the C suites' transcendental calls resolve to `compiler_builtins`, not newlib.**
   Read those rows as two software implementations. See

@@ -54,7 +54,7 @@ args = ["build", "--profile", "size"]
 
 # RUSTFLAGS replaces the crate's .cargo/config.toml rustflags rather than adding to them, so the
 # link args are repeated here. This is the only place they're defined -- CI runs this same task
-# via `cargo make`. See docs/task-categories.md for what xlto buys and why.
+# via `cargo make`. See docs/build-profiles.md for what xlto buys and why.
 [tasks.build-stm32-xlto]
 description = "Build the STM32 firmware with cross-language LTO"
 category = "Firmware Build"

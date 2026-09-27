@@ -16,7 +16,7 @@ each platform and reports both cycle counts and numerical accuracy.
 | [Benchmark I/O format](docs/io-format.md)            | `inputs.json` in, `BENCH ` CSV out                                     |
 | [Targets and platforms](docs/platforms.md)           | Chips, target triples, timing sources, status                          |
 | [Task categories](docs/task-categories.md)           | What each task measures, and which comparisons it supports             |
-| [Build profiles](docs/build-profiles.md)             | `release`, `lto`, `size`, `xlto`, and when each is valid               |
+| [Build profiles](docs/build-profiles.md)             | `release`, `lto`, `size`, `xlto`, and how `xlto` is built              |
 | [Numerical accuracy](docs/accuracy_evaluation.md)    | ULP methodology, and what the accuracy CSV does not support            |
 | [C reference suites](docs/c-suites.md)               | `crazyflie-fw` and `cmsis-dsp`: provenance, naming, wrapper deviations |
 | [Benchmark report](docs/benchmark-viz.md)            | `results.csv` to `report.pdf`, and the paper figures                   |

@@ -38,8 +38,7 @@ log above it. Mark, scale and colour details are in `viz/pages_time.py` and
 
 `viz/` is a uv project: `config.py` (constants), `data.py` (load/transform), `common.py` (shared
 chart chrome), `pages_time.py`/`pages_accuracy.py` (page builders), `toc.py`, `plot.py` (CLI).
-Pages render in a `ProcessPoolExecutor`, which cuts a ~110-page report from ~35s to ~9s on 12
-cores. There is no automated test: a plotting script's correctness is visual, so verify by running
+Pages render in a `ProcessPoolExecutor`, which makes a full report several times faster on a multi-core machine. There is no automated test: a plotting script's correctness is visual, so verify by running
 against a real `results.csv` and reading the PDF.
 
 ## Paper figures
@@ -52,17 +51,14 @@ two-column figure.
 uv run --project viz viz/paper_figures.py results.csv docs/draft/images/
 ```
 
-It writes `fig-results-{category,profile,crossplatform}.pdf` and prints the accuracy table's LaTeX
-rows plus resolved library versions to stderr. Three conventions differ from the report:
+It writes `fig-results-{category,profile,crossplatform,composite,xlto,ffi}.pdf` and prints the accuracy table's LaTeX rows, the `xlto`-vs-`lto` split and resolved library versions to stderr. Three conventions differ from the report:
 
 - **One profile per panel, not one per figure.** `CATEGORY_TASKS` maps task to profile, so each
   ABI class is drawn where its C-vs-Rust number is valid
   ([task-categories.md](task-categories.md#which-profile-makes-a-c-vs-rust-number-valid)). Each
   panel prints its own `@ profile`.
-- **Cross-platform panels are normalized to each group's fastest library.** Absolute cycles differ
-  ~40x between the M0+ and the M4F, and a shared log axis flattens the within-platform ordering
-  those panels exist to show.
-- **Accuracy is a table, not a figure.** Mean ULP spans 0.07 to 1.2e5. `ACCURACY_EXCLUDE` drops
+- **Cross-platform panels are normalized to each group's fastest library.** Absolute cycles differ by more than an order of magnitude between the M0+ and the M4F, and a shared log axis flattens the within-platform ordering those panels exist to show.
+- **Accuracy is a table, not a figure.** Mean ULP spans several orders of magnitude. `ACCURACY_EXCLUDE` drops
   `crazyflie-fw`'s composite row, which is divergence rather than error
   ([accuracy_evaluation.md](accuracy_evaluation.md#the-composite-reference-is-not-neutral)).
 

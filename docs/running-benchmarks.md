@@ -32,7 +32,7 @@ tasks additionally need `clang`.
 | `cargo make bench-rp2040`  | build + flash RP2040 (Pico 1) over probe-rs                                 |
 | `cargo make bench-rp2350` | build + flash RP2350 (Pico 2) over probe-rs                                  |
 | `cargo make bench-esp32s3` | build + flash ESP32-S3 over its native USB JTAG                            |
-| `cargo make bench-stm32-xlto` | STM32F405 with cross-language LTO ([task-categories.md](task-categories.md)) |
+| `cargo make bench-stm32-xlto` | STM32F405 with cross-language LTO ([build-profiles.md](build-profiles.md)) |
 | `cargo make bench-rp2350-xlto` | RP2350 with cross-language LTO                                          |
 | `cargo make report`      | render `results.csv` into `report.pdf` ([benchmark-viz.md](benchmark-viz.md)) |
 

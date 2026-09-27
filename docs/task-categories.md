@@ -1,10 +1,6 @@
 # Task categories
 
-What each task measures, and therefore which comparisons it supports. Check here before
-quoting a number as a C-vs-Rust result.
-
-`ABI` is what the C wrapper's signature costs at the FFI boundary. See
-[FFI cost is about struct shape](#ffi-cost-is-about-struct-shape).
+What each task measures, and therefore which comparisons it supports. Check here before quoting a number as a C-vs-Rust result. `ABI` is what the C wrapper's signature costs at the FFI boundary, see [FFI cost is about struct shape](#ffi-cost-is-about-struct-shape).
 
 | Task                                        | Category       | ABI                     | Why                                                          |
 | ------------------------------------------- | -------------- | ----------------------- | ------------------------------------------------------------ |
@@ -25,77 +21,40 @@ quoting a number as a C-vs-Rust result.
 
 ## What each category supports
 
-**arithmetic**: C-vs-Rust codegen, but only on the free-ABI rows. Quote a `mat33` row as a
-language result and you are mostly quoting AAPCS struct copies. At `xlto` this inverts:
-`MatMul3x3` and `QuatToRotMatrix` become clean and the free-ABI rows become the contaminated ones.
+**arithmetic**: C-vs-Rust codegen, but only at the profile its ABI class allows (table below). Read at the wrong profile, a `mat33` row measures AAPCS struct copies and a free-ABI row measures `xlto`'s codegen.
 
-**libm-bound**: nothing about language codegen. These rows measure the *transcendental provider*, and C wins both outright. The gap is inherited whole from the transcendental rows, so quote those instead unless you specifically want the composite. See [Which transcendental provider you link decides the cost](#which-transcendental-provider-you-link-decides-the-cost).
+**libm-bound**: the transcendental provider, not language codegen. The gap is inherited from the transcendental rows, so quote those unless you specifically want the composite.
 
-**transcendental**: libm implementations against each other, newlib vs the Rust `libm` crate vs micromath. The `crazyflie-fw` rows here hold no Crazyflie code; they are the ARM toolchain's newlib, see [c-suites.md](c-suites.md#naming). On rp2040 they are not even that, see [platforms.md](platforms.md#rp2040-pico-1).
+**transcendental**: newlib, the Rust `libm` crate and micromath against each other. See [Which transcendental provider you link decides the cost](#which-transcendental-provider-you-link-decides-the-cost).
 
-**linalg**: no by-value marshalling (CMSIS-DSP takes `arm_matrix_instance_f32*`, and its routines are non-inline library calls in real use too), but *profile-dominated*: at `lto` Rust gets fat LTO and the C object gets nothing. `MatMul9x9` reads 2.21x Rust at `lto` and 0.98x at `xlto`. Quote it at `xlto`.
+**linalg**: pointer ABI, so no marshalling (CMSIS-DSP takes `arm_matrix_instance_f32*`, and its routines are non-inline library calls in real use too), but profile-dominated: at `lto` Rust gets fat LTO and the C object gets nothing. Quote it at `xlto`.
 
-**composite**: what a realistic control-loop step costs per platform. Not a language comparison, because the C and Rust paths are different algorithms rather than two translations of one. The ULP data shows this directly, but the f64 reference follows the Rust operation order, so `crazyflie-fw`'s composite ULP is divergence rather than error. See [accuracy_evaluation.md](accuracy_evaluation.md#the-composite-reference-is-not-neutral). `LeeController` reports `[thrust (N), torque_x, torque_y, torque_z (N*m)]`, what the controller itself computes; motor mixing is a separate algorithm and out of scope.
+**composite**: what a realistic control-loop step costs per platform. Not a language comparison: the C and Rust paths are different algorithms, and `crazyflie-fw`'s composite ULP is divergence rather than error, see [accuracy_evaluation.md](accuracy_evaluation.md#the-composite-reference-is-not-neutral). `LeeController` reports `[thrust (N), torque_x, torque_y, torque_z (N*m)]`, what the controller itself computes; motor mixing is out of scope.
 
 ## Which profile makes a C-vs-Rust number valid
 
-Each ABI class is only a language comparison at the profile where both sides get equivalent compiler treatment. Read the row there; say which one you used.
+Each ABI class is only a language comparison at the profile where both sides get equivalent compiler treatment. Read the row there and say which one you used.
 
-| ABI class | Tasks | Read at | C/best-Rust there | Why not the others |
-| --------- | ----- | ------- | ----------------- | ------------------ |
-| free (registers) | `CrossProduct` `QuatMul` `UnitQuatMul` `RotateVector` | `lto` | 1.07-1.27x | `release` leaves Rust-side scaffolding un-inlined (2.70x on `CrossProduct`); `xlto` slows cfw's own call site 26% |
-| `mat33` by-value | `MatMul3x3` `QuatToRotMatrix` | `xlto` | 1.16-1.22x | `lto` bills C for AAPCS struct copies (2.76x) |
-| pointer | `MatMul9x9` `MatInverse9x9` `DotProduct64D` | `xlto` | 0.94-1.47x | `lto` gives Rust fat LTO and the C object nothing (2.21x) |
+| ABI class | Tasks | Read at | Why not the others |
+| --------- | ----- | ------- | ------------------ |
+| free (registers) | `CrossProduct` `QuatMul` `UnitQuatMul` `RotateVector` | `lto` | `release` leaves Rust-side scaffolding un-inlined; `xlto` slows cfw's own call site |
+| `mat33` by-value | `MatMul3x3` `QuatToRotMatrix` | `xlto` | `lto` bills C for AAPCS struct copies |
+| pointer | `MatMul9x9` `MatInverse9x9` `DotProduct64D` | `xlto` | `lto` gives Rust fat LTO and the C object nothing |
 
-Measured on stm32, `results.csv` of 2026-08-26. **At matched ABI and profile, C and Rust land within ~25% of each other, in both directions.** Any larger number is a profile or ABI artifact rather than a language result.
+`MatVecMul3x3` has no valid profile: its vector return keeps the C behind a call even at `xlto`, see [build-profiles.md](build-profiles.md#cross-language-lto-xlto).
 
-`size` inverts the linalg rows outright: `MatMul9x9` 0.63x, `MatInverse9x9` 0.64x. nalgebra's compile-time unrolling is what `opt-level="z"` throws away, so C wins flash-constrained builds.
+**At matched ABI and profile, C and Rust land close together, in both directions.** A large gap is a profile or ABI artifact rather than a language result.
 
-## Which transcendental provider you link decides the cost
-
-`glam` and `nalgebra` are built with `features = ["libm"]` (there is no `f32::sqrt` in `core`), so every transcendental in a pure-Rust suite routes through the `libm` crate. That crate is not uniformly slower than newlib. It loses badly on `Sqrt` and `SinCos`, and wins on `Atan2`, `Exp` and `Ln`. Which provider you link decides each function; the language does not.
-
-Against newlib at stm32 `lto`, the `libm` crate costs 1.82x on `Sqrt` and 10.12x on `SinCos`, and
-saves 0.75x on `Atan2`, 0.54x on `Exp` and 0.56x on `Ln`. micromath is the fastest provider on all
-five except `Exp`, at the accuracy cost in [accuracy_evaluation.md](accuracy_evaluation.md).
-
-The two losses have different causes, both visible in the disassembly. For `Sqrt`, newlib emits `vsqrt.f32` (14 of the 39 cycles its 233 ns spans; the rest is `sqrtf`'s NaN and errno guard plus the call), while the `libm` crate's architecture dispatch has no 32-bit ARM backend and falls back to a 128-entry table lookup with integer Goldschmidt iterations. For trigonometry no core here has a hardware instruction, so newlib evaluates single-precision polynomials on the FPU via `vfma.f32`, and the `libm` crate evaluates them in `f64`, which forces `rustc` to emit `__aeabi_dmul` software emulation on a single-precision FPU. That is the whole 10x.
-
-The three wins are not arithmetic: both sides run fdlibm-lineage f32 code and return bit-identical results. Calling newlib's `__ieee754_*` cores directly on stm32 at `lto` (2026-09-27) splits the gap:
-
-| Cause | `Exp` | `Ln` | `Atan2` |
-| ----- | ----- | ---- | ------- |
-| newlib's errno/overflow wrapper | ~50 cyc | ~32 cyc | none |
-| newlib core vs out-of-line `libm` | within 3 cyc | +24 cyc | +27 to +82 cyc |
-| LTO inlining `libm` into the timed loop | ~36 cyc | ~27 cyc | ~11 cyc |
-
-The `Atan2` core gap fits newlib's 11-term `atanf` polynomial (the FreeBSD one `libm` ports has 5) plus out-of-line `fabsf`. The inlining share only exists in a tight loop, so control code sees a smaller `libm` lead.
-
-rp2350-arm has the same shape (`Sqrt` 2.23x, `SinCos` 10.43x, and the same three wins). esp32s3 links no C library here, so the comparison there is `libm` against micromath: 2.72x on `Sqrt`. rp2040 is a different picture rather than a fourth data point, because its C side resolves to `compiler_builtins` rather than newlib (see [platforms.md](platforms.md)); `libm` loses 4.48x on `Exp` and 2.94x on `Ln` there, and roughly ties on `SinCos` and `Atan2`.
-
-Wherever the ratio is large it carries straight into any task that touches that function:
-
-- `Vec3Normalize`: glam - cfw = 163 ns; `Sqrt`: libm - cfw = 190 ns. Same gap.
-- `QuatSlerp` (`acos` + 3 `sin`): glam/cfw = 10.35x; `SinCos`: libm/cfw = 10.12x. Same ratio.
+`size` inverts the linalg rows: C wins both 9x9 tasks, because `opt-level="z"` throws away nalgebra's compile-time unrolling.
 
 ## FFI cost is about struct shape
 
-What costs real cycles at the FFI boundary is AAPCS-VFP by-value struct passing, not the wrapper
-call itself (see [c-suites.md](c-suites.md)). `struct vec` and `struct quat` are
-homogeneous float aggregates, so they ride in `s0`-`s3` and cost nothing. `struct mat33` is 36
-bytes: arguments get copied onto the stack, results come back through a hidden `sret` pointer.
-Rust keeps the same values in registers, so every `mat33` at the boundary is memory traffic
-Rust never pays.
+What costs real cycles at the FFI boundary is AAPCS-VFP by-value struct passing, not the wrapper call itself (see [c-suites.md](c-suites.md)). `struct vec` and `struct quat` are homogeneous float aggregates, so they ride in `s0`-`s3` and cost nothing. `struct mat33` is 36 bytes: arguments get copied onto the stack, results come back through a hidden `sret` pointer. Rust keeps the same values in registers, so every `mat33` at the boundary is memory traffic Rust never pays.
 
-The C/Rust ratio at stm32 `lto` tracks the load/store share of the C wrapper body (`ldr`/`str`/`ldm`/`stm`/`vldr`/`vstr`/`push`/`pop` over all instructions, counts in `FFI_WRAPPERS` in `viz/paper_figures.py`). The free-ABI wrappers have none and land at 1.06x to 1.27x. `cf_quat2rotmat` (26%) and `cf_mvmul` (33%) land at 1.76x and 1.73x, and `cf_mmul` (48%) at 2.76x.
+A `mat33` row at `lto` therefore measures marshalling, not codegen. `fig-results-ffi.pdf` from `viz/paper_figures.py` plots the C/Rust ratio against each wrapper's load/store share.
 
-The free-ABI rows are trustworthy C-vs-Rust codegen. The `mat33` rows are not: in `MatMul3x3`
-nearly half the C path is marshalling, and the timed loop's whole pre-call body is `ldrd`/`strd`
-copying two matrices onto the stack.
+## Which transcendental provider you link decides the cost
 
-## Cross-language LTO in one paragraph
+`glam` and `nalgebra` are built with `features = ["libm"]` (there is no `f32::sqrt` in `core`), so every transcendental in a pure-Rust suite routes through the `libm` crate. That crate loses to newlib on `Sqrt`, and badly on `SinCos` because it evaluates in `f64`, which a single-precision FPU emulates in software. It wins on `Atan2`, `Exp` and `Ln`, with bit-identical results. The provider decides each function; the language does not.
 
-`xlto` closes the `mat33` by-value rows (`MatMul3x3` 2.76x to 1.16x) and helps CMSIS-DSP's larger
-routines, but of 60 measured stm32 task x library pairs 17 regress by more than 3%, on both the C
-and the pure-Rust side. It is not a default replacement for `lto`. See
-[build-profiles.md](build-profiles.md#xlto-is-not-a-strict-win).
+The `crazyflie-fw` rows here hold no Crazyflie code: they are the ARM toolchain's newlib, see [c-suites.md](c-suites.md#naming). On rp2040 they resolve to `compiler_builtins` instead, see [platforms.md](platforms.md#rp2040-pico-1). esp32s3 links no C library, so there the comparison is `libm` against micromath.

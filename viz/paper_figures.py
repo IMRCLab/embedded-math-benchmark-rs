@@ -36,7 +36,7 @@ CATEGORY_TASKS = {
 }
 
 # SinCos's and Sqrt's "crazyflie-fw" column calls sinf/cosf/sqrtf directly, so no
-# crazyflie-firmware code executes (docs/crazyflie_math_integration.md,
+# crazyflie-firmware code executes (docs/c-suites.md#naming,
 # docs/task-categories.md's transcendental row). Relabeled here, in the paper's own
 # curated figures only, so a bar doesn't imply a firmware algorithm is being
 # measured; report.pdf's generic grid keeps "crazyflie-fw" since that's still the
@@ -78,7 +78,7 @@ COMPOSITE_PLATFORMS = ["stm32", "nrf52840", "rp2350-arm", "esp32s3"]  # rp2040 i
 C_COLOR = "#e87ba4"
 RUST_COLOR = "#2a78d6"
 LABEL_BOX = dict(boxstyle="square,pad=0.1", facecolor="white", edgecolor="none", alpha=0.85)
-XLTO_BAND = 0.03  # +-3% counts as unchanged, matching docs/build-profiles.md
+XLTO_BAND = 0.03  # +-3% counts as unchanged
 
 # Load/store share of each crazyflie-fw wrapper body, gcc 14.2.1 (CI's compiler), from
 # `arm-none-eabi-objdump -d --disassemble=<fn>` (docs/task-categories.md#ffi-cost-is-about-struct-shape).
