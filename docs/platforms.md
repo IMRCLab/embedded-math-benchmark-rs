@@ -24,7 +24,7 @@ the range to 56 bits.
 **Known gap: the C suites' transcendental calls are not real newlib here.** `rustc` links
 `libcompiler_builtins.rlib` before a crate's requested `-lm` and both are scanned lazily, so
 `compiler_builtins`' own soft-float fallback resolves `sqrtf`/`sinf`/`cosf`/`atan2f`/`expf`/`logf`
-first. `mrs-benchmark-crazyflie-sys/build.rs` whole-archives the real `libm.a` on stm32 and
+first. That fallback is a vendored copy of the `libm` crate source, so on this platform both sides run `libm`. `mrs-benchmark-crazyflie-sys/build.rs` whole-archives the real `libm.a` on stm32 and
 rp2350-arm; that fix collides with identical-code-folding here, because RP2040 has no FPU and fat
 LTO merges the two copies of the same algorithm. Read transcendental rows on this platform as two
 software implementations rather than newlib against Rust. Matrix and quaternion ops are unaffected.

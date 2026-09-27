@@ -45,7 +45,7 @@ cross-language joining fixed and only flips thin to fat, which recovers nearly a
 ## `xlto` is not a strict win
 
 Across every stm32 task x library pair that ran under both `lto` and `xlto` (60 pairs), 20
-improved by more than 3%, 14 regressed by more than 3%, and 26 were unchanged. The regressions are
+improved by more than 3%, 17 regressed by more than 3%, and 23 were unchanged. The regressions are
 not confined to C wrappers that fail to inline. Pure-Rust rows regress too, so part of this is
 `xlto`'s `release`-based ThinLTO codegen itself, not only the FFI story:
 

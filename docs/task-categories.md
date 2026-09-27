@@ -61,6 +61,16 @@ five except `Exp`, at the accuracy cost in [accuracy_evaluation.md](accuracy_eva
 
 The two losses have different causes, both visible in the disassembly. For `Sqrt`, newlib emits `vsqrt.f32` (14 of the 39 cycles its 233 ns spans; the rest is `sqrtf`'s NaN and errno guard plus the call), while the `libm` crate's architecture dispatch has no 32-bit ARM backend and falls back to a 128-entry table lookup with integer Goldschmidt iterations. For trigonometry no core here has a hardware instruction, so newlib evaluates single-precision polynomials on the FPU via `vfma.f32`, and the `libm` crate evaluates them in `f64`, which forces `rustc` to emit `__aeabi_dmul` software emulation on a single-precision FPU. That is the whole 10x.
 
+The three wins are not arithmetic: both sides run fdlibm-lineage f32 code and return bit-identical results. Calling newlib's `__ieee754_*` cores directly on stm32 at `lto` (2026-09-27) splits the gap:
+
+| Cause | `Exp` | `Ln` | `Atan2` |
+| ----- | ----- | ---- | ------- |
+| newlib's errno/overflow wrapper | ~50 cyc | ~32 cyc | none |
+| newlib core vs out-of-line `libm` | within 3 cyc | +24 cyc | +27 to +82 cyc |
+| LTO inlining `libm` into the timed loop | ~36 cyc | ~27 cyc | ~11 cyc |
+
+The `Atan2` core gap fits newlib's 11-term `atanf` polynomial (the FreeBSD one `libm` ports has 5) plus out-of-line `fabsf`. The inlining share only exists in a tight loop, so control code sees a smaller `libm` lead.
+
 rp2350-arm has the same shape (`Sqrt` 2.23x, `SinCos` 10.43x, and the same three wins). esp32s3 links no C library here, so the comparison there is `libm` against micromath: 2.72x on `Sqrt`. rp2040 is a different picture rather than a fourth data point, because its C side resolves to `compiler_builtins` rather than newlib (see [platforms.md](platforms.md)); `libm` loses 4.48x on `Exp` and 2.94x on `Ln` there, and roughly ties on `SinCos` and `Atan2`.
 
 Wherever the ratio is large it carries straight into any task that touches that function:
@@ -77,10 +87,7 @@ bytes: arguments get copied onto the stack, results come back through a hidden `
 Rust keeps the same values in registers, so every `mat33` at the boundary is memory traffic
 Rust never pays.
 
-The C/Rust ratio at stm32 `lto` tracks the memory ops in the wrapper body almost exactly. The
-free-ABI wrappers have none and land at 1.06x to 1.18x; `MatVecMul3x3` and `QuatToRotMatrix` have
-roughly a third of their instructions marshalling and land at 1.73x and 1.76x; `MatMul3x3` is
-nearly half marshalling and lands at 2.76x. Current figures are in `report.pdf`.
+The C/Rust ratio at stm32 `lto` tracks the load/store share of the C wrapper body (`ldr`/`str`/`ldm`/`stm`/`vldr`/`vstr`/`push`/`pop` over all instructions, counts in `FFI_WRAPPERS` in `viz/paper_figures.py`). The free-ABI wrappers have none and land at 1.06x to 1.27x. `cf_quat2rotmat` (26%) and `cf_mvmul` (33%) land at 1.76x and 1.73x, and `cf_mmul` (48%) at 2.76x.
 
 The free-ABI rows are trustworthy C-vs-Rust codegen. The `mat33` rows are not: in `MatMul3x3`
 nearly half the C path is marshalling, and the timed loop's whole pre-call body is `ldrd`/`strd`
@@ -89,6 +96,6 @@ copying two matrices onto the stack.
 ## Cross-language LTO in one paragraph
 
 `xlto` closes the `mat33` by-value rows (`MatMul3x3` 2.76x to 1.16x) and helps CMSIS-DSP's larger
-routines, but of 60 measured stm32 task x library pairs 14 regress by more than 3%, on both the C
+routines, but of 60 measured stm32 task x library pairs 17 regress by more than 3%, on both the C
 and the pure-Rust side. It is not a default replacement for `lto`. See
 [build-profiles.md](build-profiles.md#xlto-is-not-a-strict-win).
