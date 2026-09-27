@@ -78,7 +78,7 @@ You never touch the platform `main.rs` files — the macro weaves tasks in. Full
 - `mrs-benchmark-macros` — proc-macros reading `inputs.json` at build time.
 - `mrs-benchmark-host` — native runner, times in `ns`.
 - `mrs-benchmark-stm32` / `mrs-benchmark-rp2040` / `mrs-benchmark-rp2350` — `no_std` firmware, time in `cycles`, RTT out. (rp2350 = Pico 2, Cortex-M33: DWT timing like stm32, but boots via an `IMAGE_DEF` block, not boot2.)
-- `mrs-benchmark-nrf52840` — `no_std` firmware, Cortex-M4F. Same target triple, DWT timing, and both C suites as stm32 with no target-specific plumbing; `nrf52840-hal` only selects the HFXO crystal (core is fixed at 64 MHz). See [docs/platforms.md](docs/platforms.md#nrf52840).
+- `mrs-benchmark-nrf52840` — `no_std` firmware, Cortex-M4F. Same target triple, DWT timing, and both C suites as stm32 with no target-specific plumbing; `main.rs` only selects the HFXO crystal and enables the flash instruction cache (core is fixed at 64 MHz, no PLL). See [docs/platforms.md](docs/platforms.md#nrf52840).
 - `mrs-benchmark-esp32s3` — `no_std` firmware, Xtensa (not ARM), CCOUNT register timing, RTT out via native USB JTAG. Needs the `espup`-installed `esp` Rust toolchain, not plain `rustup target add`. **Not a `benchmarks/` workspace member**: `esp-hal`'s `riscv-rt` version conflicts with `rp235x-hal`'s, so it has its own standalone `Cargo.lock` (still built from its own crate dir like the others). Skips the `crazyflie-fw` library (that suite's C build only cross-links for ARM).
 - `mrs-benchmark-crazyflie-sys` — the C side, ARM-only. `build.rs` uses `cc` + `bindgen` to
   compile the Crazyflie firmware math and a subset of CMSIS-DSP, feeding both the `crazyflie-fw`
@@ -149,7 +149,7 @@ CLI end-to-end test in `tests/cli.rs`) — core/host/macros have none yet.
   and `ln`. See
   [docs/task-categories.md](docs/task-categories.md#which-transcendental-provider-you-link-decides-the-cost).
 - **Never quote `crazyflie-fw` composite ULP as accuracy.** The f64 reference follows the Rust
-  operation order, so `EkfStep`'s 789,913 ULP is divergence from a different filter, not error.
+  operation order, so `EkfStep`'s 814,137 ULP is divergence from a different filter, not error.
   See [docs/accuracy_evaluation.md](docs/accuracy_evaluation.md#the-composite-reference-is-not-neutral).
 - **On RP2040 the C suites' transcendental calls resolve to `compiler_builtins`, not newlib.**
   Read those rows as two software implementations. See
