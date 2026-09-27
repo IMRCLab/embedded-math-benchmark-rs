@@ -16,10 +16,11 @@ matplotlib.use("Agg")
 
 import matplotlib.pyplot as plt
 import pandas as pd
+from matplotlib.patches import Patch
 from matplotlib.ticker import NullLocator
 
 import common
-from config import GROUP_GAP, LIBRARY_ORDER, LOG_COLOR, PROFILE_ORDER, UNIT
+from config import GROUP_GAP, LIBRARY_COLORS, LIBRARY_ORDER, LOG_COLOR, PLATFORM_CLOCK_HZ, PROFILE_ORDER, UNIT
 from data import aggregate, choose_scale, load_accuracy_df, load_and_clean, load_library_versions, ordered
 
 # One task per ABI class, each read at the profile where its C-vs-Rust number is
@@ -68,6 +69,28 @@ ACCURACY_EXCLUDE = {("LeeController", "crazyflie-fw")}
 
 FLAGSHIP_PLATFORM = "stm32"
 FLAGSHIP_PROFILE = "lto"
+
+# Composite steps compare chips, not languages: crazyflie-fw runs a different algorithm.
+COMPOSITE_TASKS = ["LeeController", "EkfStep"]
+COMPOSITE_LIBS = ["nalgebra", "micromath"]
+COMPOSITE_PLATFORMS = ["stm32", "nrf52840", "rp2350-arm", "esp32s3"]  # rp2040 is ~40x off-scale, quoted in the caption
+
+C_COLOR = "#e87ba4"
+RUST_COLOR = "#2a78d6"
+LABEL_BOX = dict(boxstyle="square,pad=0.1", facecolor="white", edgecolor="none", alpha=0.85)
+XLTO_BAND = 0.03  # +-3% counts as unchanged, matching docs/build-profiles.md
+
+# Load/store share of each crazyflie-fw wrapper body, gcc 14.2.1 (CI's compiler), from
+# `arm-none-eabi-objdump -d --disassemble=<fn>` (docs/task-categories.md#ffi-cost-is-about-struct-shape).
+FFI_WRAPPERS = {
+    "CrossProduct": ("cf_vcross", 0, 13),
+    "QuatMul": ("cf_qqmul", 0, 24),
+    "UnitQuatMul": ("cf_qqmul", 0, 24),
+    "RotateVector": ("cf_qrot", 0, 33),
+    "QuatToRotMatrix": ("cf_quat2rotmat", 9, 34),
+    "MatVecMul3x3": ("cf_mvmul", 10, 30),
+    "MatMul3x3": ("cf_mmul", 45, 93),
+}
 
 
 def _save(fig, out_path):
@@ -290,6 +313,142 @@ def fig_cross_platform(agg, df_ok, out_path):
     _save(fig, out_path)
 
 
+def _median(agg, platform, profile, task, library):
+    row = agg[(agg["platform"] == platform) & (agg["profile"] == profile)
+              & (agg["task"] == task) & (agg["library"] == library)]
+    return None if row.empty else float(row["median"].iloc[0])
+
+
+def fig_composite_steps(agg, out_path):
+    """Full control steps per chip, cycles next to time: the chip order differs
+    between the two columns, since clock rate and cycles per step both vary."""
+    fig, axes = plt.subplots(len(COMPOSITE_TASKS), 2, figsize=(3.4, 2.5))
+    bar_h = 0.38
+    for r, task in enumerate(COMPOSITE_TASKS):
+        for c, unit in enumerate(["kcycles", "µs"]):
+            ax = axes[r][c]
+            vmax = 0.0
+            for i, platform in enumerate(COMPOSITE_PLATFORMS):
+                for j, lib in enumerate(COMPOSITE_LIBS):
+                    ns = _median(agg, platform, FLAGSHIP_PROFILE, task, lib)
+                    if ns is None:
+                        continue
+                    v = ns * PLATFORM_CLOCK_HZ[platform] / 1e12 if unit == "kcycles" else ns / 1e3
+                    y = i + (j - 0.5) * bar_h
+                    ax.barh(y, v, height=bar_h * 0.92, color=LIBRARY_COLORS[lib], zorder=2)
+                    ax.text(v, y, f" {v:.0f}" if v >= 10 else f" {v:.1f}", va="center", ha="left",
+                            fontsize=5, color="#222222")
+                    vmax = max(vmax, v)
+            ax.set_xlim(0, vmax * 1.28)
+            ax.set_ylim(len(COMPOSITE_PLATFORMS) - 0.5, -0.5)
+            ax.set_yticks(range(len(COMPOSITE_PLATFORMS)))
+            ax.set_yticklabels(COMPOSITE_PLATFORMS if c == 0 else [], fontsize=6.2)
+            ax.tick_params(axis="x", labelsize=6, pad=1)
+            ax.tick_params(axis="y", length=0, pad=2)
+            ax.grid(axis="x", color="#d0d0d0", linewidth=0.6, zorder=0)
+            ax.set_axisbelow(True)
+            ax.set_title(f"{task}, {unit}", fontsize=7, pad=3)
+    _legend_below(fig, COMPOSITE_LIBS, fontsize=6.5, gap=-0.01)
+    fig.subplots_adjust(left=0.2, right=0.98, top=0.93, bottom=0.1, wspace=0.12, hspace=0.45)
+    _save(fig, out_path)
+
+    for task in COMPOSITE_TASKS:
+        ns = _median(agg, "rp2040", FLAGSHIP_PROFILE, task, "nalgebra")
+        if ns is not None:
+            print(f"paper_figures.py: rp2040 {task} nalgebra @ {FLAGSHIP_PROFILE}: {ns / 1e3:.0f} us "
+                  "(off-scale, left out of the composite figure)", file=sys.stderr)
+
+
+def fig_xlto_delta(agg, out_path):
+    """xlto / lto per stm32 task x library pair, sorted. Shows xlto is not a
+    strict win, on either side of the FFI boundary."""
+    rows = agg[agg["platform"] == FLAGSHIP_PLATFORM].pivot_table(
+        index=["task", "library"], columns="profile", values="median").dropna(subset=["lto", "xlto"])
+    ratio = (rows["xlto"] / rows["lto"]).sort_values()
+    is_c = [lib in C_LIBRARIES for _, lib in ratio.index]
+    faster = int((ratio < 1 - XLTO_BAND).sum())
+    slower = int((ratio > 1 + XLTO_BAND).sum())
+
+    fig, ax = plt.subplots(figsize=(3.4, 1.9))
+    xs = range(len(ratio))
+    colors = [C_COLOR if c else RUST_COLOR for c in is_c]
+    ax.axhspan(1 - XLTO_BAND, 1 + XLTO_BAND, color="#000000", alpha=0.07, zorder=0, linewidth=0)
+    ax.vlines(xs, 1.0, ratio.values, colors=colors, linewidth=0.9, zorder=2)
+    ax.scatter(xs, ratio.values, c=colors, s=9, zorder=3, linewidths=0)
+    ax.axhline(1.0, color="#111111", linewidth=0.7, zorder=2)
+
+    # Label the three largest moves at each end; indices are positions in the sorted order.
+    n = len(ratio)
+    for k in range(3):
+        task, lib = ratio.index[k]
+        ax.annotate(f"{task}/{lib}", (k, ratio.iloc[k]), xytext=(4, 0), textcoords="offset points",
+                    ha="left", va="center", fontsize=4.8, color="#333333")
+    # The top three sit at nearly one height, so their labels go stacked into the empty space above the stems.
+    for rank, k in enumerate(range(n - 1, n - 4, -1)):
+        task, lib = ratio.index[k]
+        ax.annotate(f"{task}/{lib}", (k, ratio.iloc[k]), xytext=(n - 5, 1.47 / 1.085 ** rank), textcoords="data",
+                    ha="right", va="center", fontsize=4.8, color="#333333",
+                    arrowprops=dict(arrowstyle="-", color="#999999", linewidth=0.4, shrinkA=1, shrinkB=2))
+
+    ax.set_yscale("log")
+    ax.set_ylim(top=1.6)  # headroom for the stacked top labels
+    ticks = [0.5, 0.75, 1.0, 1.25, 1.5]
+    ax.set_yticks(ticks)
+    ax.set_yticklabels([f"{t:g}" for t in ticks], fontsize=6.5)
+    ax.yaxis.set_minor_locator(NullLocator())
+    ax.set_ylabel("xlto / lto time (log)", fontsize=6.5, color=LOG_COLOR, fontweight="bold", labelpad=1)
+    ax.set_xticks([])
+    ax.set_xlim(-1, len(ratio))
+    ax.set_xlabel(f"{len(ratio)} task x library pairs, sorted", fontsize=6.5, labelpad=2)
+    ax.text(0.02, 0.97, f"{faster} faster, {len(ratio) - faster - slower} within ±3%, {slower} slower",
+            transform=ax.transAxes, ha="left", va="top", fontsize=6.2)
+    common.style_grid(ax)
+    ax.legend(handles=[Patch(color=RUST_COLOR, label="Rust library"), Patch(color=C_COLOR, label="C library")],
+              fontsize=6, frameon=False, loc="lower right", handlelength=1.0)
+    fig.subplots_adjust(left=0.15, right=0.99, top=0.97, bottom=0.12)
+    _save(fig, out_path)
+    print(f"paper_figures.py: xlto vs lto on {FLAGSHIP_PLATFORM}: {faster} faster, "
+          f"{len(ratio) - faster - slower} unchanged, {slower} slower (±{XLTO_BAND:.0%})", file=sys.stderr)
+
+
+def fig_ffi_marshalling(agg, out_path):
+    """C / fastest Rust at stm32 lto against how much of the C wrapper is
+    loads/stores: the by-value mat33 copy is what costs, not the call."""
+    points = {}
+    for task, (fn, mem, total) in FFI_WRAPPERS.items():
+        c = _median(agg, FLAGSHIP_PLATFORM, FLAGSHIP_PROFILE, task, "crazyflie-fw")
+        rust = [_median(agg, FLAGSHIP_PLATFORM, FLAGSHIP_PROFILE, task, lib) for lib in ("glam", "nalgebra")]
+        rust = [v for v in rust if v is not None]
+        if c is None or not rust:
+            continue
+        points[task] = (100 * mem / total, c / min(rust))
+
+    fig, ax = plt.subplots(figsize=(3.4, 1.8))
+    free = {t: y for t, (x, y) in points.items() if x == 0}
+    for task, (x, y) in points.items():
+        ax.scatter(x, y, s=14, color=C_COLOR, zorder=3, linewidths=0)
+        if task in free:
+            continue
+        left = task == "QuatToRotMatrix"  # sits next to MatVecMul3x3, so label it on the other side
+        ax.annotate(task, (x, y), xytext=(-4 if left else 4, 0), textcoords="offset points",
+                    ha="right" if left else "left", va="center", fontsize=5.5, color="#333333")
+    if free:
+        # The register-passed wrappers all sit at x=0, so one bracket label covers them.
+        lo, hi = min(free.values()), max(free.values())
+        ax.plot([1.2, 1.8, 1.8, 1.2], [lo, lo, hi, hi], color="#666666", linewidth=0.6)
+        ax.text(2.6, (lo + hi) / 2, "register-passed:\n" + ", ".join(free) + f"\n({lo:.2f}x to {hi:.2f}x)",
+                ha="left", va="center", fontsize=5.2, color="#333333", bbox=LABEL_BOX)
+    ax.axhline(1.0, color="#111111", linewidth=0.7, linestyle="--", zorder=2)
+    ax.set_xlim(-3, 55)
+    ax.set_ylim(0.8, max(y for _, y in points.values()) * 1.1)
+    ax.set_xlabel("loads/stores in C wrapper body (%)", fontsize=6.5, labelpad=1)
+    ax.set_ylabel("C / fastest Rust", fontsize=6.5, labelpad=1)
+    ax.tick_params(labelsize=6.5)
+    common.style_grid(ax)
+    fig.subplots_adjust(left=0.13, right=0.99, top=0.97, bottom=0.17)
+    _save(fig, out_path)
+
+
 def _fmt_ulp(value):
     if value is None or (isinstance(value, float) and (math.isnan(value) or math.isinf(value))):
         return "n/a"
@@ -324,6 +483,9 @@ def main(argv):
     fig_category_grid(agg, df_ok, f"{out_dir}/fig-results-category.pdf")
     fig_profile_ratio(agg, f"{out_dir}/fig-results-profile.pdf")
     fig_cross_platform(agg, df_ok, f"{out_dir}/fig-results-crossplatform.pdf")
+    fig_composite_steps(agg, f"{out_dir}/fig-results-composite.pdf")
+    fig_xlto_delta(agg, f"{out_dir}/fig-results-xlto.pdf")
+    fig_ffi_marshalling(agg, f"{out_dir}/fig-results-ffi.pdf")
 
     if acc_df is not None:
         libs = ordered(acc_df["library"].unique(), LIBRARY_ORDER, "library(ies)")
