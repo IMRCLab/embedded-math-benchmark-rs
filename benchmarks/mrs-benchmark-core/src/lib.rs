@@ -79,6 +79,16 @@ macro_rules! export_tasks {
     };
 }
 
+// Out of line so LTO cannot hoist library constants across repetitions.
+#[inline(never)]
+fn timed_step<Task: BenchmarkTask, I: TaskImplementation<Task>>(
+    implementation: &I,
+    input: &I::PreparedInput,
+) {
+    let out = implementation.execute(core::hint::black_box(input));
+    core::hint::black_box(&out);
+}
+
 pub trait BenchmarkPlatform {
     type Instant: Copy;
 
@@ -115,11 +125,7 @@ pub trait BenchmarkPlatform {
 
         let start = self.now();
         for _ in 0..repetitions {
-            core::hint::black_box(
-                implementation
-                    .execute(core::hint::black_box(&prep_input))
-                    .ok(),
-            );
+            timed_step::<Task, I>(implementation, &prep_input);
         }
         let elapsed = self.elapsed(start);
 
