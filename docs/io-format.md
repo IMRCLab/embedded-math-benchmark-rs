@@ -80,7 +80,7 @@ them, and merges every platform into one headed `results.csv`. See
 slot into the `library` field.
 
 `collect` also writes a best-effort `library_versions.json` next to `results.csv`, mapping library
-name to version: Rust crates from `benchmarks/Cargo.lock`, the two C suites from their pinned
+name to version: Rust crates at the version `mrs-benchmark-core` locks in `benchmarks/Cargo.lock` (older ones pulled in transitively are ignored), the two C suites from their pinned
 submodules, plus the build toolchain (`rustc`, `clang`, `gcc-arm-none-eabi`) from each binary's own
 `--version` banner. `viz/plot.py` picks it up automatically if present, and a library missing from it
 falls back to its bare name in the report legend.

@@ -22,6 +22,9 @@ pub const HEADER: &str = mrs_benchmark_core::CSV_HEADER;
 /// both the Cargo package name and the `library` field these benchmarks report.
 pub const TRACKED_RUST_LIBRARIES: &[&str] = &["glam", "libm", "micromath", "nalgebra"];
 
+/// Its locked deps are the benchmarked versions; others (nalgebra's glam 0.30 to 0.32) are transitive.
+const BENCHMARK_CORE_PACKAGE: &str = "mrs-benchmark-core";
+
 /// Path (repo-root-relative) to the `crazyflie-firmware` git submodule, whose
 /// pinned commit stands in for a version number (it tracks `master`, no semver tags).
 pub const CRAZYFLIE_FW_SUBMODULE_PATH: &str = "benchmarks/vendor/crazyflie-firmware";
@@ -151,7 +154,7 @@ fn command_version_line(program: &str, args: &[&str]) -> Option<String> {
 }
 
 /// Best-effort snapshot of each math library's version: the four Rust crates
-/// (from `benchmarks/Cargo.lock`) plus `crazyflie-fw` and `cmsis-dsp`'s pinned
+/// (as `mrs-benchmark-core` locks them in `benchmarks/Cargo.lock`) plus `crazyflie-fw` and `cmsis-dsp`'s pinned
 /// submodule commits/tags, plus the build toolchain (`rustc`, `clang`,
 /// `arm-none-eabi-gcc`). Never fails -- a missing/unreadable source just
 /// leaves that one library out of the returned map, with a human-readable line
@@ -160,16 +163,25 @@ pub fn library_versions(repo_root: &Path) -> (BTreeMap<String, String>, Vec<Stri
     let mut warnings = Vec::new();
     let lockfile_path = repo_root.join("benchmarks/Cargo.lock");
     let mut versions = match cargo_lock::Lockfile::load(&lockfile_path) {
-        Ok(lockfile) => lockfile
+        Ok(lockfile) => match lockfile
             .packages
-            .into_iter()
-            .filter(|pkg| TRACKED_RUST_LIBRARIES.contains(&pkg.name.as_str()))
-            .fold(BTreeMap::new(), |mut versions, pkg| {
-                versions
-                    .entry(pkg.name.to_string())
-                    .or_insert_with(|| pkg.version.to_string());
-                versions
-            }),
+            .iter()
+            .find(|pkg| pkg.name.as_str() == BENCHMARK_CORE_PACKAGE)
+        {
+            Some(core) => core
+                .dependencies
+                .iter()
+                .filter(|dep| TRACKED_RUST_LIBRARIES.contains(&dep.name.as_str()))
+                .map(|dep| (dep.name.to_string(), dep.version.to_string()))
+                .collect(),
+            None => {
+                warnings.push(format!(
+                    "no {BENCHMARK_CORE_PACKAGE} package in {}",
+                    lockfile_path.display()
+                ));
+                BTreeMap::new()
+            }
+        },
         Err(e) => {
             warnings.push(format!("could not read {}: {e}", lockfile_path.display()));
             BTreeMap::new()
@@ -350,13 +362,17 @@ mod tests {
     }
 
     #[test]
-    fn library_versions_reads_lockfile_and_warns_when_not_a_git_repo() {
+    fn library_versions_reads_core_deps_and_warns_when_not_a_git_repo() {
         let dir = std::env::temp_dir().join("mrs-benchmark-collect-test-library-versions");
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(dir.join("benchmarks")).unwrap();
         std::fs::write(
             dir.join("benchmarks/Cargo.lock"),
-            "[[package]]\nname = \"glam\"\nversion = \"0.28.0\"\n",
+            "version = 4\n\n\
+             [[package]]\nname = \"glam\"\nversion = \"0.28.0\"\n\n\
+             [[package]]\nname = \"glam\"\nversion = \"0.29.0\"\n\n\
+             [[package]]\nname = \"mrs-benchmark-core\"\nversion = \"0.1.0\"\n\
+             dependencies = [\n \"glam 0.29.0\",\n]\n",
         )
         .unwrap();
 
@@ -364,7 +380,8 @@ mod tests {
 
         std::fs::remove_dir_all(&dir).ok();
 
-        assert_eq!(versions.get("glam"), Some(&"0.28.0".to_string()));
+        // 0.28.0 comes first in the lockfile but core does not depend on it
+        assert_eq!(versions.get("glam"), Some(&"0.29.0".to_string()));
         assert_eq!(versions.get("crazyflie-fw"), None);
         assert!(
             !warnings.is_empty(),
